@@ -23,7 +23,8 @@ namespace Kmnk.FaceTrackingGenerator
         static readonly string[] AfkLabels = { "Action Intro", "Action Loop", "Action Outro", "FX Intro", "FX Loop", "FX Outro" };
         string newName = "MyAvatar";
         int curveInput;
-        DefaultAsset scenario;
+        // Unity imports .txt as TextAsset, so the field accepts any asset (a .txt file is expected).
+        UnityEngine.Object scenario;
 
         [MenuItem("Tools/Kmnk/Face Tracking Generator")]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
@@ -99,8 +100,9 @@ namespace Kmnk.FaceTrackingGenerator
 
                 EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Scenario check (Play Mode)", EditorStyles.boldLabel);
-                scenario = (DefaultAsset)EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(DefaultAsset), false);
-                using (new EditorGUI.DisabledScope(scenario == null || model?.VariantPath == null || model?.DefaultMesh == null))
+                scenario = EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(UnityEngine.Object), false);
+                if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox("Choose a scenario .txt file.", MessageType.Warning);
+                using (new EditorGUI.DisabledScope(scenario == null || !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt") || model?.VariantPath == null || model?.DefaultMesh == null))
                     if (GUILayout.Button("Run scenario on the generated prefab")) Do(() =>
                     {
                         var sp = AssetDatabase.GetAssetPath(scenario);
