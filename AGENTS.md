@@ -17,8 +17,25 @@ Unity Editor tool that generates face tracking (FT) layers for VRChat avatars fr
 
 ## Versioning
 
-`VERSION` is `x.y.z`: raise `x` for a large change of how the tool works, `y` for added features, `z` for small fixes. Versions before the first release (0.1.0 to 0.3.0) were not tagged and are not renumbered.
+`VERSION` is `x.y.z`, following Semantic Versioning 2.0.0 (https://semver.org/). Whether a change breaks compatibility is judged against what users rely on:
 
+1. The table format: keys, meanings and defaults of the three JSON layers
+2. The serialized fields of `FtGeneratorSettings`
+3. File paths and `.meta` GUIDs in the package, and the use of `Settings/`
+4. Names in the generated output: parameters (`FaceTrack` / `AFKPlay` defaults, `FT/*`, `AFK/*`) and output paths
+5. Command line entry points (`Cli.*`, `ScenarioRunner.*`) and their arguments
+
+- **x**: existing tables or setups stop working, or users have to edit them. Renaming or removing a table key or a component field, changing a key's meaning, changing a GUID or a file location, renaming generated parameters already in use, or replacing how the tool generates (for example Animator layers to VRChat's Face Tracking section)
+- **y**: existing tables keep working and the tool can do more. New optional table keys, new window buttons, commands or checks, changed defaults that need no table edits (tell users), and deprecating a table key before removing it in the next x
+- **z**: fixes that make the tool behave as documented, and changes to documents, comments or internals that do not change the generated output
+
+Rules:
+
+- Raising x resets y and z to 0; raising y resets z to 0
+- Until the public release the tool is a development version: `0.y.z`, x stays 0, and changes that break compatibility raise y. Packages built for trying the tool follow these rules too. The public release is `1.0.0`; after it, x, y and z are used as defined above
+- If a release breaks compatibility under the wrong number, do not change the released version: release the next version that restores compatibility and tell users
+
+## Development flow
 ## Development flow
 
 The working copy of the code is an avatar project used for development (`<dev project>/Assets/Kmnk/FaceTrackingGenerator/`, on a work branch). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository.
