@@ -40,8 +40,12 @@
   // Menu toggle for FT, and the flag that plays the AFK animation.
   "faceTrackParameter": "FaceTrack",
   "afkPlayParameter": "AFKPlay",
-  // The menu that gets the two toggles.
+  // The menu that gets the two toggles ("Fill prefab, mesh and menu" in the window writes the root menu).
   "menu": { "guid": "", "path": "Assets/MyAvatar/Menu.asset" },
+  // Names of the toggles in the menu, and a submenu to put them in (null: directly in "menu").
+  "faceTrackLabel": "FaceTrack",
+  "afkPlayLabel": "AFK",
+  "subMenu": null,
 
   // Parameters that mean AFK, and seconds to wait after they all turn off before FT comes back.
   // Wait for the avatar's own AFK layer to restore tracking.

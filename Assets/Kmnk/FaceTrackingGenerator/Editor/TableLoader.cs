@@ -169,6 +169,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (m.Gaze != "shared") throw new TableException($"{file}: 'gaze' supports only \"shared\" for now");
             m.FaceTrackParameter = OptStr(a, "faceTrackParameter", "FaceTrack");
             m.AfkPlayParameter = OptStr(a, "afkPlayParameter", "AFKPlay");
+            m.FaceTrackLabel = OptStr(a, "faceTrackLabel", "FaceTrack");
+            m.AfkPlayLabel = OptStr(a, "afkPlayLabel", "AFK");
             m.StopAutoEyes = a["stopAutoEyes"]?.Value<bool>() ?? false;
             m.Menu = Ref(a["menu"], file);
             m.SubMenu = OptStr(a, "subMenu", null);

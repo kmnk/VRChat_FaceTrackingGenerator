@@ -76,7 +76,7 @@ All take `-ftTable <avatar table>` (a path relative to the project root works) a
 | `Cli.Check` | Static checks of the tables and the generated FX (`-ftFx` to check another controller) | `[FTG] check: findings=0` |
 | `Cli.InstallMenu` | Adds the FT toggle and the AFK flag to the avatar's own menu and Expression Parameters (changes original assets) | `[FTG] menu: ...` per parameter |
 | `Cli.Curve` | Response curves without Unity's Animator (`-ftInput <name>` or `-ftQueries <jsonl>`, `-ftOut <jsonl>`) | `[FTG] curve: wrote ...` |
-| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.LeftoverFiles` | The window's AFK clip saving, settings from templates, and leftover file cleanup | `[FTG] ...` |
+| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.FillFromAvatar`, `Cli.LeftoverFiles` | The window's AFK clip saving, settings from templates, filling prefab/mesh/menu from an avatar prefab (`-ftAvatar <prefab path>`), and leftover file cleanup | `[FTG] ...` |
 | `Cli.ExportPackage` | Used by `scripts/build-package.sh` | `[FTG] package: exported ...` |
 
 The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions. It cannot be drawn in batchmode (`-nographics`); check its drawing in the editor.

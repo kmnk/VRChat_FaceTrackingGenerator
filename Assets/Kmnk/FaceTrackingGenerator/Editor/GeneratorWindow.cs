@@ -25,6 +25,7 @@ namespace Kmnk.FaceTrackingGenerator
         int curveInput;
         // Unity imports .txt as TextAsset, so the field accepts any asset (a .txt file is expected).
         UnityEngine.Object scenario;
+        string menuFace, menuAfk, menuSub;
 
         [MenuItem("Tools/Kmnk/Face Tracking Generator")]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
@@ -42,6 +43,7 @@ namespace Kmnk.FaceTrackingGenerator
         void Reload()
         {
             model = null;
+            menuFace = menuAfk = menuSub = null;
             if (TablePath == null) return;
             try
             {
@@ -52,6 +54,8 @@ namespace Kmnk.FaceTrackingGenerator
             }
             catch (Exception e) { message = "Table error: " + e.Message; }
         }
+
+        void OnSelectionChange() => Repaint();
 
         void OnGUI()
         {
@@ -82,6 +86,43 @@ namespace Kmnk.FaceTrackingGenerator
                         return "Generated\n" + string.Join("\n", r.Log.Concat(r.Written.Select(w => "wrote " + w)));
                     });
                     if (GUILayout.Button("Add toggles to menu")) Do(() => "Menu\n" + string.Join("\n", MenuInstaller.Install(model)));
+                }
+
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Avatar in the scene", EditorStyles.boldLabel);
+                var sel = Selection.activeGameObject;
+                EditorGUILayout.LabelField("Selected", sel != null ? sel.name : "(select the avatar in the Hierarchy)");
+                using (new EditorGUI.DisabledScope(sel == null))
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Fill prefab, mesh and menu from it")) Do(() =>
+                    {
+                        var log = AvatarSetup.FillTable(TablePath, sel);
+                        Reload();
+                        return "Filled the avatar table\n" + string.Join("\n", log);
+                    });
+                    if (GUILayout.Button("Add settings component (build-time FT)")) Do(() =>
+                    {
+                        AvatarSetup.AddSettings(sel, TablePath);
+                        return $"Added Face Tracking Generator Settings to {sel.name}. FT is generated on Play and upload.";
+                    });
+                }
+
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Menu toggles (saved in the avatar table)", EditorStyles.boldLabel);
+                if (model != null)
+                {
+                    menuFace = EditorGUILayout.TextField("FT toggle name", menuFace ?? model.FaceTrackLabel);
+                    menuAfk = EditorGUILayout.TextField("AFK toggle name", menuAfk ?? model.AfkPlayLabel);
+                    menuSub = EditorGUILayout.TextField("Submenu (empty: none)", menuSub ?? model.SubMenu ?? "");
+                    if (GUILayout.Button("Save names to the table")) Do(() =>
+                    {
+                        TableWriter.SetTopLevel(TablePath, "faceTrackLabel", TableWriter.StringJson(menuFace));
+                        TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
+                        TableWriter.SetTopLevel(TablePath, "subMenu", string.IsNullOrWhiteSpace(menuSub) ? "null" : TableWriter.StringJson(menuSub));
+                        Reload();
+                        return "Saved toggle names. Toggles already in the menu keep their names; rename them in the menu asset.";
+                    });
                 }
 
                 EditorGUILayout.Space();
@@ -183,35 +224,74 @@ namespace Kmnk.FaceTrackingGenerator
 
         public static void SetAfkClips(string avatarTable, AnimationClip[] clips)
         {
-            var text = File.ReadAllText(avatarTable);
-            var sb = new StringBuilder("\"afkClips\": {\n");
+            var sb = new StringBuilder("{\n");
             for (int i = 0; i < 6; i++)
             {
                 var c = clips[i];
-                var v = c == null ? "null" : $"{{\"guid\": \"{AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(c))}\", \"path\": \"{AssetDatabase.GetAssetPath(c)}\"}}";
-                sb.Append($"    \"{AfkKeys[i]}\": {v}{(i < 5 ? "," : "")}\n");
+                sb.Append($"    \"{AfkKeys[i]}\": {(c == null ? "null" : AssetRefJson(c))}{(i < 5 ? "," : "")}\n");
             }
             sb.Append("  }");
-            var start = text.IndexOf("\"afkClips\"", StringComparison.Ordinal);
-            if (start >= 0)
+            SetTopLevel(avatarTable, "afkClips", sb.ToString());
+        }
+
+        public static string AssetRefJson(UnityEngine.Object o)
+        {
+            var path = AssetDatabase.GetAssetPath(o);
+            return $"{{\"guid\": \"{AssetDatabase.AssetPathToGUID(path)}\", \"path\": \"{path}\"}}";
+        }
+
+        public static string StringJson(string s) => Newtonsoft.Json.JsonConvert.ToString(s);
+
+        // Replaces the value of a top-level key ("  \"key\": value" at two spaces), keeping comments and the other
+        // lines. Adds the key at the end when it is missing. valueJson must be valid JSON.
+        public static void SetTopLevel(string avatarTable, string key, string valueJson)
+        {
+            var text = File.ReadAllText(avatarTable);
+            var m = System.Text.RegularExpressions.Regex.Match(text, "(?m)^  \"" + System.Text.RegularExpressions.Regex.Escape(key) + "\":[ \\t]*");
+            if (m.Success)
             {
-                var open = text.IndexOf('{', start);
-                int depth = 0, end = open;
-                for (; end < text.Length; end++)
-                {
-                    if (text[end] == '{') depth++;
-                    else if (text[end] == '}' && --depth == 0) break;
-                }
-                text = text.Substring(0, start) + sb + text.Substring(end + 1);
+                var start = m.Index + m.Length;
+                var end = ValueEnd(text, start);
+                text = text.Substring(0, start) + valueJson + text.Substring(end);
             }
             else
             {
                 var last = text.LastIndexOf('}');
-                text = text.Substring(0, last).TrimEnd() + ",\n  " + sb + "\n}\n";
+                text = text.Substring(0, last).TrimEnd() + ",\n  \"" + key + "\": " + valueJson + "\n}\n";
             }
             File.WriteAllText(avatarTable, text);
             TableLoader.Read(avatarTable);  // still valid JSON
             AssetDatabase.ImportAsset(avatarTable);
+        }
+
+        // End index (exclusive) of the JSON value that starts at i.
+        static int ValueEnd(string t, int i)
+        {
+            if (t[i] == '{' || t[i] == '[')
+            {
+                int depth = 0; var inStr = false;
+                for (int k = i; k < t.Length; k++)
+                {
+                    var c = t[k];
+                    if (inStr) { if (c == '\\') k++; else if (c == '"') inStr = false; continue; }
+                    if (c == '"') inStr = true;
+                    else if (c == '{' || c == '[') depth++;
+                    else if ((c == '}' || c == ']') && --depth == 0) return k + 1;
+                }
+                throw new FormatException("unbalanced value");
+            }
+            if (t[i] == '"')
+            {
+                for (int k = i + 1; k < t.Length; k++)
+                {
+                    if (t[k] == '\\') { k++; continue; }
+                    if (t[k] == '"') return k + 1;
+                }
+                throw new FormatException("unterminated string");
+            }
+            int e = i;
+            while (e < t.Length && t[e] != ',' && t[e] != '\n' && t[e] != '}') e++;
+            return e;
         }
 
         // Copies the three templates to Settings/<name>/ and returns the avatar table path.

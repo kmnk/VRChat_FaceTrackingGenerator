@@ -148,6 +148,15 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
+        // The window's "Fill prefab, mesh and menu from it": -ftAvatar is a prefab asset path.
+        public static void FillFromAvatar() => Run(() =>
+        {
+            var table = CliArgs.Require("-ftTable");
+            var go = AssetDatabase.LoadAssetAtPath<GameObject>(CliArgs.Require("-ftAvatar"));
+            foreach (var l in AvatarSetup.FillTable(table, go)) Debug.Log("[FTG] fill: " + l);
+            return 0;
+        });
+
         internal static void Run(Func<int> body)
         {
             int code;

@@ -122,6 +122,8 @@ namespace Kmnk.FaceTrackingGenerator
         public string Gaze = "shared";
         public string FaceTrackParameter = "FaceTrack";
         public string AfkPlayParameter = "AFKPlay";
+        public string FaceTrackLabel = "FaceTrack";   // names of the toggles in the menu
+        public string AfkPlayLabel = "AFK";
         public List<AfkGroup> AfkGroups = new List<AfkGroup>();
         public bool StopAutoEyes;
         public SortedDictionary<string, LayerAdjust> Layers = new SortedDictionary<string, LayerAdjust>(System.StringComparer.Ordinal);  // "fx", "gesture", "action"

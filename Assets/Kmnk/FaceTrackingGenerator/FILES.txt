@@ -1,6 +1,7 @@
 Assets/Kmnk/FaceTrackingGenerator/Editor/AfkBuilder.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/AnimUtil.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/AssetCopy.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/AvatarSetup.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/Cli.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/CliArgs.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/CurveEval.cs

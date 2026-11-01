@@ -27,7 +27,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (menu == null) { AssetDatabase.SaveAssets(); return log; }
             }
 
-            foreach (var (param, def, label) in new[] { (m.FaceTrackParameter, 1f, "FaceTrack"), (m.AfkPlayParameter, 0f, "AFK") })
+            foreach (var (param, def, label) in new[] { (m.FaceTrackParameter, 1f, m.FaceTrackLabel), (m.AfkPlayParameter, 0f, m.AfkPlayLabel) })
             {
                 var hasParam = expr.parameters.Any(p => p.name == param);
                 var hasControl = menu.controls.Any(c => c.parameter?.name == param);
