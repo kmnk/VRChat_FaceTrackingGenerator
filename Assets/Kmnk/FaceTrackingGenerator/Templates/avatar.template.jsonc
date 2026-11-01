@@ -7,8 +7,11 @@
   // The avatar prefab. Its Avatar Descriptor gives the FX, Gesture and Action controllers and the
   // Expression Parameters. The generator copies them and never changes the originals.
   "prefab": { "guid": "", "path": "Assets/MyAvatar/MyAvatar.prefab" },
-  // A Prefab Variant that gets the generated controllers.
-  "variant": "Assets/MyAvatar/MyAvatar_FT.prefab",
+  // A Prefab Variant that gets the generated controllers. Without "variant" it is
+  // Assets/FaceTrackingGeneratorOutput/<name>/<name>_FT.prefab. Write a path to put it elsewhere:
+  // "variant": "Assets/MyAvatar/MyAvatar_FT.prefab",
+  // The folder for the generated controllers and Expression Parameters (default shown):
+  // "outputFolder": "Assets/FaceTrackingGeneratorOutput/MyAvatar",
 
   // Part name -> blendshape. "mesh" is the renderer path from the avatar root.
   "mesh": "Body",

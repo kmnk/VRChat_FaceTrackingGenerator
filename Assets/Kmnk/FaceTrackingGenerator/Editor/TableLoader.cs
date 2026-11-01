@@ -161,8 +161,9 @@ namespace Kmnk.FaceTrackingGenerator
             m.AvatarName = Str(a, "name", file);
             m.Prefab = Ref(a["prefab"], file);
             if (m.Prefab == null) throw new TableException($"{file}: 'prefab' is required");
-            m.VariantPath = OptStr(a, "variant", null);
             m.OutputFolder = OptStr(a, "outputFolder", "Assets/FaceTrackingGeneratorOutput/" + m.AvatarName);
+            // The Prefab Variant goes into the output folder unless the table says where.
+            m.VariantPath = OptStr(a, "variant", $"{m.OutputFolder}/{m.AvatarName}_FT.prefab");
             m.DefaultMesh = OptStr(a, "mesh", null);
             m.Gaze = OptStr(a, "gaze", "shared");
             if (m.Gaze != "shared") throw new TableException($"{file}: 'gaze' supports only \"shared\" for now");
