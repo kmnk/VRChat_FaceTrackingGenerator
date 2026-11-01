@@ -15,6 +15,10 @@ Unity Editor tool that generates face tracking (FT) layers for VRChat avatars fr
 - Do not bundle other people's code. Users install Modular Avatar from VPM; the code itself uses only NDMF, which comes with it
 - Keep the `.meta` GUID of every file. Move files inside Unity, not with `git mv`, so `.unitypackage` imports do not leave old files
 
+## Versioning
+
+`VERSION` is `x.y.z`: raise `x` for a large change of how the tool works, `y` for added features, `z` for small fixes. Versions before the first release (0.1.0 to 0.3.0) were not tagged and are not renumbered.
+
 ## Development flow
 
 The working copy of the code is an avatar project used for development (`<dev project>/Assets/Kmnk/FaceTrackingGenerator/`, on a work branch). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository.
