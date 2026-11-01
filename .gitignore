@@ -1,0 +1,8 @@
+# Personal settings (copied from Templates/). Tracked only in each private avatar project.
+/Assets/Kmnk/FaceTrackingGenerator/Settings/
+/Assets/Kmnk/FaceTrackingGenerator/Settings.meta
+
+# Built packages
+/build/
+
+.DS_Store
