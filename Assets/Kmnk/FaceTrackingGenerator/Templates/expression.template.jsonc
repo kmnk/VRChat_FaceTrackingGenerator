@@ -1,0 +1,58 @@
+// Expression layer: which parts move, how much, for which input values.
+// Parts are written as "<region>.<name>". The avatar layer maps them to blendshapes.
+{
+  // Regions that stop while talking (Voice > 0.1). Other regions keep moving.
+  "stopWhileTalking": ["mouth"],
+
+  // Switches with states. A transition goes when all of its "when" conditions hold.
+  // Different values for entering and leaving keep the state from flickering.
+  "switches": {
+    "EyelidSmile{side}": {
+      "sides": ["Left", "Right"],
+      "states": ["normal", "smile"],
+      "transitions": [
+        { "from": "normal", "to": "smile", "when": [["SmileFrown", ">", 0.5]] },
+        { "from": "smile", "to": "normal", "when": [["SmileFrown", "<", 0.4]] }
+      ]
+    }
+  },
+
+  "trees": {
+    // 1D: thresholds of one input. {} is an empty pose.
+    "Eyelid{side}": {
+      "sides": { "Left": { "s": "L" }, "Right": { "s": "R" } },
+      "tree": {
+        "switch": "EyelidSmile{side}",
+        "cases": {
+          "normal": { "1d": "EyeLid{side}", "children": [[0, { "eye.close_{s}": 100 }], [0.75, {}], [1, { "eye.wide_{s}": 100 }]] },
+          "smile": { "1d": "EyeLid{side}", "children": [[0, { "eye.smile_{s}": 100 }], [0.75, {}], [1, { "eye.wide_{s}": 100 }]] }
+        }
+      }
+    },
+
+    // 2D Freeform Cartesian: positions of two inputs. One pose can move several regions.
+    "Mouth": {
+      "tree": {
+        "2d": ["SmileFrown", "JawOpen"],
+        "children": [
+          [[0, 0], {}],
+          [[1, 0], { "mouth.smile": 100, "eye.happy": 100, "brow.happy": 50 }],
+          [[0, 1], { "mouth.open": 100 }]
+        ]
+      }
+    },
+
+    "Gaze": {
+      "tree": {
+        "2d": ["EyeX", "EyeY"],
+        "children": [
+          [[0, 0], {}],
+          [[-1, 0], { "eye.look_left": 100 }],
+          [[1, 0], { "eye.look_right": 100 }],
+          [[0, -1], { "eye.look_down": 100 }],
+          [[0, 1], { "eye.look_up": 100 }]
+        ]
+      }
+    }
+  }
+}

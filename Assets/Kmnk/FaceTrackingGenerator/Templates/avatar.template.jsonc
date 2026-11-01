@@ -1,0 +1,65 @@
+// Avatar layer: what is different for each avatar.
+// Copy this file to Settings/ and edit the copy. Paths of the other tables are relative to this file.
+{
+  "name": "MyAvatar",
+  "tables": { "input": "input.jsonc", "expression": "expression.jsonc" },
+
+  // The avatar prefab. Its Avatar Descriptor gives the FX, Gesture and Action controllers and the
+  // Expression Parameters. The generator copies them and never changes the originals.
+  "prefab": { "guid": "", "path": "Assets/MyAvatar/MyAvatar.prefab" },
+  // A Prefab Variant that gets the generated controllers.
+  "variant": "Assets/MyAvatar/MyAvatar_FT.prefab",
+
+  // Part name -> blendshape. "mesh" is the renderer path from the avatar root.
+  "mesh": "Body",
+  "parts": {
+    "eye.close_L": "YourShapeEyeCloseLeft",
+    "eye.close_R": "YourShapeEyeCloseRight",
+    "eye.wide_L": "YourShapeEyeWideLeft",
+    "eye.wide_R": "YourShapeEyeWideRight",
+    "eye.smile_L": "YourShapeEyeSmileLeft",
+    "eye.smile_R": "YourShapeEyeSmileRight",
+    "eye.happy": "YourShapeEyeHappy",
+    "eye.look_left": "YourShapeLookLeft",
+    "eye.look_right": "YourShapeLookRight",
+    "eye.look_up": "YourShapeLookUp",
+    "eye.look_down": "YourShapeLookDown",
+    "mouth.smile": "YourShapeMouthSmile",
+    "mouth.open": "YourShapeMouthOpen",
+    "brow.happy": { "mesh": "Body", "shape": "YourShapeBrowHappy" }
+  },
+  // Parts in the expression layer that this avatar does not have.
+  "missingParts": [],
+
+  // "shared": one set of gaze blendshapes for both eyes (driven by the average of both eyes).
+  "gaze": "shared",
+
+  // Menu toggle for FT, and the flag that plays the AFK animation.
+  "faceTrackParameter": "FaceTrack",
+  "afkPlayParameter": "AFKPlay",
+  // The menu that gets the two toggles.
+  "menu": { "guid": "", "path": "Assets/MyAvatar/Menu.asset" },
+
+  // Parameters that mean AFK, and seconds to wait after they all turn off before FT comes back.
+  // Wait for the avatar's own AFK layer to restore tracking.
+  "afkGroups": [ { "parameters": ["AFK"], "wait": 6 } ],
+
+  // Stop VRChat's automatic blink and eye look while FT is on (Tracking Control).
+  "stopAutoEyes": true,
+
+  // Changes to the avatar's own layers in the copied controllers.
+  "layers": {
+    "fx": {
+      "remove": [],
+      "weights": {},
+      // Hand gesture layers that must not change the face while FT is on.
+      "stopWhileFaceTrack": ["Left Hand", "Right Hand"]
+    }
+  },
+
+  // AFK animation clips. Choose them in the generator window, or write them here.
+  "afkClips": {
+    "actionIntro": null, "actionLoop": null, "actionOutro": null,
+    "fxIntro": null, "fxLoop": null, "fxOutro": null
+  }
+}

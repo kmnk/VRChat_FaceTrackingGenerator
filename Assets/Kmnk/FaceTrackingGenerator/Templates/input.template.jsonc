@@ -1,0 +1,24 @@
+// Input layer: the keys a device sends, how they are smoothed, and how they are synced.
+// Copy this file to Settings/ and edit the copy.
+{
+  // Time constants in seconds. "local" is for your own view, "remote" for others.
+  "smoothing": {
+    "default": { "localTau": 0.0072, "remoteTau": 0.0467 }
+  },
+
+  // Keys this device does not send. Inputs, switches and parts that use them are dropped.
+  "missing": [],
+
+  "inputs": {
+    // A left/right pair written once. "{side}" becomes Left and Right.
+    "EyeLid{side}": { "sides": ["Left", "Right"], "key": "v2/EyeLid{side}", "smoothing": "default", "sync": "float8" },
+    "SmileFrown": { "key": "v2/SmileFrown", "smoothing": "default", "sync": "float8" },
+    "JawOpen": { "key": "v2/JawOpen", "smoothing": "default", "sync": "float8" },
+    "Eye{side}X": { "sides": ["Left", "Right"], "key": "v2/Eye{side}X", "smoothing": "default", "sync": "float8" },
+    "Eye{side}Y": { "sides": ["Left", "Right"], "key": "v2/Eye{side}Y", "smoothing": "default", "sync": "float8" },
+
+    // A derived input: the average of two inputs (for avatars with one set of gaze blendshapes).
+    "EyeX": { "average": ["EyeLeftX", "EyeRightX"] },
+    "EyeY": { "average": ["EyeLeftY", "EyeRightY"] }
+  }
+}

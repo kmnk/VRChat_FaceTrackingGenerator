@@ -10,9 +10,8 @@ Status: under development. Not ready for use.
 
 ## Install
 
-1. Install the dependencies with VCC / ALCOM / vrc-get:
-   - Animator As Code
-   - NDMF
+1. Install Modular Avatar with VCC / ALCOM / vrc-get (add the repository `https://vpm.nadena.dev/vpm.json`).
+   NDMF, which this tool uses for build-time generation, comes with it.
 2. Import `VRChat_FaceTrackingGenerator_<version>.unitypackage`.
 3. Open `Tools/Kmnk/Face Tracking Generator`.
 
