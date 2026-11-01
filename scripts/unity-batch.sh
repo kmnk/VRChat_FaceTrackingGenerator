@@ -22,6 +22,7 @@
 # Environment:
 #   UNITY                Unity executable (default: Unity 2022.3.22f1 from Unity Hub on macOS)
 #   UNITY_BATCH_LOG_DIR  Directory for logs (default: $TMPDIR or /tmp)
+#   UNITY_BATCH_GRAPHICS Set to 1 to keep the graphics device (for methods that render images)
 #
 # Unity needs to run outside the Claude Code sandbox (license files under ~/Library/Unity).
 
@@ -34,7 +35,7 @@ if [ "${1:-}" = "--no-quit" ]; then
 fi
 
 if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-  sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 fi
 
@@ -78,7 +79,8 @@ mkdir -p "$log_dir"
 name=$(basename "$project")
 log="$log_dir/unity-batch-$name-$(date +%Y%m%d-%H%M%S).log"
 
-args=(-batchmode -nographics -projectPath "$project" -logFile "$log")
+args=(-batchmode -projectPath "$project" -logFile "$log")
+[ "${UNITY_BATCH_GRAPHICS:-0}" = "1" ] || args+=(-nographics)
 [ $no_quit -eq 0 ] && args+=(-quit)
 [ -n "$method" ] && args+=(-executeMethod "$method")
 
