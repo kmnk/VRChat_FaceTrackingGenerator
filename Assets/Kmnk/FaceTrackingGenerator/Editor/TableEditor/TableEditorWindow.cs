@@ -925,7 +925,7 @@ namespace Kmnk.FaceTrackingGenerator
                         EditTree("Set FT position", name, x => Tuning.SetPosition(x.Nodes[index], j, v));
                     }
                     using (new EditorGUI.DisabledScope(!Tuning.CanRemovePosition(n)))
-                        if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removePosition")), EditorStyles.miniButton, GUILayout.Width(20)))
+                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
                         {
                             tuneShown = key;
                             EditTree("Remove FT position", name, x => Tuning.RemovePosition(x.Nodes[index], j));
@@ -957,6 +957,17 @@ namespace Kmnk.FaceTrackingGenerator
                     }
             }
             EditorGUILayout.Space(4);
+        }
+
+        static GUIStyle trashStyle;
+        static GUIStyle TrashStyle => trashStyle ?? (trashStyle = new GUIStyle(EditorStyles.miniButton)
+            { padding = new RectOffset(1, 1, 1, 1), fixedHeight = 18, imagePosition = ImagePosition.ImageOnly });
+
+        // The button that removes a position: Unity's trash icon, so that it does not look like the × of a face movement.
+        static GUIContent TrashContent()
+        {
+            var icon = EditorGUIUtility.IconContent("TreeEditor.Trash");
+            return icon?.image != null ? new GUIContent(icon.image, EditorText.Get("tip.removePosition")) : new GUIContent("Del", EditorText.Get("tip.removePosition"));
         }
 
         void DrawTuningNode2D(Tuning.Tree t, int k, ICollection<string> allNames)
