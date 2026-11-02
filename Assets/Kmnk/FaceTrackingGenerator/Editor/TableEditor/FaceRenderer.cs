@@ -19,6 +19,7 @@ namespace Kmnk.FaceTrackingGenerator
         readonly Transform head;
         readonly Dictionary<string, SkinnedMeshRenderer> meshes = new Dictionary<string, SkinnedMeshRenderer>();
         readonly Dictionary<SkinnedMeshRenderer, Mesh> baked = new Dictionary<SkinnedMeshRenderer, Mesh>();
+        readonly Dictionary<SkinnedMeshRenderer, float[]> original = new Dictionary<SkinnedMeshRenderer, float[]>();
 
         public GameObject Prefab { get; }
 
@@ -32,7 +33,11 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var t = instance.transform.Find(path);
                 var smr = t != null ? t.GetComponent<SkinnedMeshRenderer>() : null;
-                if (smr != null && smr.sharedMesh != null) meshes[path] = smr;
+                if (smr != null && smr.sharedMesh != null)
+                {
+                    meshes[path] = smr;
+                    original[smr] = Enumerable.Range(0, smr.sharedMesh.blendShapeCount).Select(smr.GetBlendShapeWeight).ToArray();
+                }
             }
             var anim = instance.GetComponent<Animator>();
             head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
@@ -55,9 +60,12 @@ namespace Kmnk.FaceTrackingGenerator
             return meshes.TryGetValue(mesh, out var smr) && smr.sharedMesh.GetBlendShapeIndex(shape) >= 0;
         }
 
-        // Sets the weights ("mesh/shape" -> value) on the copy: every key in `targets` gets its weight or 0.
+        // Sets the weights ("mesh/shape" -> value) on the copy. Every blendshape first goes back to the prefab's value
+        // (so that a blendshape shown before does not stay), then every key in `targets` gets its weight or 0.
         public void SetWeights(IEnumerable<string> targets, IDictionary<string, float> weights)
         {
+            foreach (var kv in original)
+                for (int i = 0; i < kv.Value.Length; i++) kv.Key.SetBlendShapeWeight(i, kv.Value[i]);
             foreach (var key in targets.Concat(weights.Keys).Distinct())
             {
                 var (mesh, shape) = FacePreview.Split(key);

@@ -59,6 +59,18 @@ namespace Kmnk.FaceTrackingGenerator
                     UnityEngine.Object.DestroyImmediate(b);
                 }
                 UnityEngine.Object.DestroyImmediate(neutral);
+
+                // Moving through the list: blendshapes that are not in the tables must not stay on the face.
+                var others = (CliArgs.Get("-ftHover") ?? "").Split(',').Where(x => x != "").ToList();
+                if (others.Count >= 2)
+                {
+                    foreach (var key in others) r.SetWeights(targets, new Dictionary<string, float> { [key] = 100 });
+                    var last = others[others.Count - 1];
+                    var leftovers = others.Take(others.Count - 1).Where(k => r.HasShape(k) && Math.Abs(r.Weight(k)) > 0.01f).ToList();
+                    var ok = Math.Abs(r.Weight(last) - 100) < 0.01f && leftovers.Count == 0;
+                    if (!ok) failed++;
+                    Debug.Log($"[FTG] table-editor face-view hover {string.Join(" > ", others)}: {(ok ? "pass" : "FAIL")} left-on={string.Join(",", leftovers)}");
+                }
             }
             var hashAfter = Sha1(prefabPath);
             var untouched = hashBefore == hashAfter && scene.isDirty == dirtyBefore;
