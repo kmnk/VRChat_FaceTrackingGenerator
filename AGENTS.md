@@ -102,22 +102,6 @@ All take `-ftTable <avatar table>` (a path relative to the project root works) a
 
 The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions. It cannot be drawn in batchmode (`-nographics`); check its drawing in the editor.
 
-### Table editor checks (`Kmnk.FaceTrackingGenerator.TableEditorChecks`)
-
-The table editor window calls the same code as these methods. Exit 0 on success, 1 when a check fails, 2 on errors.
-
-| Method | What it does | Success |
-| --- | --- | --- |
-| `TableEditorChecks.Edit` | Opens `-ftTable`, applies `-ftEdits <jsonl>` (operations of `TableEdits.Apply`) and saves; `-ftAll 1` saves all three tables | `[FTG] table-editor edit: ...` |
-| `TableEditorChecks.Preview` | Shows `-ftQueries` (the `Cli.Curve` form) with the preview on the table's prefab in a new scene; checks values, pixels against weights set directly, that the head does not move, and that stopping restores the face. Run with `UNITY_BATCH_GRAPHICS=1`. Images and `weights.jsonl` go to `-ftOut` | `[FTG] table-editor preview: queries=<n> failed=0` |
-| `TableEditorChecks.Switches` | Prints the switch states of the preview's Auto for `-ftSteps <jsonl>` | `[FTG] table-editor switches ...` lines |
-| `TableEditorChecks.Picker` | Prints the blendshape list for `-ftPart` and `-ftSearch` | `[FTG] picker: ...` |
-| `TableEditorChecks.Capture` | Opens the window and writes it to a PNG (`-ftOut`). Run with `scripts/unity-gui.sh`, not batchmode. Arguments: `-ftTable`, `-ftTab avatar\|preview`, `-ftHelp en\|ja\|off`, `-ftState dirty\|picker\|preview\|notable`, `-ftSet "Input=value,..."`, `-ftScroll <y>`, `-ftSize 560x1000`, `-ftWindow generator` | `[FTG] capture: wrote <png>` |
-
-`scripts/test-table-save.sh <project> <avatar.jsonc> <work dir> [<edits.jsonl>]` copies a set of tables to `<work dir>` and checks that saving them unchanged keeps the `Cli.Load` output and that a second save changes no byte. Use a work dir outside the project: Unity deletes the project's `Temp/` when it opens.
-
-`scripts/unity-gui.sh <project> <method> [args...]` starts the editor with graphics (not batchmode) and has the same stops as `unity-batch.sh`. The editor opens on the screen for about a minute; do not type while it runs (keys go to Unity). It rewrites `ProjectSettings/EditorBuildSettings.asset` (the XR loader GUID); restore it with `git checkout` after the run. The development copy needs an up-to-date `FILES.txt`, or the generator window asks to delete the new files (answer Keep).
-
 ### Building the package
 
 ```

@@ -36,16 +36,6 @@ Build-time generation writes to `Assets/FaceTrackingGeneratorOutput/<name>/Build
 /Assets/FaceTrackingGeneratorOutput/*/Build.meta
 ```
 
-## Table editor
-
-`Tools/Kmnk/Face Tracking Table Editor` edits the avatar table and shows the tables on your avatar without a text editor. It opens the same `avatar.jsonc` as the generator window.
-
-- **Avatar** tab: choose the prefab, the menu and the face mesh; pick the blendshape of each part from a searchable list; check **Missing** for parts your avatar does not have; choose what happens to the avatar's own layers while FT is on. Press **Save** to write the table.
-- **Preview** tab: select your avatar in the scene, press **Start preview**, and move the sliders. The face shows the weights the tables give. The avatar is not changed; **Stop preview** puts it back.
-- **Help** switches the descriptions between English and Japanese, or hides them.
-
-Saving rewrites the table in its own layout, and `//` comments in it are removed. Keep a copy if you want your comments, or edit that table in a text editor only.
-
 ## Settings
 
 `Assets/Kmnk/FaceTrackingGenerator/Templates/` has simple templates of the three tables.
