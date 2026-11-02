@@ -618,30 +618,6 @@ namespace Kmnk.FaceTrackingGenerator
 
             var states = switches.Update(model, inputs);
 
-            // Overlaps of face movements
-            foreach (var o in Overlaps.Find(CurveEval.EvaluateParts(model, inputs, states)))
-            {
-                EditorGUILayout.HelpBox(Overlaps.Message(o, usage), MessageType.Warning);
-                foreach (var (part, _) in o.Parts)
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Space(20);
-                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.again"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
-                        {
-                            tab = 0;
-                            selectedPart = part;
-                            openPickerFor = part;
-                            openPickerSearch = "";
-                            ShowSelected();
-                        }
-                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.notUse"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
-                        {
-                            var p = part;
-                            Edit("Do not use FT movement", a => TableEdits.SetMissing(a, p, true, removedParts));
-                            changed = true;
-                        }
-                    }
-            }
             if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
 
             // Inputs, by device
@@ -702,6 +678,31 @@ namespace Kmnk.FaceTrackingGenerator
 
             if (changed) states = switches.Update(model, inputs);
             if (changed && preview.Running) ApplyPreview(states);
+
+            // Overlaps under the sliders, so that a warning that comes and goes does not move the slider in use.
+            foreach (var o in Overlaps.Find(CurveEval.EvaluateParts(model, inputs, states)))
+            {
+                EditorGUILayout.HelpBox(Overlaps.Message(o, usage), MessageType.Warning);
+                foreach (var (part, _) in o.Parts)
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(20);
+                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.again"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                        {
+                            tab = 0;
+                            selectedPart = part;
+                            openPickerFor = part;
+                            openPickerSearch = "";
+                            ShowSelected();
+                        }
+                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.notUse"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                        {
+                            var p = part;
+                            Edit("Do not use FT movement", a => TableEdits.SetMissing(a, p, true, removedParts));
+                            changed = true;
+                        }
+                    }
+            }
 
             // Weights
             EditorGUILayout.Space(6);
