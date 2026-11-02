@@ -21,10 +21,13 @@ namespace Kmnk.FaceTrackingGenerator
             public TableException(string message) : base(message) { }
         }
 
-        public static TableModel Load(string avatarTablePath)
+        public static TableModel Load(string avatarTablePath) => Load(avatarTablePath, Read);
+
+        // read: table path -> parsed table. The table editor passes tables it holds in memory (not saved yet).
+        public static TableModel Load(string avatarTablePath, Func<string, JObject> read)
         {
             var m = new TableModel { AvatarTablePath = avatarTablePath };
-            var avatar = Read(avatarTablePath);
+            var avatar = read(avatarTablePath);
             var dir = Path.GetDirectoryName(avatarTablePath);
             ParseAvatar(avatar, m, avatarTablePath);
 
@@ -33,11 +36,11 @@ namespace Kmnk.FaceTrackingGenerator
             var exprPath = Path.Combine(dir, Str(tables, "expression", avatarTablePath));
             var missingParts = StrList(avatar["missingParts"]);
 
-            var input = Read(inputPath);
+            var input = read(inputPath);
             var missingKeys = StrList(input["missing"]);
             ParseInputs(input, m, inputPath);
 
-            var expr = Read(exprPath);
+            var expr = read(exprPath);
             ParseExpressions(expr, m, exprPath);
 
             Resolve(m, missingKeys, missingParts);

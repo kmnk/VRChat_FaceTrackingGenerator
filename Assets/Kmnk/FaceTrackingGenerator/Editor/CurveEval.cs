@@ -14,17 +14,31 @@ namespace Kmnk.FaceTrackingGenerator
         // Returns "mesh/shape" -> weight.
         public static SortedDictionary<string, float> Evaluate(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
         {
+            var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
+            foreach (var tree in EvaluateTrees(m, inputs, states))
+                foreach (var kv in tree.Value)
+                    result[kv.Key] = (result.TryGetValue(kv.Key, out var v) ? v : 0) + kv.Value;
+            return result;
+        }
+
+        // The same weights per tree: tree name -> "mesh/shape" -> weight, in the order of the trees.
+        public static List<KeyValuePair<string, SortedDictionary<string, float>>> EvaluateTrees(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
+        {
             var values = new Dictionary<string, float>(inputs);
             foreach (var d in m.Inputs.Where(i => i.IsDerived))
                 values[d.Name] = d.Average.Average(s => values.TryGetValue(s, out var v) ? v : 0);
-            var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
+            var trees = new List<KeyValuePair<string, SortedDictionary<string, float>>>();
             foreach (var t in m.Trees)
+            {
+                var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
                 foreach (var kv in Node(m, t.Root, values, states))
                 {
                     var key = m.Parts[kv.Key].Mesh + "/" + m.Parts[kv.Key].Shape;
                     result[key] = (result.TryGetValue(key, out var v) ? v : 0) + kv.Value;
                 }
-            return result;
+                trees.Add(new KeyValuePair<string, SortedDictionary<string, float>>(t.Name, result));
+            }
+            return trees;
         }
 
         static Dictionary<string, float> Node(TableModel m, Node n, Dictionary<string, float> values, IDictionary<string, string> states)
