@@ -1,0 +1,27 @@
+{
+  "name": "dev.kmnk.face-tracking-generator",
+  "displayName": "Face Tracking Generator",
+  "version": "0.5.0",
+  "unity": "2022.3",
+  "description": "Generates face tracking layers for VRChat avatars from text tables, with a table editor and preview.",
+  "author": {
+    "name": "kmnk",
+    "url": "https://github.com/kmnk"
+  },
+  "url": "https://github.com/kmnk/VRChat_FaceTrackingGenerator",
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.vrchat.avatars": ">=3.10.6",
+    "nadena.dev.ndmf": ">=1.14.7 <2.0.0-a"
+  },
+  "legacyFolders": {
+    "Assets\\Kmnk\\FaceTrackingGenerator\\Editor": "19e13fee770e844a180b7838d57b14c0",
+    "Assets\\Kmnk\\FaceTrackingGenerator\\Runtime": "ae2c6ba9e0ae5468194b4728de641e29",
+    "Assets\\Kmnk\\FaceTrackingGenerator\\Templates": "aa4f8dd85f2c947ed9c081a13b288c57"
+  },
+  "legacyFiles": {
+    "Assets\\Kmnk\\FaceTrackingGenerator\\VERSION": "8249f5930cc414bafab39e8ee43c98f2",
+    "Assets\\Kmnk\\FaceTrackingGenerator\\FILES.txt": "2355e9cdb29364216b638c385926381e",
+    "Assets\\Kmnk\\FaceTrackingGenerator\\LICENSE.txt": "607c4acdcdbdf40ef99a14248206bce8"
+  }
+}

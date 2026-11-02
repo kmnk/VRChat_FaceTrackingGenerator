@@ -1,52 +1,49 @@
 #!/usr/bin/env bash
-# Builds VRChat_FaceTrackingGenerator_<version>.unitypackage from the development copy in an avatar project.
+# Builds the VPM package zip dev.kmnk.face-tracking-generator-<version>.zip from the development copy.
 #
 # Usage: scripts/build-package.sh <version> [<dev project>]
 #   <dev project>  the avatar project with the development copy (default: $FTG_DEV_PROJECT)
 #
-# 1. Writes VERSION and FILES.txt (every file in the package) into the development copy
-# 2. Opens the project so Unity makes .meta files for them
-# 3. Copies Assets/Kmnk/FaceTrackingGenerator/ to this repository (Settings/ excluded; .meta GUIDs kept)
-# 4. Stages the copy and exports exactly `git ls-files Assets` plus their parent folders, in the dev
-#    project (the paths are the same there), to build/
+# 1. Writes <version> into package.json of the development copy (Packages/dev.kmnk.face-tracking-generator/)
+# 2. Opens the project so Unity makes .meta files for new files
+# 3. Copies the package folder to this repository (.meta GUIDs kept) and stages it
+# 4. Zips exactly the staged files of the package folder, with package.json at the root of the zip,
+#    to build/. Attach the zip to the GitHub release v<version>; the VPM listing picks it up from there.
 #
 # The dev project must be on a work branch and closed in the editor (see scripts/unity-batch.sh).
+# The user's tables stay in the dev project's Assets/Kmnk/FaceTrackingGenerator/Settings/ and are not copied.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/.." && pwd)
 version=${1:?version}
 dev=${2:-${FTG_DEV_PROJECT:?give the dev project as the second argument or set FTG_DEV_PROJECT}}
-rel=Assets/Kmnk/FaceTrackingGenerator
+name=dev.kmnk.face-tracking-generator
+rel=Packages/$name
 src="$dev/$rel"
+[ -f "$src/package.json" ] || { echo "build-package: no $src/package.json" >&2; exit 2; }
 
-# 1. VERSION and FILES.txt (files only, no .meta, Settings excluded, sorted)
-printf '%s\n' "$version" > "$src/VERSION"
-( cd "$dev" && { find "$rel" -type f ! -name '*.meta' ! -path "$rel/Settings/*" ! -name '.DS_Store'; echo "$rel/FILES.txt"; } | sort -u ) > "$src/FILES.txt.tmp"
-mv "$src/FILES.txt.tmp" "$src/FILES.txt"
+# 1. version
+python3 - "$src/package.json" "$version" <<'PY'
+import json, sys, collections
+path, version = sys.argv[1], sys.argv[2]
+with open(path, encoding="utf-8") as f:
+    d = json.load(f, object_pairs_hook=collections.OrderedDict)
+d["version"] = version
+with open(path, "w", encoding="utf-8") as f:
+    f.write(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
+PY
 
 # 2. .meta files
 "$here/unity-batch.sh" "$dev" >/dev/null
 
 # 3. copy
 mkdir -p "$repo/$rel"
-rsync -a --delete --exclude '/Settings/' --exclude '/Settings.meta' --exclude '.DS_Store' "$src/" "$repo/$rel/"
-cp "$dev/Assets/Kmnk.meta" "$repo/Assets/Kmnk.meta"
-[ -f "$dev/Assets/Kmnk/FaceTrackingGenerator.meta" ] && cp "$dev/Assets/Kmnk/FaceTrackingGenerator.meta" "$repo/Assets/Kmnk/FaceTrackingGenerator.meta"
+rsync -a --delete --exclude '.DS_Store' "$src/" "$repo/$rel/"
+git -C "$repo" add -A "$rel"
 
-# 4. export
-git -C "$repo" add -A Assets
-list="$repo/build/package-paths.txt"
+# 4. zip (paths inside the zip are relative to the package folder)
+out="$repo/build/$name-$version.zip"
 mkdir -p "$repo/build"
-git -C "$repo" ls-files Assets | grep -v '\.meta$' | python3 -c '
-import sys, os
-files = [l.strip() for l in sys.stdin if l.strip()]
-dirs = set()
-for f in files:
-    d = os.path.dirname(f)
-    while d and d != "Assets":
-        dirs.add(d); d = os.path.dirname(d)
-print("\n".join(sorted(dirs) + files))' > "$list"
-out="$repo/build/VRChat_FaceTrackingGenerator_$version.unitypackage"
 rm -f "$out"
-"$here/unity-batch.sh" "$dev" Kmnk.FaceTrackingGenerator.Cli.ExportPackage -ftList "$list" -ftOut "$out" | grep -E '^unity-batch: exit=|^\[FTG\]'
-echo "build-package: $out"
+( cd "$repo/$rel" && git -C "$repo" ls-files "$rel" | sed "s|^$rel/||" | zip -q -X "$out" -@ )
+echo "build-package: $out ($(unzip -l "$out" | tail -1 | awk '{print $2}') files)"

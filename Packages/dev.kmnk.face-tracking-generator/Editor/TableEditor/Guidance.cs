@@ -176,7 +176,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Device lists in Templates/Devices/*.jsonc: the values a device is said to send.
     public static class Devices
     {
-        public const string Folder = "Assets/Kmnk/FaceTrackingGenerator/Templates/Devices";
+        public const string Folder = Paths.Templates + "/Devices";
 
         public sealed class Device
         {

@@ -13,7 +13,6 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class GeneratorWindow : EditorWindow
     {
         const string PrefKey = "Kmnk.FaceTrackingGenerator.AvatarTable";
-        const string Root = "Assets/Kmnk/FaceTrackingGenerator";
 
         DefaultAsset table;
         TableModel model;
@@ -35,7 +34,6 @@ namespace Kmnk.FaceTrackingGenerator
             var path = EditorPrefs.GetString(PrefKey, "");
             if (path != "") table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Reload();
-            RemovedFiles.PromptIfAny();
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
@@ -118,7 +116,7 @@ namespace Kmnk.FaceTrackingGenerator
                 newName = EditorGUILayout.TextField("Avatar name", newName);
                 if (GUILayout.Button("Create Settings/" + newName)) Do(() =>
                 {
-                    var dest = TableWriter.CreateFromTemplates(Root, newName);
+                    var dest = TableWriter.CreateFromTemplates(newName);
                     table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
                     EditorPrefs.SetString(PrefKey, dest);
                     Reload();
@@ -349,17 +347,17 @@ namespace Kmnk.FaceTrackingGenerator
             return e;
         }
 
-        // Copies the three templates to Settings/<name>/ and returns the avatar table path.
-        public static string CreateFromTemplates(string root, string name)
+        // Copies the three templates from the package to Settings/<name>/ and returns the avatar table path.
+        public static string CreateFromTemplates(string name)
         {
             if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                 throw new ArgumentException("invalid name: " + name);
-            var dir = $"{root}/Settings/{name}";
+            var dir = $"{Paths.SettingsRoot}/{name}";
             if (Directory.Exists(dir)) throw new IOException(dir + " already exists");
             Directory.CreateDirectory(dir);
             foreach (var t in new[] { "input", "expression", "avatar" })
             {
-                var text = File.ReadAllText($"{root}/Templates/{t}.template.jsonc");
+                var text = File.ReadAllText($"{Paths.Templates}/{t}.template.jsonc");
                 if (t == "avatar") text = text.Replace("\"name\": \"MyAvatar\"", $"\"name\": \"{name}\"");
                 File.WriteAllText($"{dir}/{t}.jsonc", text);
             }

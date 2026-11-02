@@ -1,23 +1,25 @@
 # VRChat_FaceTrackingGenerator
 
-Unity Editor tool that generates face tracking (FT) layers for VRChat avatars from text tables. This repository is public (MIT). The code lives in `Assets/Kmnk/FaceTrackingGenerator/` and is distributed as a `.unitypackage`.
+Unity Editor tool that generates face tracking (FT) layers for VRChat avatars from text tables. This repository is public (MIT). The code lives in `Packages/dev.kmnk.face-tracking-generator/` and is distributed as a VPM package (zip on the GitHub release, listed at `https://kmnk.github.io/vpm-repos/index.json` by the repository `kmnk/vpm-repos`).
 
 ## Layout
 
-- `Assets/Kmnk/FaceTrackingGenerator/Editor/` - generator code (namespace `Kmnk.FaceTrackingGenerator`)
-- `Assets/Kmnk/FaceTrackingGenerator/Templates/` - simple templates of the three tables
-- `Assets/Kmnk/FaceTrackingGenerator/Settings/` - personal settings copied from the templates. Ignored here; tracked in each private avatar project
+- `Packages/dev.kmnk.face-tracking-generator/package.json` - VPM manifest: version, dependencies (`com.vrchat.avatars`, `nadena.dev.ndmf`), and `legacyFolders` / `legacyFiles` that remove the `.unitypackage` layout (never list `Assets/Kmnk/FaceTrackingGenerator` itself: that removes `Settings/`)
+- `Packages/dev.kmnk.face-tracking-generator/Editor/` - generator code (namespace `Kmnk.FaceTrackingGenerator`, assembly `Kmnk.FaceTrackingGenerator.Editor`). `Paths.cs` holds the package root and the settings root
+- `Packages/dev.kmnk.face-tracking-generator/Runtime/` - `FtGeneratorSettings` (assembly `Kmnk.FaceTrackingGenerator.Runtime`)
+- `Packages/dev.kmnk.face-tracking-generator/Templates/` - simple templates of the three tables and device lists
+- `Assets/Kmnk/FaceTrackingGenerator/Settings/` - personal settings copied from the templates, outside the package so updates keep them. Not in this repository; tracked in each private avatar project
 - `scripts/` - commands for development (not in the package)
 
 ## Rules for this public repository
 
 - Do not commit blendshape names, mesh names or asset names of purchased avatars. Not in code, comments, templates or commit messages. Avatar-specific values go to `Settings/` in the avatar project
 - Do not bundle other people's code. Users install Modular Avatar from VPM; the code itself uses only NDMF, which comes with it
-- Keep the `.meta` GUID of every file. Move files inside Unity, not with `git mv`, so `.unitypackage` imports do not leave old files
+- Keep the `.meta` GUID of every file (the settings component on avatars refers to `FtGeneratorSettings.cs` by GUID). Move files inside Unity, or move each file together with its `.meta` while the project is closed
 
 ## Versioning
 
-`VERSION` is `x.y.z`, following Semantic Versioning 2.0.0 (https://semver.org/). Whether a change breaks compatibility is judged against what users rely on:
+The version is `version` in `package.json`, `x.y.z`, following Semantic Versioning 2.0.0 (https://semver.org/). Whether a change breaks compatibility is judged against what users rely on:
 
 1. The table format: keys, meanings and defaults of the three JSON layers
 2. The serialized fields of `FtGeneratorSettings`
@@ -36,9 +38,8 @@ Rules:
 - If a release breaks compatibility under the wrong number, do not change the released version: release the next version that restores compatibility and tell users
 
 ## Development flow
-## Development flow
 
-The working copy of the code is an avatar project used for development (`<dev project>/Assets/Kmnk/FaceTrackingGenerator/`, on a work branch). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository.
+The working copy of the code is an avatar project used for development (`<dev project>/Packages/dev.kmnk.face-tracking-generator/`, an embedded package, on a work branch; its tables are in `<dev project>/Assets/Kmnk/FaceTrackingGenerator/Settings/`). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository.
 
 ## Verification
 
@@ -98,8 +99,8 @@ All take `-ftTable <avatar table>` (a path relative to the project root works) a
 | `Cli.Check` | Static checks of the tables and the generated FX (`-ftFx` to check another controller) | `[FTG] check: findings=0` |
 | `Cli.InstallMenu` | Adds the FT toggle and the AFK flag to the avatar's own menu and Expression Parameters (changes original assets) | `[FTG] menu: ...` per parameter |
 | `Cli.Curve` | Response curves without Unity's Animator (`-ftInput <name>` or `-ftQueries <jsonl>`, `-ftOut <jsonl>`) | `[FTG] curve: wrote ...` |
-| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.FillFromAvatar`, `Cli.LeftoverFiles` | The window's AFK clip saving, settings from templates, filling prefab/mesh/menu from an avatar prefab (`-ftAvatar <prefab path>`), and leftover file cleanup | `[FTG] ...` |
-| `Cli.ExportPackage` | Used by `scripts/build-package.sh` | `[FTG] package: exported ...` |
+| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.FillFromAvatar` | The window's AFK clip saving, settings from templates (`-ftName <name>`), and filling prefab/mesh/menu from an avatar prefab (`-ftAvatar <prefab path>`) | `[FTG] ...` |
+| `Cli.ExportPackage` | Exports a `.unitypackage` from a list of paths (`-ftList`, `-ftOut`). Not used by the release since 0.5.0 | `[FTG] package: exported ...` |
 
 The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions. It cannot be drawn in batchmode (`-nographics`); check its drawing in the editor.
 
@@ -123,7 +124,7 @@ The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Setting
 
 `scripts/test-table-save.sh <project> <avatar.jsonc> <work dir> [<edits.jsonl>]` copies a set of tables to `<work dir>` and checks that saving them unchanged keeps the `Cli.Load` output and that a second save changes no byte. Use a work dir outside the project: Unity deletes the project's `Temp/` when it opens.
 
-`scripts/unity-gui.sh <project> <method> [args...]` starts the editor with graphics (not batchmode) and has the same stops as `unity-batch.sh`. The editor opens on the screen for about a minute; do not type while it runs (keys go to Unity). It rewrites `ProjectSettings/EditorBuildSettings.asset` (the XR loader GUID); restore it with `git checkout` after the run. The development copy needs an up-to-date `FILES.txt`, or the generator window asks to delete the new files (answer Keep).
+`scripts/unity-gui.sh <project> <method> [args...]` starts the editor with graphics (not batchmode) and has the same stops as `unity-batch.sh`. The editor opens on the screen for about a minute; do not type while it runs (keys go to Unity). It rewrites `ProjectSettings/EditorBuildSettings.asset` (the XR loader GUID); restore it with `git checkout` after the run.
 
 ### Building the package
 
@@ -131,7 +132,13 @@ The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Setting
 scripts/build-package.sh <version> [<dev project>]   # or set FTG_DEV_PROJECT
 ```
 
-Writes `VERSION` and `FILES.txt` into the development copy, copies it here (without `Settings/`), stages it, and exports `git ls-files Assets` plus parent folders to `build/VRChat_FaceTrackingGenerator_<version>.unitypackage`. Before pushing, search the tracked files, `git log -p` and the package for the avatars' blendshape names (none may be found).
+Writes the version into `package.json` of the development copy, copies `Packages/dev.kmnk.face-tracking-generator/` here, stages it, and zips the staged files to `build/dev.kmnk.face-tracking-generator-<version>.zip` (`package.json` at the root of the zip). Before pushing, search the tracked files, `git log -p` and the zip for the avatars' blendshape names (none may be found).
+
+### Releasing
+
+1. Commit and push, then the user runs `gh release create v<version> build/dev.kmnk.face-tracking-generator-<version>.zip` (development versions: `--prerelease --title "<version> (development version)"`). Creating a release publishes it, so the user runs it
+2. The user rebuilds the listing: `gh workflow run build-listing.yml -R kmnk/vpm-repos`. It reads every release of this repository and adds zips that have `package.json` at their root
+3. Check: `curl -s https://kmnk.github.io/vpm-repos/index.json` lists the version
 
 ### Evidence
 

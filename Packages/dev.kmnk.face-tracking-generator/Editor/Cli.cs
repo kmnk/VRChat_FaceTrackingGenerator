@@ -113,18 +113,8 @@ namespace Kmnk.FaceTrackingGenerator
         // The window's "Create Settings/<name>".
         public static void CreateSettings() => Run(() =>
         {
-            var dest = TableWriter.CreateFromTemplates("Assets/Kmnk/FaceTrackingGenerator", CliArgs.Require("-ftName"));
+            var dest = TableWriter.CreateFromTemplates(CliArgs.Require("-ftName"));
             Debug.Log("[FTG] settings: created " + dest);
-            return 0;
-        });
-
-        // Lists (and with -ftDelete, deletes) .cs files not in FILES.txt.
-        public static void LeftoverFiles() => Run(() =>
-        {
-            var files = RemovedFiles.Find();
-            foreach (var f in files) Debug.Log("[FTG] leftover: " + f);
-            if (CliArgs.Get("-ftDelete") == "true") RemovedFiles.Delete(files);
-            Debug.Log($"[FTG] leftover files: {files.Count}");
             return 0;
         });
 

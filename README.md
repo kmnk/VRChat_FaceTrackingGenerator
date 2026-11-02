@@ -10,10 +10,20 @@ Status: under development. Not ready for use.
 
 ## Install
 
-1. Install Modular Avatar with VCC / ALCOM / vrc-get (add the repository `https://vpm.nadena.dev/vpm.json`).
-   NDMF, which this tool uses for build-time generation, comes with it.
-2. Import `VRChat_FaceTrackingGenerator_<version>.unitypackage`.
-3. Open `Tools/Kmnk/Face Tracking Generator`.
+The tool is a VPM package (`dev.kmnk.face-tracking-generator`). Install it with VCC, ALCOM or vrc-get.
+
+1. Add the repository of NDMF and Modular Avatar: `https://vpm.nadena.dev/vpm.json`.
+   This tool needs NDMF (it is installed with the tool). Modular Avatar is not required by the tool.
+2. Add this tool's repository: `https://kmnk.github.io/vpm-repos/index.json`
+   ([Add to VCC](vcc://vpm/addRepo?url=https://kmnk.github.io/vpm-repos/index.json)).
+3. Close the project in Unity, then add **Face Tracking Generator** to the project from the package list.
+4. Open `Tools/Kmnk/Face Tracking Generator`.
+
+To update, choose a newer version in the package list. Your settings are kept (see [Settings](#settings)).
+
+### Moving from the `.unitypackage` (0.4.x and earlier)
+
+Close the project in Unity and add the package as above. VCC / ALCOM / vrc-get remove the old `Editor/`, `Runtime/` and `Templates/` folders and the `VERSION`, `FILES.txt` and `LICENSE.txt` files in `Assets/Kmnk/FaceTrackingGenerator/`. `Settings/` is kept, and the settings component on your avatars keeps working.
 
 ## Use
 
@@ -53,8 +63,8 @@ Saving rewrites the settings file in its own layout, and `//` comments in it are
 
 ## Settings
 
-`Assets/Kmnk/FaceTrackingGenerator/Templates/` has simple templates of the three tables.
-Your copies in `Assets/Kmnk/FaceTrackingGenerator/Settings/` are not included in the package, so importing a new version does not overwrite them.
+`Packages/dev.kmnk.face-tracking-generator/Templates/` has simple templates of the three tables.
+Your copies are in `Assets/Kmnk/FaceTrackingGenerator/Settings/`, outside the package. Updating the package replaces its folder in `Packages/` and does not touch them. Do not put your own files in `Packages/dev.kmnk.face-tracking-generator/`: they are removed on update.
 
 ## License
 
