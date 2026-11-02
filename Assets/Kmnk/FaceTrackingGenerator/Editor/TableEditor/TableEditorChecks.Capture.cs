@@ -23,7 +23,20 @@ namespace Kmnk.FaceTrackingGenerator
                 var w = float.Parse(size[0]); var h = float.Parse(size[1]);
                 var which = CliArgs.Get("-ftWindow") ?? "table";
                 EditorWindow window;
-                if (which == "generator") window = EditorWindow.GetWindow<GeneratorWindow>("Face Tracking Generator");
+                var help = CliArgs.Get("-ftHelp");
+                if (help != null) EditorText.Override = help == "ja" ? EditorText.Language.Japanese : help == "off" ? EditorText.Language.Off : EditorText.Language.English;
+                if (which == "generator")
+                {
+                    var g = EditorWindow.GetWindow<GeneratorWindow>("Face Tracking Generator");
+                    var tablePath = CliArgs.Get("-ftTable");
+                    if (tablePath != null) g.SetTableForCapture(tablePath);
+                    if (CliArgs.Get("-ftOpenTableEditor") == "1")
+                    {
+                        var te = TableEditorWindow.OpenTable(tablePath);
+                        Debug.Log($"[FTG] capture: table editor opened {te.OpenedTablePath}");
+                    }
+                    window = g;
+                }
                 else
                 {
                     var t = EditorWindow.GetWindow<TableEditorWindow>("FT Table Editor");
@@ -32,6 +45,8 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 window.position = new Rect(80, 80, w, h);
                 window.Show();
+                var fv = FaceViewWindow.Find();
+                if (fv != null) fv.position = new Rect(80 + w + 20, 80, 420, 420);
                 var frames = 0;
                 EditorApplication.CallbackFunction tick = null;
                 tick = () =>
@@ -44,6 +59,13 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         Grab(window, outPath);
                         Debug.Log($"[FTG] capture: wrote {outPath} ({window.position.width}x{window.position.height})");
+                        var face = FaceViewWindow.Find();
+                        if (face != null)
+                        {
+                            var facePath = Path.ChangeExtension(outPath, null) + ".faceview.png";
+                            Grab(face, facePath);
+                            Debug.Log($"[FTG] capture: wrote {facePath}");
+                        }
                         var popup = TableEditorWindow.OpenPicker();
                         if (popup != null)
                         {

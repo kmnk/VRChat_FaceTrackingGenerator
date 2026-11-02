@@ -19,17 +19,21 @@ namespace Kmnk.FaceTrackingGenerator
         readonly List<string> names;
         readonly string current;
         readonly Action<string> pick;   // null = (None)
+        readonly Action<string> hover;  // the name under the cursor (null for (None)), for Face View
+        readonly Action closed;
         readonly SearchField searchField = new SearchField();
         string search;
         Vector2 scroll;
         int selected = -1;              // index into the visible items
         List<(string text, bool header)> items;
 
-        public BlendshapePicker(IEnumerable<string> blendshapes, string current, Action<string> pick, string search = "")
+        public BlendshapePicker(IEnumerable<string> blendshapes, string current, Action<string> pick, string search = "", Action<string> hover = null, Action closed = null)
         {
             names = blendshapes.ToList();
             this.current = current;
             this.pick = pick;
+            this.hover = hover;
+            this.closed = closed;
             this.search = search ?? "";
             Refresh();
         }
@@ -74,9 +78,25 @@ namespace Kmnk.FaceTrackingGenerator
             if (selected < 0) selected = 0;
         }
 
-        public override Vector2 GetWindowSize() => new Vector2(320, 360);
+        public override Vector2 GetWindowSize() => new Vector2(320, 380);
 
-        public override void OnOpen() => searchField.SetFocus();
+        public override void OnOpen()
+        {
+            searchField.SetFocus();
+            editorWindow.wantsMouseMove = true;
+            Hover();
+        }
+
+        public override void OnClose() => closed?.Invoke();
+
+        int hovered = -2;
+        void Hover()
+        {
+            if (selected == hovered || hover == null) return;
+            hovered = selected;
+            if (selected >= 0 && selected < items.Count && !items[selected].header)
+                hover(items[selected].text == "(None)" ? null : items[selected].text);
+        }
 
         public override void OnGUI(Rect rect)
         {
@@ -84,9 +104,11 @@ namespace Kmnk.FaceTrackingGenerator
             var top = new Rect(rect.x + 4, rect.y + 4, rect.width - 8, 18);
             EditorGUI.BeginChangeCheck();
             search = searchField.OnGUI(top, search);
-            if (EditorGUI.EndChangeCheck()) { Refresh(); scroll = Vector2.zero; }
+            if (EditorGUI.EndChangeCheck()) { Refresh(); scroll = Vector2.zero; Hover(); }
 
-            var listRect = new Rect(rect.x, top.yMax + 4, rect.width, rect.height - top.height - 8);
+            var hint = new Rect(rect.x + 6, rect.yMax - 18, rect.width - 12, 16);
+            EditorGUI.LabelField(hint, EditorText.Get("picker.keys"), EditorStyles.miniLabel);
+            var listRect = new Rect(rect.x, top.yMax + 4, rect.width, rect.height - top.height - 8 - 18);
             var view = new Rect(0, 0, listRect.width - 16, items.Count * RowHeight);
             scroll = GUI.BeginScrollView(listRect, scroll, view);
             for (int i = 0; i < items.Count; i++)
@@ -103,6 +125,12 @@ namespace Kmnk.FaceTrackingGenerator
                 var isCurrent = text == current || (text == "(None)" && string.IsNullOrEmpty(current));
                 EditorGUI.LabelField(new Rect(r.x + 18, r.y, r.width - 40, r.height), text);
                 if (isCurrent) EditorGUI.LabelField(new Rect(r.xMax - 22, r.y, 20, r.height), "✓");
+                if (Event.current.type == EventType.MouseMove && r.Contains(Event.current.mousePosition) && selected != i)
+                {
+                    selected = i;
+                    Hover();
+                    editorWindow.Repaint();
+                }
                 if (Event.current.type == EventType.MouseDown && r.Contains(Event.current.mousePosition))
                 {
                     Choose(i);
@@ -116,8 +144,8 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var e = Event.current;
             if (e.type != EventType.KeyDown) return;
-            if (e.keyCode == KeyCode.DownArrow) { selected = Step(selected, 1); e.Use(); ScrollTo(); }
-            else if (e.keyCode == KeyCode.UpArrow) { selected = Step(selected, -1); e.Use(); ScrollTo(); }
+            if (e.keyCode == KeyCode.DownArrow) { selected = Step(selected, 1); e.Use(); ScrollTo(); Hover(); }
+            else if (e.keyCode == KeyCode.UpArrow) { selected = Step(selected, -1); e.Use(); ScrollTo(); Hover(); }
             else if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) { Choose(selected); e.Use(); }
             else if (e.keyCode == KeyCode.Escape) { editorWindow.Close(); e.Use(); }
         }

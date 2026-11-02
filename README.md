@@ -17,17 +17,17 @@ Status: under development. Not ready for use.
 
 ## Use
 
-All steps are in the `Tools/Kmnk/Face Tracking Generator` window.
+The `Tools/Kmnk/Face Tracking Generator` window lists the steps in order. **Help** at the top switches the descriptions between English and Japanese, or hides them.
 
-1. **Create your tables**: type the avatar name under "New settings from templates" and press "Create Settings/<name>". `Assets/Kmnk/FaceTrackingGenerator/Settings/<name>/` gets `avatar.jsonc`, `expression.jsonc` and `input.jsonc` copied from the templates.
+1. **Create the tables**: type the avatar name and press "Create Settings/<name>". `Assets/Kmnk/FaceTrackingGenerator/Settings/<name>/` gets `avatar.jsonc`, `expression.jsonc` and `input.jsonc` copied from the templates.
 2. **Point the tables at your avatar**: select your avatar in the Hierarchy and press "Fill prefab, mesh and menu from it".
-3. **Map the parts**: open `avatar.jsonc` in a text editor and write, for each part, the blendshape name of your avatar (`"eye.close_L": "<your blendshape>"`). List parts your avatar does not have in `missingParts`. Edit `expression.jsonc` and `input.jsonc` when you want a different look or device. The comments in the templates explain each item.
-4. **Check**: press "Check". Fix the tables until it reports no findings. "Response curves" shows the weights for each input without generating.
-5. **Add the menu toggles**: set the toggle names (and a submenu if the menu is full) under "Menu toggles", then press "Add toggles to menu". This adds the FT toggle and the AFK flag to your avatar's Expression Parameters and menu.
-6. **Choose AFK clips** (optional): pick the clips under "AFK clips" and press "Save AFK clips to the table".
+3. **Assign blendshapes to the face movements**: press "Open Table Editor" and choose a blendshape for each part (see [Table editor](#table-editor)). You can also edit `avatar.jsonc` in a text editor. Edit `expression.jsonc` and `input.jsonc` in a text editor when you want a different look or device; the comments in the templates explain each item.
+4. **Check the tables**: press "Check" and fix the tables until it reports no findings. "Response curves" shows the weights for each input without generating.
+5. **Add the menu toggles**: set the toggle names (and a submenu if the menu is full), press "Save names to the table", then "Add toggles to menu".
+6. **AFK animation** (optional): pick the clips and press "Save AFK clips to the table".
 7. **Attach to the avatar**: with your avatar selected, press "Add settings component (build-time FT)". Face tracking is generated when you enter Play Mode and when you upload. The avatar itself (its controllers, Blueprint ID and other changes) is not changed.
 
-Instead of 7, "Generate" writes the controllers to `Assets/FaceTrackingGeneratorOutput/<name>/` and makes a Prefab Variant that uses them, for checking the result without changing your avatar.
+Under "Advanced", "Generate" writes the controllers to `Assets/FaceTrackingGeneratorOutput/<name>/` and makes a Prefab Variant that uses them, for checking the result without changing your avatar.
 
 Build-time generation writes to `Assets/FaceTrackingGeneratorOutput/<name>/Build/` on every Play Mode and upload. You can add it to `.gitignore`:
 
@@ -41,7 +41,8 @@ Build-time generation writes to `Assets/FaceTrackingGeneratorOutput/<name>/Build
 `Tools/Kmnk/Face Tracking Table Editor` edits the avatar table and shows the tables on your avatar without a text editor. It opens the same `avatar.jsonc` as the generator window.
 
 - **Avatar** tab: choose the prefab, the menu and the face mesh; pick the blendshape of each part from a searchable list; check **Missing** for parts your avatar does not have; choose what happens to the avatar's own layers while FT is on. Press **Save** to write the table.
-- **Preview** tab: select your avatar in the scene, press **Start preview**, and move the sliders. The face shows the weights the tables give. The avatar is not changed; **Stop preview** puts it back.
+- **Preview** tab: select your avatar in the scene, press **Start preview**, and move the sliders. The face shows the weights the tables give; no Play Mode is needed, but parts need blendshapes first. Under each slider are the parts it moves. The avatar is not changed; **Stop preview** puts it back.
+- **Face view** (`Tools/Kmnk/Face Tracking Face View`): the face of the prefab, apart from the scene. While you move through the blendshape list, it shows the face with that blendshape at 100; select a part's row to see its blendshape; during the preview it shows the preview's face. Drag to turn the face.
 - **Help** switches the descriptions between English and Japanese, or hides them.
 
 Saving rewrites the table in its own layout, and `//` comments in it are removed. Keep a copy if you want your comments, or edit that table in a text editor only.

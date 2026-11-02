@@ -57,21 +57,95 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnSelectionChange() => Repaint();
 
+        // For TableEditorChecks.Capture: open a table without changing the saved choice.
+        internal void SetTableForCapture(string path)
+        {
+            table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
+            Reload();
+        }
+
+        // Steps in the order of the README's Use section. The buttons call the same code as before.
+        bool showCurves, showAdvanced;
+
+        void Step(string titleKey, string helpKey)
+        {
+            EditorGUILayout.Space(4);
+            var r = EditorGUILayout.GetControlRect(false, 1);
+            EditorGUI.DrawRect(r, new Color(0, 0, 0, 0.25f));
+            EditorGUILayout.LabelField(EditorText.Heading(titleKey), EditorStyles.boldLabel);
+            var help = EditorText.Help(helpKey);
+            if (help != null) EditorGUILayout.LabelField(help, HelpStyle);
+        }
+
+        static GUIStyle helpStyle;
+        static GUIStyle HelpStyle
+        {
+            get
+            {
+                if (helpStyle == null)
+                {
+                    helpStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel);
+                    helpStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+                }
+                return helpStyle;
+            }
+        }
+
         void OnGUI()
         {
             scroll = EditorGUILayout.BeginScrollView(scroll);
-            EditorGUILayout.LabelField("Avatar table", EditorStyles.boldLabel);
-            EditorGUI.BeginChangeCheck();
-            table = (DefaultAsset)EditorGUILayout.ObjectField("avatar.jsonc", table, typeof(DefaultAsset), false);
-            if (EditorGUI.EndChangeCheck()) { EditorPrefs.SetString(PrefKey, TablePath ?? ""); Reload(); }
-            if (GUILayout.Button("Reload tables")) Reload();
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUI.BeginChangeCheck();
+                table = (DefaultAsset)EditorGUILayout.ObjectField("avatar.jsonc", table, typeof(DefaultAsset), false);
+                if (EditorGUI.EndChangeCheck()) { EditorPrefs.SetString(PrefKey, TablePath ?? ""); Reload(); }
+                if (GUILayout.Button("Reload", GUILayout.Width(70))) Reload();
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Help", GUILayout.ExpandWidth(false));
+                EditorGUI.BeginChangeCheck();
+                var lang = EditorGUILayout.Popup((int)EditorText.Current, EditorText.Choices, GUILayout.Width(80));
+                if (EditorGUI.EndChangeCheck()) EditorText.Current = (EditorText.Language)lang;
+            }
             if (model != null)
-                EditorGUILayout.HelpBox($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, parts {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", MessageType.None);
+                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, parts {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
+
+            Step("gen.step1", "gen.help1");
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                newName = EditorGUILayout.TextField("Avatar name", newName);
+                if (GUILayout.Button("Create Settings/" + newName)) Do(() =>
+                {
+                    var dest = TableWriter.CreateFromTemplates(Root, newName);
+                    table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
+                    EditorPrefs.SetString(PrefKey, dest);
+                    Reload();
+                    return "Created " + dest;
+                });
+            }
 
             using (new EditorGUI.DisabledScope(model == null))
             {
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Generate and check", EditorStyles.boldLabel);
+                Step("gen.step2", "gen.help2");
+                var sel = Selection.activeGameObject;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("Selected", sel != null ? sel.name : "(select the avatar in the Hierarchy)");
+                    using (new EditorGUI.DisabledScope(sel == null))
+                        if (GUILayout.Button("Fill prefab, mesh and menu from it")) Do(() =>
+                        {
+                            var log = AvatarSetup.FillTable(TablePath, sel);
+                            Reload();
+                            return "Filled the avatar table\n" + string.Join("\n", log);
+                        });
+                }
+
+                Step("gen.step3", "gen.help3");
+                if (GUILayout.Button("Open Table Editor", GUILayout.Width(180))) TableEditorWindow.OpenTable(TablePath);
+
+                Step("gen.step4", "gen.help4");
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Check")) Do(() =>
@@ -80,53 +154,31 @@ namespace Kmnk.FaceTrackingGenerator
                         var f = StaticChecker.Check(model, fx);
                         return f.Count == 0 ? "Check: no findings" : "Check: " + f.Count + " findings\n" + string.Join("\n", f);
                     });
-                    if (GUILayout.Button("Generate")) Do(() =>
-                    {
-                        var r = Generator.Generate(model);
-                        return "Generated\n" + string.Join("\n", r.Log.Concat(r.Written.Select(w => "wrote " + w)));
-                    });
-                    if (GUILayout.Button("Add toggles to menu")) Do(() => "Menu\n" + string.Join("\n", MenuInstaller.Install(model)));
+                    showCurves = GUILayout.Toggle(showCurves, "Response curves", "Button");
                 }
+                if (showCurves && model != null) Curves();
 
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Avatar in the scene", EditorStyles.boldLabel);
-                var sel = Selection.activeGameObject;
-                EditorGUILayout.LabelField("Selected", sel != null ? sel.name : "(select the avatar in the Hierarchy)");
-                using (new EditorGUI.DisabledScope(sel == null))
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("Fill prefab, mesh and menu from it")) Do(() =>
-                    {
-                        var log = AvatarSetup.FillTable(TablePath, sel);
-                        Reload();
-                        return "Filled the avatar table\n" + string.Join("\n", log);
-                    });
-                    if (GUILayout.Button("Add settings component (build-time FT)")) Do(() =>
-                    {
-                        AvatarSetup.AddSettings(sel, TablePath);
-                        return $"Added Face Tracking Generator Settings to {sel.name}. FT is generated on Play and upload.";
-                    });
-                }
-
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Menu toggles (saved in the avatar table)", EditorStyles.boldLabel);
+                Step("gen.step5", "gen.help5");
                 if (model != null)
                 {
                     menuFace = EditorGUILayout.TextField("FT toggle name", menuFace ?? model.FaceTrackLabel);
                     menuAfk = EditorGUILayout.TextField("AFK toggle name", menuAfk ?? model.AfkPlayLabel);
                     menuSub = EditorGUILayout.TextField("Submenu (empty: none)", menuSub ?? model.SubMenu ?? "");
-                    if (GUILayout.Button("Save names to the table")) Do(() =>
+                    using (new EditorGUILayout.HorizontalScope())
                     {
-                        TableWriter.SetTopLevel(TablePath, "faceTrackLabel", TableWriter.StringJson(menuFace));
-                        TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
-                        TableWriter.SetTopLevel(TablePath, "subMenu", string.IsNullOrWhiteSpace(menuSub) ? "null" : TableWriter.StringJson(menuSub));
-                        Reload();
-                        return "Saved toggle names. Toggles already in the menu keep their names; rename them in the menu asset.";
-                    });
+                        if (GUILayout.Button("Save names to the table")) Do(() =>
+                        {
+                            TableWriter.SetTopLevel(TablePath, "faceTrackLabel", TableWriter.StringJson(menuFace));
+                            TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
+                            TableWriter.SetTopLevel(TablePath, "subMenu", string.IsNullOrWhiteSpace(menuSub) ? "null" : TableWriter.StringJson(menuSub));
+                            Reload();
+                            return "Saved toggle names. Toggles already in the menu keep their names; rename them in the menu asset.";
+                        });
+                        if (GUILayout.Button("Add toggles to menu")) Do(() => "Menu\n" + string.Join("\n", MenuInstaller.Install(model)));
+                    }
                 }
 
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("AFK clips (saved in the avatar table)", EditorStyles.boldLabel);
+                Step("gen.step6", "gen.help6");
                 for (int i = 0; i < 6; i++) afk[i] = (AnimationClip)EditorGUILayout.ObjectField(AfkLabels[i], afk[i], typeof(AnimationClip), false);
                 if (GUILayout.Button("Save AFK clips to the table")) Do(() =>
                 {
@@ -135,35 +187,38 @@ namespace Kmnk.FaceTrackingGenerator
                     return "Saved AFK clips to " + TablePath;
                 });
 
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Response curves (no generation needed)", EditorStyles.boldLabel);
-                if (model != null) Curves();
-
-                EditorGUILayout.Space();
-                EditorGUILayout.LabelField("Scenario check (Play Mode)", EditorStyles.boldLabel);
-                scenario = EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(UnityEngine.Object), false);
-                if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox("Choose a scenario .txt file.", MessageType.Warning);
-                using (new EditorGUI.DisabledScope(scenario == null || !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt") || model?.VariantPath == null || model?.DefaultMesh == null))
-                    if (GUILayout.Button("Run scenario on the generated prefab")) Do(() =>
+                Step("gen.step7", "gen.help7");
+                using (new EditorGUI.DisabledScope(sel == null))
+                    if (GUILayout.Button("Add settings component (build-time FT)")) Do(() =>
                     {
-                        var sp = AssetDatabase.GetAssetPath(scenario);
-                        var outPath = Path.ChangeExtension(sp, null) + ".last.jsonl";
-                        ScenarioRunner.RunInEditor(sp, outPath, model.VariantPath, model.DefaultMesh);
-                        return "Running " + sp + " -> " + outPath;
+                        AvatarSetup.AddSettings(sel, TablePath);
+                        return $"Added Face Tracking Generator Settings to {sel.name}. FT is generated on Play and upload.";
                     });
-            }
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("New settings from templates", EditorStyles.boldLabel);
-            newName = EditorGUILayout.TextField("Avatar name", newName);
-            if (GUILayout.Button("Create Settings/" + newName)) Do(() =>
-            {
-                var dest = TableWriter.CreateFromTemplates(Root, newName);
-                table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
-                EditorPrefs.SetString(PrefKey, dest);
-                Reload();
-                return "Created " + dest;
-            });
+                EditorGUILayout.Space(6);
+                showAdvanced = EditorGUILayout.Foldout(showAdvanced, "Advanced: Generate files, Scenario check", true);
+                if (showAdvanced)
+                {
+                    var adv = EditorText.Help("gen.helpAdvanced");
+                    if (adv != null) EditorGUILayout.LabelField(adv, HelpStyle);
+                    if (GUILayout.Button("Generate")) Do(() =>
+                    {
+                        var r = Generator.Generate(model);
+                        return "Generated\n" + string.Join("\n", r.Log.Concat(r.Written.Select(w => "wrote " + w)));
+                    });
+                    EditorGUILayout.LabelField("Scenario check (Play Mode)", EditorStyles.boldLabel);
+                    scenario = EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(UnityEngine.Object), false);
+                    if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox("Choose a scenario .txt file.", MessageType.Warning);
+                    using (new EditorGUI.DisabledScope(scenario == null || !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt") || model?.VariantPath == null || model?.DefaultMesh == null))
+                        if (GUILayout.Button("Run scenario on the generated prefab")) Do(() =>
+                        {
+                            var sp = AssetDatabase.GetAssetPath(scenario);
+                            var outPath = Path.ChangeExtension(sp, null) + ".last.jsonl";
+                            ScenarioRunner.RunInEditor(sp, outPath, model.VariantPath, model.DefaultMesh);
+                            return "Running " + sp + " -> " + outPath;
+                        });
+                }
+            }
 
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(message, MessageType.None);

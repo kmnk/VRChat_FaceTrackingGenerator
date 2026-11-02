@@ -55,3 +55,33 @@ namespace Kmnk.FaceTrackingGenerator
         });
     }
 }
+
+namespace Kmnk.FaceTrackingGenerator
+{
+    public static partial class TableEditorChecks
+    {
+        // Prints the line under each slider of the preview (InputParts) and whether the preview shows the reason
+        // that the face does not move (no blendshape of the tables is on the prefab's meshes).
+        //   [FTG] input-parts <input>: <parts>
+        //   [FTG] preview-reason: show=<true|false> on-avatar=<n> targets=<n>
+        public static void InputParts() => Cli.Run(() =>
+        {
+            var model = TableLoader.Load(CliArgs.Require("-ftTable"));
+            foreach (var kv in Kmnk.FaceTrackingGenerator.InputParts.Of(model)) Debug.Log($"[FTG] input-parts {kv.Key}: {kv.Value}");
+            var prefabPath = !string.IsNullOrEmpty(model.Prefab.Guid) ? UnityEditor.AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab.Path;
+            var prefab = string.IsNullOrEmpty(prefabPath) ? null : UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            var targets = model.Parts.Values.Select(p => p.Mesh + "/" + p.Shape).Distinct().ToList();
+            var onAvatar = 0;
+            if (prefab != null)
+                foreach (var key in targets)
+                {
+                    var (mesh, shape) = FacePreview.Split(key);
+                    var t = prefab.transform.Find(mesh);
+                    var smr = t != null ? t.GetComponent<SkinnedMeshRenderer>() : null;
+                    if (smr != null && smr.sharedMesh != null && smr.sharedMesh.GetBlendShapeIndex(shape) >= 0) onAvatar++;
+                }
+            Debug.Log($"[FTG] preview-reason: show={(onAvatar == 0).ToString().ToLower()} on-avatar={onAvatar} targets={targets.Count}");
+            return 0;
+        });
+    }
+}

@@ -42,9 +42,26 @@ namespace Kmnk.FaceTrackingGenerator
         readonly SwitchTracker switches = new SwitchTracker();
         readonly Dictionary<string, float> inputs = new Dictionary<string, float>();
         HashSet<string> notOnAvatar = new HashSet<string>();
+        bool nothingApplied;
+        string selectedPart;
 
         [MenuItem("Tools/Kmnk/Face Tracking Table Editor")]
         static void Open() => GetWindow<TableEditorWindow>("FT Table Editor");
+
+        // Opens the table editor on a table (the generator window's "Open Table Editor").
+        public static TableEditorWindow OpenTable(string avatarTablePath)
+        {
+            var w = GetWindow<TableEditorWindow>("FT Table Editor");
+            if (!string.IsNullOrEmpty(avatarTablePath) && w.TablePath != avatarTablePath && w.ConfirmDiscard())
+            {
+                w.table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(avatarTablePath);
+                EditorPrefs.SetString(TablePrefKey, avatarTablePath);
+                w.Load();
+            }
+            return w;
+        }
+
+        internal string OpenedTablePath => doc?.AvatarPath;
 
         void OnEnable()
         {
@@ -112,6 +129,28 @@ namespace Kmnk.FaceTrackingGenerator
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
             if (preview.Running) ApplyPreview();
+            else ShowSelected();
+        }
+
+        // ---- Face View
+
+        static readonly Dictionary<string, float> NoWeights = new Dictionary<string, float>();
+
+        void ShowSelected()
+        {
+            if (model == null) { FaceView.Clear(); return; }
+            var avatar = doc.Json(TableDocument.Avatar);
+            var shape = selectedPart != null ? TableEdits.PartShape(avatar, selectedPart) : null;
+            if (shape == null || TableEdits.IsMissing(avatar, selectedPart)) { FaceView.Show(model, Prefab(), NoWeights, "Neutral"); return; }
+            var mesh = TableEdits.PartMesh(avatar, selectedPart) ?? model.DefaultMesh;
+            FaceView.Show(model, Prefab(), new Dictionary<string, float> { [mesh + "/" + shape] = 100 }, $"{shape} = 100 ({selectedPart})");
+        }
+
+        void ShowCandidate(string part, string mesh, string shape)
+        {
+            if (model == null) return;
+            if (shape == null) FaceView.Show(model, Prefab(), NoWeights, $"(None) (choosing for {part})");
+            else FaceView.Show(model, Prefab(), new Dictionary<string, float> { [mesh + "/" + shape] = 100 }, $"{shape} = 100 (choosing for {part})");
         }
 
         // Records the tables for Undo, applies the edit, and rebuilds the model.
@@ -189,6 +228,11 @@ namespace Kmnk.FaceTrackingGenerator
                     if (GUILayout.Button("Reload", GUILayout.Width(70)) && ConfirmDiscard()) Load();
                 using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty()))
                     if (GUILayout.Button("Save", GUILayout.Width(70))) Save();
+                if (GUILayout.Button("Face view", GUILayout.Width(80)))
+                {
+                    FaceViewWindow.Open();
+                    if (preview.Running) ApplyPreview(); else ShowSelected();
+                }
                 if (doc != null && doc.IsDirty())
                 {
                     var old = GUI.contentColor;
@@ -227,6 +271,17 @@ namespace Kmnk.FaceTrackingGenerator
                 helpStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
             }
             EditorGUILayout.LabelField(text, helpStyle);
+        }
+
+        static GUIStyle partsStyle;
+        static void PartsLine(string text)
+        {
+            if (partsStyle == null)
+            {
+                partsStyle = new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
+                partsStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+            }
+            EditorGUILayout.LabelField(text, partsStyle);
         }
 
         static void RowBackground(int i)
@@ -403,7 +458,11 @@ namespace Kmnk.FaceTrackingGenerator
                             var p = part;
                             var search = openPickerFor == part ? openPickerSearch : "";
                             openPickerFor = null;
-                            PopupWindow.Show(r, new BlendshapePicker(shapes, shape, picked => { Edit("Set FT part", a => TableEdits.SetPart(a, p, picked)); Repaint(); }, search));
+                            var meshForPart = mesh;
+                            selectedPart = p;
+                            PopupWindow.Show(r, new BlendshapePicker(shapes, shape, picked => { Edit("Set FT part", a => TableEdits.SetPart(a, p, picked)); Repaint(); }, search,
+                                hover: name => ShowCandidate(p, meshForPart, name),
+                                closed: () => { if (!preview.Running) ShowSelected(); Repaint(); }));
                         }
                     }
                     GUI.contentColor = color;
@@ -412,6 +471,15 @@ namespace Kmnk.FaceTrackingGenerator
                     var m = GUILayout.Toggle(isMissing, new GUIContent("", EditorText.Get("tip.missing")), GUILayout.Width(missW));
                     if (EditorGUI.EndChangeCheck()) { var p = part; Edit("Set FT missing part", a => TableEdits.SetMissing(a, p, m, removedParts)); }
                 }
+                var rowRect = GUILayoutUtility.GetLastRect();
+                if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
+                {
+                    selectedPart = part;
+                    if (!preview.Running) ShowSelected();
+                    Repaint();
+                }
+                if (part == selectedPart && Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(new Rect(0, rowRect.y, rowRect.width + rowRect.x * 2, rowRect.height), new Color(0.17f, 0.36f, 0.53f, 0.35f));
                 RowBackground(i++);
             }
         }
@@ -496,7 +564,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (press != running)
                     {
                         if (press) { if (preview.Start(sceneAvatar)) ApplyPreview(); }
-                        else preview.Stop();
+                        else { preview.Stop(); ShowSelected(); }
                     }
                 }
             }
@@ -505,6 +573,7 @@ namespace Kmnk.FaceTrackingGenerator
             else if (EditorApplication.isPlayingOrWillChangePlaymode) EditorGUILayout.LabelField(EditorText.Get("msg.playMode"), EditorStyles.wordWrappedMiniLabel);
             else if (!valid2) EditorGUILayout.LabelField(EditorText.Get("msg.chooseAvatar"), EditorStyles.wordWrappedMiniLabel);
             else if (FacePreview.Busy) EditorGUILayout.LabelField(EditorText.Get("msg.animBusy"), EditorStyles.wordWrappedMiniLabel);
+            if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
             if (model == null) return;
 
             var changed = false;
@@ -520,6 +589,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             Help("help.inputs");
+            var partsOf = InputParts.Of(model);
             foreach (var input in model.Inputs.Where(x => !x.IsDerived))
             {
                 var (lo, hi) = SliderRange(input.Name);
@@ -527,6 +597,7 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUI.BeginChangeCheck();
                 v = EditorGUILayout.Slider(input.Name, v, lo, hi);
                 if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
+                if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
             }
             foreach (var input in model.Inputs.Where(x => x.IsDerived))
             {
@@ -609,7 +680,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (model == null || !preview.Running) return;
             states = states ?? switches.Update(model, inputs);
-            notOnAvatar = preview.Apply(model, CurveEval.Evaluate(model, inputs, states));
+            var weights = CurveEval.Evaluate(model, inputs, states);
+            notOnAvatar = preview.Apply(model, weights);
+            nothingApplied = FacePreview.Targets(model, weights).All(notOnAvatar.Contains);
+            FaceView.Show(model, Prefab(), weights, "Preview");
         }
 
         // ---- TableEditorChecks.Capture
@@ -648,6 +722,16 @@ namespace Kmnk.FaceTrackingGenerator
             if (set != null)
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
+            if (CliArgs.Get("-ftFaceView") == "1") FaceViewWindow.Open();
+            var select = CliArgs.Get("-ftSelectPart");
+            if (select != null) { selectedPart = select; ShowSelected(); }
+            var hoverShape = CliArgs.Get("-ftHoverShape");
+            if (hoverShape != null && doc != null && model != null)
+            {
+                var part = CliArgs.Get("-ftPickerPart") ?? selectedPart;
+                selectedPart = part;
+                ShowCandidate(part, TableEdits.PartMesh(doc.Json(TableDocument.Avatar), part) ?? model.DefaultMesh, hoverShape);
+            }
             if (st.Contains("preview") && model != null)
             {
                 var prefab = Prefab();
