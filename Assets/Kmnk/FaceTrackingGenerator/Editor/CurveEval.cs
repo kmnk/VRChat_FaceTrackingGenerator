@@ -21,6 +21,19 @@ namespace Kmnk.FaceTrackingGenerator
             return result;
         }
 
+        // The same calculation before the parts become blendshapes: face movement (part) -> value, summed over trees.
+        public static SortedDictionary<string, float> EvaluateParts(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
+        {
+            var values = new Dictionary<string, float>(inputs);
+            foreach (var d in m.Inputs.Where(i => i.IsDerived))
+                values[d.Name] = d.Average.Average(s => values.TryGetValue(s, out var v) ? v : 0);
+            var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
+            foreach (var t in m.Trees)
+                foreach (var kv in Node(m, t.Root, values, states))
+                    result[kv.Key] = (result.TryGetValue(kv.Key, out var v) ? v : 0) + kv.Value;
+            return result;
+        }
+
         // The same weights per tree: tree name -> "mesh/shape" -> weight, in the order of the trees.
         public static List<KeyValuePair<string, SortedDictionary<string, float>>> EvaluateTrees(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
         {

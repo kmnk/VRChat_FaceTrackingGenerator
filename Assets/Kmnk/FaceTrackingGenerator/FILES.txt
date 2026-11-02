@@ -20,12 +20,14 @@ Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/EditorText.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FacePreview.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FaceRenderer.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FaceViewWindow.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/Guidance.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/JsonTableWriter.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/SwitchTracker.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableDocument.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Capture.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.FaceView.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Guidance.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Preview.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorWindow.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEdits.cs
@@ -37,6 +39,8 @@ Assets/Kmnk/FaceTrackingGenerator/FILES.txt.tmp
 Assets/Kmnk/FaceTrackingGenerator/LICENSE.txt
 Assets/Kmnk/FaceTrackingGenerator/Runtime/FtGeneratorSettings.cs
 Assets/Kmnk/FaceTrackingGenerator/Templates/avatar.template.jsonc
+Assets/Kmnk/FaceTrackingGenerator/Templates/Devices/meta-quest-pro.jsonc
+Assets/Kmnk/FaceTrackingGenerator/Templates/Devices/vive-focus-vision.jsonc
 Assets/Kmnk/FaceTrackingGenerator/Templates/expression.template.jsonc
 Assets/Kmnk/FaceTrackingGenerator/Templates/input.template.jsonc
 Assets/Kmnk/FaceTrackingGenerator/VERSION

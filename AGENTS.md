@@ -104,7 +104,7 @@ The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions.
 
 ### Table editor checks (`Kmnk.FaceTrackingGenerator.TableEditorChecks`)
 
-The table editor window calls the same code as these methods. Exit 0 on success, 1 when a check fails, 2 on errors.
+The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Settings Editor`) calls the same code as these methods. Exit 0 on success, 1 when a check fails, 2 on errors.
 
 | Method | What it does | Success |
 | --- | --- | --- |
@@ -112,9 +112,10 @@ The table editor window calls the same code as these methods. Exit 0 on success,
 | `TableEditorChecks.Preview` | Shows `-ftQueries` (the `Cli.Curve` form) with the preview on the table's prefab in a new scene; checks values, pixels against weights set directly, that the head does not move, and that stopping restores the face. Run with `UNITY_BATCH_GRAPHICS=1`. Images and `weights.jsonl` go to `-ftOut` | `[FTG] table-editor preview: queries=<n> failed=0` |
 | `TableEditorChecks.Switches` | Prints the switch states of the preview's Auto for `-ftSteps <jsonl>` | `[FTG] table-editor switches ...` lines |
 | `TableEditorChecks.FaceView` | Draws the face of the table's prefab as Face View does: all parts at 0, and each of `-ftShapes "mesh/shape,..."` at 100; checks the weights on the preview copy, that each face differs from the neutral one, that drawing again gives the same image (under 0.1% of pixels differ, by at most 8/255), and that the prefab file and the open scene do not change. Run with `UNITY_BATCH_GRAPHICS=1` | `[FTG] table-editor face-view: shapes=<n> failed=0 ...` |
+| `TableEditorChecks.Guidance` | Prints what moves each face movement, the "Try expressions" presets with the overlap warnings for each, and per device (`Templates/Devices/*.jsonc`) how many settings inputs it sends. `-ftSet "Input=value,..."` adds the warnings for those values; `-ftHelp en` prints English | `[FTG] usage ...`, `[FTG] overlap ...`, `[FTG] device ...` |
 | `TableEditorChecks.InputParts` | Prints the parts under each slider of the preview and whether the preview shows the reason that the face does not move | `[FTG] input-parts ...`, `[FTG] preview-reason: show=...` |
 | `TableEditorChecks.Picker` | Prints the blendshape list for `-ftPart` and `-ftSearch` | `[FTG] picker: ...` |
-| `TableEditorChecks.Capture` | Opens the window and writes it to a PNG (`-ftOut`). Run with `scripts/unity-gui.sh`, not batchmode. Arguments: `-ftTable`, `-ftTab avatar\|preview`, `-ftHelp en\|ja\|off`, `-ftState dirty\|picker\|preview\|notable`, `-ftSet "Input=value,..."`, `-ftScroll <y>`, `-ftSize 560x1000`, `-ftWindow generator`, `-ftFaceView 1` (also writes `<out>.faceview.png`), `-ftSelectPart <part>`, `-ftPickerPart <part> -ftHoverShape <shape>`, `-ftOpenTableEditor 1` (with `-ftWindow generator`) | `[FTG] capture: wrote <png>` |
+| `TableEditorChecks.Capture` | Opens the window and writes it to a PNG (`-ftOut`). Run with `scripts/unity-gui.sh`, not batchmode. Arguments: `-ftTable`, `-ftTab avatar\|preview`, `-ftHelp en\|ja\|off`, `-ftState dirty\|picker\|preview\|notable`, `-ftSet "Input=value,..."`, `-ftScroll <y>`, `-ftSize 560x1000`, `-ftWindow generator`, `-ftFaceView 1` (also writes `<out>.faceview.png`), `-ftSelectPart <part>`, `-ftPickerPart <part> -ftHoverShape <shape>`, `-ftOpenTableEditor 1` (with `-ftWindow generator`), `-ftDevice <id>`, `-ftShowSwitches 1` | `[FTG] capture: wrote <png>` |
 
 `scripts/test-table-save.sh <project> <avatar.jsonc> <work dir> [<edits.jsonl>]` copies a set of tables to `<work dir>` and checks that saving them unchanged keeps the `Cli.Load` output and that a second save changes no byte. Use a work dir outside the project: Unity deletes the project's `Temp/` when it opens.
 

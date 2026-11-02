@@ -51,33 +51,33 @@ namespace Kmnk.FaceTrackingGenerator
                 "2 つの値を組み合わせる動き（口の形など）は近似で、実際と少し違うことがあります。\nなめらかにする処理、話している間の口、アバターに元からあるアニメーションは含みません。"),
             ["msg.previewing"] = ("Previewing. The avatar is not changed; stopping restores it.",
                 "プレビュー中です。アバターは書き換えません。止めると元に戻ります。"),
-            ["msg.noTable"] = ("Choose avatar.jsonc.", "avatar.jsonc を選んでください。"),
+            ["msg.noTable"] = ("Choose the settings file.", "設定ファイルを選んでください。"),
             ["msg.chooseAvatar"] = ("Choose an avatar in the scene.", "シーンのアバターを選んでください。"),
             ["msg.animBusy"] = ("Close the Animation window preview first.", "Animation ウィンドウのプレビューを止めてください。"),
             ["msg.playMode"] = ("The preview does not run in Play Mode.", "Play Mode の間はプレビューできません。"),
             ["msg.noController"] = ("No controller", "controller がありません"),
             ["msg.noPrefab"] = ("The prefab is not found. Choose it above.", "prefab が見つかりません。上で選んでください。"),
             ["msg.notOnAvatar"] = ("(not on avatar)", "(not on avatar)"),
-            ["dialog.discard"] = ("The tables have unsaved changes. Discard them?", "表に保存していない変更があります。破棄しますか？"),
-            ["dialog.save"] = ("The tables have unsaved changes. Save them?", "表に保存していない変更があります。保存しますか？"),
-            ["help.parts"] = ("For each face movement, choose the blendshape to use. Part names are \"region.movement\": mouth.open opens the mouth.\nMove up and down in the list to see the face with that shape at 100 in Face view. Select a row to see the face with its shape.\nNot set: nothing is chosen yet. not in mesh: the avatar has no shape with that name; choose again.", "顔の動きごとに、使うシェイプキーを選びます。部品名は「部位.動き」で、mouth.open は口を開ける動きです。\n候補の一覧で上下に動かすと、その形を 100 にした顔が Face view に映ります。行を選ぶと、割り当てた形の顔が映ります。\nNot set: まだ選んでいません。not in mesh: アバターに無い名前です。選び直してください。"),
-            ["help.layers"] = ("Choose what happens to the avatar's own animations (hand gesture faces, blinking, ...) while FT is on.\nStop while FT: its face does not show while FT is on. Mute while FT: it is turned off while FT is on. Remove: it is removed.\nIf you are not sure, leave them as they are.", "アバターに元からあるアニメーション（手のジェスチャーの表情、まばたきなど）を、FT の間どうするかを選びます。\nStop while FT: FT の間は表情を出さない。Mute while FT: FT の間は丸ごと止める。Remove: 消す。\n分からなければ、変えなくて構いません。"),
-            ["help.inputs"] = ("Values your face tracking device sends. Without Play, moving them changes the face of the avatar in the scene and in Face view.\nUnder each slider are the parts it moves.", "フェイストラッキングの機器から届く値です。Play しなくても、動かすとシーンのアバターと Face view の顔が変わります。\n各スライダーの下に、そのスライダーで動く部品を出します。"),
-            ["help.switches"] = ("Expressions that switch by value. Auto is usually fine. Pick a name to hold that expression and look at it.", "値で切り替わる表情です。ふつうは Auto のままで構いません。名前を選ぶと、その表情に固定して見られます。"),
-            ["help.weights"] = ("Blendshapes moving now and how much. Red rows over 100 can break the shape because shapes add up too much. Lower the values of the trees in From, or check the parts' blendshapes.", "いま動いているシェイプキーと量です。100 を超える赤い行は、形が重なりすぎて崩れることがあります。From の木の値を下げるか、部品の割り当てを見直してください。"),
-            ["msg.noApplied"] = ("The assigned blendshapes are not on the avatar, so the face does not move.\nChoose blendshapes for the parts in the Avatar tab.", "割り当てたシェイプキーがアバターに無いので、顔は動きません。\nAvatar のタブで、部品にシェイプキーを選んでください。"),
+            ["dialog.discard"] = ("The settings have unsaved changes. Discard them?", "設定に保存していない変更があります。破棄しますか？"),
+            ["dialog.save"] = ("The settings have unsaved changes. Save them?", "設定に保存していない変更があります。保存しますか？"),
+            ["help.parts"] = ("For each face movement, choose the blendshape to use. Names are \"region.movement\": mouth.open opens the mouth.\nMove up and down in the list to see the face with that shape at 100 in Face view. Select a row to see the face with its shape.\nNot set: nothing is chosen yet. not in mesh: the avatar has no shape with that name; choose again.", "顔の動きごとに、使うシェイプキーを選びます。名前は「部位.動き」で、mouth.open は口を開ける動きです。\n候補の一覧で上下に動かすと、その形を 100 にした顔が Face view に映ります。行を選ぶと、選んだ形の顔が映ります。\nNot set: まだ選んでいません。not in mesh: アバターに無い名前です。選び直してください。"),
+            ["help.layers"] = ("While FT is on, the avatar's own face animations do not get in the way of the FT face.\nStop while FT: it does not start a new expression (a peace sign does not switch to the gesture face). Animations that always run do not stop. For hand gesture layers.\nMute while FT: it stops entirely, including animations that move the face on their own (such as automatic blinking). For blinking and eye layers; FX only.\nIf you are not sure, check neither.", "FT を使っている間、アバターに元からある表情のアニメーションが、FT の顔の邪魔をしないようにします。\nStop while FT: 新しく表情を出し始めないようにします（手でピースをしても、ジェスチャーの表情に切り替わりません）。普段から流れているものは止まりません。手のジェスチャーのレイヤー向けです。\nMute while FT: 丸ごと止めます。何もしなくても顔を動かし続けるもの（自動のまばたきなど）も止まります。まばたきや目の動きのレイヤー向けで、FX でだけ選べます。\nどれか分からないものは、どちらも付けなくて構いません。"),
+            ["help.inputs"] = ("Values the device chosen in Device sends. Without Play, moving them changes the face.\nUnder each slider are the face movements it moves.", "Device で選んだ機器が送る値です。Play しなくても、動かすと顔が変わります。\n各スライダーの下に、そのスライダーで動く顔の動きを出します。"),
+            ["help.switches"] = ("Switches such as a different eye closing while smiling. Auto is usually fine. Pick a name to hold that expression whatever the sliders are.", "笑っているかどうかで目の閉じ方が変わる、といった切り替えです。普段は Auto のままで構いません。名前を選ぶと、スライダーに関係なく、その表情に固定して確かめられます。"),
+            ["help.weights"] = ("Blendshapes moving now and how much. Source is the value that moves it. Red rows over 100 can break the shape because shapes add up too much.", "いま動いているシェイプキーと量です。Source は、どの値から動いているかです。100 を超える赤い行は、形が重なりすぎて崩れることがあります。"),
+            ["msg.noApplied"] = ("The chosen blendshapes are not on the avatar, so the face does not move.\nChoose blendshapes for the face movements in the Avatar tab.", "選んだシェイプキーがアバターに無いので、顔は動きません。\nAvatar のタブで、顔の動きにシェイプキーを選んでください。"),
             ["picker.keys"] = ("↑↓: show in Face view  Enter: choose", "↑↓: Face view に映す  Enter: 決める"),
             ["faceview.note"] = ("The avatar and the scene are not changed.", "アバターもシーンも書き換えません。"),
             ["faceview.noPrefab"] = ("Choose the prefab in the Avatar tab.", "Avatar のタブで prefab を選んでください。"),
-            ["faceview.noTable"] = ("Choose avatar.jsonc in the table editor.", "表の編集ツールで avatar.jsonc を選んでください。"),
-            ["gen.step1"] = ("1. Create the tables", "1. 表を作る"),
-            ["gen.help1"] = ("Type the avatar's name and press the button to make the three tables in Settings/<name>/ from the templates. Skip this when you have the tables.", "アバターの名前を入れて押すと、テンプレートから 3 つの表を Settings/<名前>/ に作ります。表がもうあれば、この手順は要りません。"),
-            ["gen.step2"] = ("2. Point the tables at your avatar", "2. 表をアバターに結ぶ"),
-            ["gen.help2"] = ("Select your avatar in the Hierarchy and press the button to write its prefab, face mesh and menu to the table.", "Hierarchy でアバターを選んで押すと、表に prefab・顔のメッシュ・メニューを書きます。"),
+            ["faceview.noTable"] = ("Choose the settings file in the settings editor.", "設定エディタで設定ファイルを選んでください。"),
+            ["gen.step1"] = ("1. Create the FT settings", "1. FT の設定を作る"),
+            ["gen.help1"] = ("Type the avatar's name and press the button to make the FT settings in Settings/<name>/ from the templates. Skip this when you have them.", "アバターの名前を入れて押すと、テンプレートから FT の設定を Settings/<名前>/ に作ります。設定がもうあれば、この手順は要りません。"),
+            ["gen.step2"] = ("2. Choose your avatar", "2. アバターを指定する"),
+            ["gen.help2"] = ("Select your avatar in the Hierarchy and press the button to write its prefab, face mesh and menu to the settings.", "Hierarchy でアバターを選んで押すと、設定に prefab・顔のメッシュ・メニューを書きます。"),
             ["gen.step3"] = ("3. Assign blendshapes to the face movements", "3. 顔の動きにシェイプキーを割り当てる"),
-            ["gen.help3"] = ("In the table editor, choose the blendshape for each face movement and check the face.", "表の編集ツールで、顔の動きごとに使うシェイプキーを選び、顔を見て確かめます。"),
-            ["gen.step4"] = ("4. Check the tables", "4. 表を調べる"),
-            ["gen.help4"] = ("Look for mistakes and gaps in the tables. Fix them until there are no findings.", "表の誤りや抜けを調べます。指摘が無くなるまで直します。"),
+            ["gen.help3"] = ("In the settings editor, choose the blendshape for each face movement and check the face.", "設定エディタで、顔の動きごとに使うシェイプキーを選び、顔を見て確かめます。"),
+            ["gen.step4"] = ("4. Check the settings", "4. 設定を確かめる"),
+            ["gen.help4"] = ("Look for mistakes and gaps in the settings. Fix them until there are no findings.", "設定の誤りや抜けを調べます。指摘が無くなるまで直します。"),
             ["gen.step5"] = ("5. Add the menu toggles", "5. メニューにトグルを足す"),
             ["gen.help5"] = ("Add the FT on/off toggle and the AFK toggle to the avatar's menu. Type a submenu name when the menu is full.", "FT のオン・オフと AFK のトグルを、アバターのメニューに足します。メニューに空きが無ければサブメニューの名前を入れます。"),
             ["gen.step6"] = ("6. AFK animation (optional)", "6. AFK のアニメーション（任意）"),
@@ -85,10 +85,17 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.step7"] = ("7. Attach to the avatar", "7. アバターに付ける"),
             ["gen.help7"] = ("Select your avatar in the Hierarchy and press the button to add the settings component. FT is made on Play and upload; the avatar itself is not changed.", "Hierarchy でアバターを選んで押すと、設定のコンポーネントを付けます。Play とアップロードのときに FT が作られ、アバター自体は書き換えません。"),
             ["gen.helpAdvanced"] = ("Generate writes controllers with FT and a Prefab Variant to files for checking. Scenario check plays a scenario file in Play Mode and records it.", "Generate は、FT を付けた controller と Prefab Variant をファイルに書き出して確かめるためのものです。Scenario check は、場面のファイルを Play Mode で流して記録します。"),
-            ["tip.table"] = ("The avatar table. It names the input and expression tables.", "アバターの表。入力の表と表情の表を指します。"),
+            ["help.presets"] = ("Try expressions that break easily. A button sets the sliders to its values.", "崩れやすい表情をボタンで試せます。押すとスライダーがその値になります。"),
+            ["switches.title"] = ("Switching expressions", "値で切り替わる表情"),
+            ["switches.auto"] = ("Auto (now: {0})", "Auto（今: {0}）"),
+            ["device.notSent"] = (" (this device does not send it)", "（この機器は送らない）"),
+            ["device.unused"] = ("Values no expression uses yet ({0})", "まだ使っている表情が無い値 ({0})"),
+            ["overlap.again"] = ("Choose again: {0}", "{0} を選び直す"),
+            ["overlap.notUse"] = ("Do not use {0}", "{0} を使わない"),
+            ["tip.table"] = ("The settings file of the avatar (avatar.jsonc). It names the input and expression settings files.", "アバターの設定ファイル（avatar.jsonc）。入力と表情の設定ファイルを指します。"),
             ["tip.prefab"] = ("The avatar prefab. Its Avatar Descriptor gives the controllers.", "アバターの prefab。controller は Avatar Descriptor から取ります。"),
             ["tip.menu"] = ("The menu that gets the FT toggle and the AFK flag.", "FT のトグルと AFK のフラグを置くメニュー。"),
-            ["tip.mesh"] = ("The face mesh. Parts without their own mesh use it.", "顔のメッシュ。メッシュを指定していない部品はこれを使います。"),
+            ["tip.mesh"] = ("The face mesh. Face movements without their own mesh use it.", "顔のメッシュ。メッシュを指定していない顔の動きはこれを使います。"),
             ["tip.missing"] = ("The avatar has no shape for this movement.", "アバターにこの動きに合う形がありません。"),
             ["tip.stopAutoEyes"] = ("Turn off VRChat's automatic blinking and eye movement while FT is on.", "FT がオンの間、VRChat の自動のまばたきと目線を止めます。"),
         };
@@ -108,6 +115,39 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (!Texts.TryGetValue(key, out var t)) return key;
             return Current == Language.Japanese ? t.ja : t.en;
+        }
+
+        // Short descriptions of input names for Source ("まぶた（EyeLidLeft）"). Null when there is none.
+        public static string InputDescription(string input)
+        {
+            (string en, string ja)? d =
+                input.StartsWith("EyeLid") ? ("eyelid", "まぶた") :
+                input == "SmileFrown" || input == "SmileSad" ? ("smiling mouth", "笑った口") :
+                input == "JawOpen" ? ("open jaw", "口を開ける") :
+                input == "MouthOpen" ? ("mouth open", "口の開き") :
+                input == "LipPucker" ? ("pucker", "口をすぼめる") :
+                input.StartsWith("MouthCornerPull") ? ("mouth corner", "口角") :
+                input.StartsWith("CheekPuffSuck") ? ("cheek", "頬") :
+                input.StartsWith("Tongue") ? ("tongue", "舌") :
+                (input.StartsWith("Eye") && (input.EndsWith("X") || input.EndsWith("Y"))) ? ("gaze", "目線") :
+                ((string, string)?)null;
+            if (d == null) return null;
+            return Current == Language.Japanese ? d.Value.ja : d.Value.en;
+        }
+
+        // Names of regions (the part of a face movement's name before the dot).
+        public static string Region(string region)
+        {
+            var ja = Current == Language.Japanese;
+            switch (region)
+            {
+                case "eye": return ja ? "目" : "eye";
+                case "mouth": return ja ? "口" : "mouth";
+                case "brow": return ja ? "眉" : "brow";
+                case "tongue": return ja ? "舌" : "tongue";
+                case "cheek": return ja ? "頬" : "cheek";
+                default: return region;
+            }
         }
 
         public static GUIContent Label(string label, string tipKey) => new GUIContent(label, Get(tipKey));

@@ -13,7 +13,7 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Tools/Kmnk/Face Tracking Table Editor: edits the avatar table and shows the tables' weights on an avatar in
+    // Tools/Kmnk/Face Tracking Settings Editor (the settings editor): edits the avatar table and shows the tables' weights on an avatar in
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
     public sealed class TableEditorWindow : EditorWindow
     {
@@ -44,14 +44,18 @@ namespace Kmnk.FaceTrackingGenerator
         HashSet<string> notOnAvatar = new HashSet<string>();
         bool nothingApplied;
         string selectedPart;
+        bool showUnusedInputs, showSwitches;
+        readonly Dictionary<string, float> unusedInputs = new Dictionary<string, float>();
+        const string DevicePrefKey = "Kmnk.FaceTrackingGenerator.PreviewDevice";
+        string captureDevice;  // set by TableEditorChecks.Capture instead of the saved choice
 
-        [MenuItem("Tools/Kmnk/Face Tracking Table Editor")]
-        static void Open() => GetWindow<TableEditorWindow>("FT Table Editor");
+        [MenuItem("Tools/Kmnk/Face Tracking Settings Editor")]
+        static void Open() => GetWindow<TableEditorWindow>("FT Settings Editor");
 
-        // Opens the table editor on a table (the generator window's "Open Table Editor").
+        // Opens the settings editor on a table (the generator window's "Open Settings Editor").
         public static TableEditorWindow OpenTable(string avatarTablePath)
         {
-            var w = GetWindow<TableEditorWindow>("FT Table Editor");
+            var w = GetWindow<TableEditorWindow>("FT Settings Editor");
             if (!string.IsNullOrEmpty(avatarTablePath) && w.TablePath != avatarTablePath && w.ConfirmDiscard())
             {
                 w.table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(avatarTablePath);
@@ -65,7 +69,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnEnable()
         {
-            titleContent = new GUIContent("FT Table Editor");
+            titleContent = new GUIContent("FT Settings Editor");
             state = CreateInstance<TableEditState>();
             state.hideFlags = HideFlags.HideAndDontSave;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -192,7 +196,7 @@ namespace Kmnk.FaceTrackingGenerator
             UpdateDirty();
         }
 
-        bool ConfirmDiscard() => doc == null || !doc.IsDirty() || EditorUtility.DisplayDialog("FT Table Editor", EditorText.Get("dialog.discard"), "Discard", "Cancel");
+        bool ConfirmDiscard() => doc == null || !doc.IsDirty() || EditorUtility.DisplayDialog("FT Settings Editor", EditorText.Get("dialog.discard"), "Discard", "Cancel");
 
         // ---- drawing
 
@@ -215,7 +219,7 @@ namespace Kmnk.FaceTrackingGenerator
         void DrawTop()
         {
             EditorGUI.BeginChangeCheck();
-            var picked = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("avatar.jsonc", "tip.table"), table, typeof(DefaultAsset), false);
+            var picked = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("Settings file", "tip.table"), table, typeof(DefaultAsset), false);
             if (EditorGUI.EndChangeCheck() && picked != table && ConfirmDiscard())
             {
                 table = picked;
@@ -410,18 +414,19 @@ namespace Kmnk.FaceTrackingGenerator
                 else if (TableEdits.PartShape(avatar, part) != null) mapped++;
                 else notSet++;
             }
-            Heading("Parts", $"{mapped} mapped · {missing} missing · {notSet} not set");
+            Heading("Face movements", $"{mapped} set · {missing} missing · {notSet} not set");
             Help("help.parts");
             partFilter = EditorGUILayout.TextField(partFilter, EditorStyles.toolbarSearchField);
 
             const float partW = 150, missW = 60;
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                GUILayout.Label("Part", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
+                GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
             }
             var shapeCache = new Dictionary<string, List<string>>();
+            var partUsage = model != null ? PartUsage.Of(model) : null;
             var i = 0;
             foreach (var (part, used) in rows)
             {
@@ -480,7 +485,15 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 if (part == selectedPart && Event.current.type == EventType.Repaint)
                     EditorGUI.DrawRect(new Rect(0, rowRect.y, rowRect.width + rowRect.x * 2, rowRect.height), new Color(0.17f, 0.36f, 0.53f, 0.35f));
-                RowBackground(i++);
+                RowBackground(i);
+                // What moves it, on the full width under the row.
+                var how = partUsage != null && partUsage.TryGetValue(part, out var pu) ? PartUsage.Text(pu) : null;
+                if (how != null)
+                {
+                    PartsLine("    " + how);
+                    RowBackground(i);
+                }
+                i++;
             }
         }
 
@@ -573,14 +586,78 @@ namespace Kmnk.FaceTrackingGenerator
             else if (EditorApplication.isPlayingOrWillChangePlaymode) EditorGUILayout.LabelField(EditorText.Get("msg.playMode"), EditorStyles.wordWrappedMiniLabel);
             else if (!valid2) EditorGUILayout.LabelField(EditorText.Get("msg.chooseAvatar"), EditorStyles.wordWrappedMiniLabel);
             else if (FacePreview.Busy) EditorGUILayout.LabelField(EditorText.Get("msg.animBusy"), EditorStyles.wordWrappedMiniLabel);
-            if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
             if (model == null) return;
 
             var changed = false;
+            var usage = PartUsage.Of(model);
+
+            // Try expressions
             EditorGUILayout.Space(6);
+            EditorGUILayout.LabelField("Try expressions", EditorStyles.boldLabel);
+            Help("help.presets");
+            var presets = Presets.For(model);
+            var width = position.width - 30;
+            var rowWidth = 0f;
+            EditorGUILayout.BeginHorizontal();
+            foreach (var (preset, values) in presets)
+            {
+                var content = new GUIContent(preset.Label);
+                var w = EditorStyles.miniButton.CalcSize(content).x + 8;
+                if (rowWidth + w > width && rowWidth > 0) { EditorGUILayout.EndHorizontal(); EditorGUILayout.BeginHorizontal(); rowWidth = 0; }
+                rowWidth += w + 4;
+                if (GUILayout.Button(content, EditorStyles.miniButton, GUILayout.Width(w)))
+                {
+                    inputs.Clear();
+                    foreach (var kv in values) inputs[kv.Key] = kv.Value;
+                    switches.Reset();
+                    changed = true;
+                }
+            }
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
+            var states = switches.Update(model, inputs);
+
+            // Overlaps of face movements
+            foreach (var o in Overlaps.Find(CurveEval.EvaluateParts(model, inputs, states)))
+            {
+                EditorGUILayout.HelpBox(Overlaps.Message(o, usage), MessageType.Warning);
+                foreach (var (part, _) in o.Parts)
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(20);
+                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.again"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                        {
+                            tab = 0;
+                            selectedPart = part;
+                            openPickerFor = part;
+                            openPickerSearch = "";
+                            ShowSelected();
+                        }
+                        if (GUILayout.Button(string.Format(EditorText.Get("overlap.notUse"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                        {
+                            var p = part;
+                            Edit("Do not use FT movement", a => TableEdits.SetMissing(a, p, true, removedParts));
+                            changed = true;
+                        }
+                    }
+            }
+            if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
+
+            // Inputs, by device
+            EditorGUILayout.Space(6);
+            var devices = Devices.Load();
+            var deviceNames = new List<string> { "Settings" };
+            deviceNames.AddRange(devices.Select(d => d.Name));
+            var deviceIndex = Math.Max(0, devices.FindIndex(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, ""))) + 1);
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Inputs", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Inputs", EditorStyles.boldLabel, GUILayout.Width(60));
+                GUILayout.FlexibleSpace();
+                GUILayout.Label("Device", GUILayout.ExpandWidth(false));
+                EditorGUI.BeginChangeCheck();
+                deviceIndex = EditorGUILayout.Popup(deviceIndex, deviceNames.ToArray(), GUILayout.Width(150));
+                if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); }
                 if (GUILayout.Button("Reset", GUILayout.Width(60)))
                 {
                     inputs.Clear();
@@ -589,14 +666,19 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             Help("help.inputs");
+            var device = deviceIndex == 0 ? null : devices[deviceIndex - 1];
             var partsOf = InputParts.Of(model);
             foreach (var input in model.Inputs.Where(x => !x.IsDerived))
             {
                 var (lo, hi) = SliderRange(input.Name);
                 var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
-                EditorGUI.BeginChangeCheck();
-                v = EditorGUILayout.Slider(input.Name, v, lo, hi);
-                if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
+                var sent = device == null || device.Has(input.Key);
+                using (new EditorGUI.DisabledScope(!sent))
+                {
+                    EditorGUI.BeginChangeCheck();
+                    v = EditorGUILayout.Slider(sent ? input.Name : input.Name + EditorText.Get("device.notSent"), v, lo, hi);
+                    if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
+                }
                 if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
             }
             foreach (var input in model.Inputs.Where(x => x.IsDerived))
@@ -605,30 +687,23 @@ namespace Kmnk.FaceTrackingGenerator
                 var (lo, hi) = SliderRange(input.Name);
                 using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(input.Name + " (average)", v, lo, hi);
             }
-
-            var states = switches.Update(model, inputs);
-            if (model.Switches.Count > 0)
+            if (device != null)
             {
-                EditorGUILayout.Space(6);
-                EditorGUILayout.LabelField("Switches", EditorStyles.boldLabel);
-                Help("help.switches");
-                foreach (var sw in model.Switches)
-                {
-                    var options = new List<string> { $"Auto ({switches.Current(sw.Name) ?? sw.States[0]})" };
-                    options.AddRange(sw.States);
-                    var index = switches.Pinned.TryGetValue(sw.Name, out var pin) ? sw.States.IndexOf(pin) + 1 : 0;
-                    EditorGUI.BeginChangeCheck();
-                    index = EditorGUILayout.Popup(sw.Name, index, options.ToArray());
-                    if (EditorGUI.EndChangeCheck())
+                var unused = device.Keys.Where(k => model.Inputs.All(i => i.Key != k.key)).ToList();
+                showUnusedInputs = EditorGUILayout.Foldout(showUnusedInputs, string.Format(EditorText.Get("device.unused"), unused.Count), true);
+                if (showUnusedInputs)
+                    foreach (var k in unused)
                     {
-                        if (index == 0) switches.Pinned.Remove(sw.Name); else switches.Pinned[sw.Name] = sw.States[index - 1];
-                        changed = true;
+                        var name = Devices.NameOf(k.key);
+                        var v = unusedInputs.TryGetValue(name, out var x) ? x : 0f;
+                        unusedInputs[name] = (float)Math.Round(EditorGUILayout.Slider(name, v, k.min, k.max), 2);
                     }
-                }
-                if (changed) states = switches.Update(model, inputs);
             }
+
+            if (changed) states = switches.Update(model, inputs);
             if (changed && preview.Running) ApplyPreview(states);
 
+            // Weights
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("Weights", EditorStyles.boldLabel);
             Help("help.weights");
@@ -636,7 +711,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label("Amount", EditorStyles.miniBoldLabel, GUILayout.Width(60));
-                GUILayout.Label("From", EditorStyles.miniBoldLabel, GUILayout.Width(180));
+                GUILayout.Label("Source", EditorStyles.miniBoldLabel, GUILayout.Width(200));
             }
             var i = 0;
             foreach (var row in PreviewWeights.Rows(model, inputs, states))
@@ -644,6 +719,9 @@ namespace Kmnk.FaceTrackingGenerator
                 var (mesh, shape) = FacePreview.Split(row.Key);
                 var name = mesh == model.DefaultMesh ? shape : row.Key;
                 if (notOnAvatar.Contains(row.Key)) name += " " + EditorText.Get("msg.notOnAvatar");
+                var sourceInputs = model.Parts.Where(p => p.Value.Mesh + "/" + p.Value.Shape == row.Key)
+                    .SelectMany(p => usage.TryGetValue(p.Key, out var u) ? u.Inputs : new List<string>()).Distinct().ToList();
+                var source = sourceInputs.Count > 0 ? string.Join(", ", sourceInputs.Select(PartUsage.Source)) : string.Join(", ", row.From);
                 var old = GUI.contentColor;
                 if (notOnAvatar.Contains(row.Key)) GUI.contentColor = Color.gray;
                 else if (row.Amount > 100) GUI.contentColor = new Color(1f, 0.42f, 0.42f);
@@ -651,10 +729,41 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     GUILayout.Label(name, GUILayout.ExpandWidth(true));
                     GUILayout.Label(Math.Round(row.Amount).ToString(), GUILayout.Width(60));
-                    GUILayout.Label(string.Join(", ", row.From), GUILayout.Width(180));
+                    GUILayout.Label(source, GUILayout.Width(200));
                 }
                 GUI.contentColor = old;
                 RowBackground(i++);
+            }
+
+            // Switching expressions (folded)
+            if (model.Switches.Count > 0)
+            {
+                EditorGUILayout.Space(6);
+                showSwitches = EditorGUILayout.Foldout(showSwitches, EditorText.Heading("switches.title"), true, EditorStyles.foldoutHeader);
+                if (showSwitches)
+                {
+                    Help("help.switches");
+                    var switchChanged = false;
+                    foreach (var sw in model.Switches)
+                    {
+                        var options = new List<string> { string.Format(EditorText.Get("switches.auto"), switches.Current(sw.Name) ?? sw.States[0]) };
+                        options.AddRange(sw.States);
+                        var index = switches.Pinned.TryGetValue(sw.Name, out var pin) ? sw.States.IndexOf(pin) + 1 : 0;
+                        EditorGUI.BeginChangeCheck();
+                        index = EditorGUILayout.Popup(sw.Name, index, options.ToArray());
+                        if (EditorGUI.EndChangeCheck())
+                        {
+                            if (index == 0) switches.Pinned.Remove(sw.Name); else switches.Pinned[sw.Name] = sw.States[index - 1];
+                            switchChanged = true;
+                        }
+                    }
+                    if (switchChanged)
+                    {
+                        states = switches.Update(model, inputs);
+                        if (preview.Running) ApplyPreview(states);
+                        Repaint();
+                    }
+                }
             }
             EditorGUILayout.Space(6);
             EditorGUILayout.HelpBox(EditorText.Get("note.preview"), MessageType.Info);
@@ -722,6 +831,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (set != null)
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
+            captureDevice = CliArgs.Get("-ftDevice");
+            if (CliArgs.Get("-ftShowSwitches") == "1") showSwitches = true;
             if (CliArgs.Get("-ftFaceView") == "1") FaceViewWindow.Open();
             var select = CliArgs.Get("-ftSelectPart");
             if (select != null) { selectedPart = select; ShowSelected(); }

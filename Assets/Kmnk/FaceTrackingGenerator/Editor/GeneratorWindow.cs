@@ -97,7 +97,7 @@ namespace Kmnk.FaceTrackingGenerator
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUI.BeginChangeCheck();
-                table = (DefaultAsset)EditorGUILayout.ObjectField("avatar.jsonc", table, typeof(DefaultAsset), false);
+                table = (DefaultAsset)EditorGUILayout.ObjectField("Settings file", table, typeof(DefaultAsset), false);
                 if (EditorGUI.EndChangeCheck()) { EditorPrefs.SetString(PrefKey, TablePath ?? ""); Reload(); }
                 if (GUILayout.Button("Reload", GUILayout.Width(70))) Reload();
             }
@@ -110,7 +110,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (EditorGUI.EndChangeCheck()) EditorText.Current = (EditorText.Language)lang;
             }
             if (model != null)
-                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, parts {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, movements {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
 
             Step("gen.step1", "gen.help1");
             using (new EditorGUILayout.HorizontalScope())
@@ -143,7 +143,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
 
                 Step("gen.step3", "gen.help3");
-                if (GUILayout.Button("Open Table Editor", GUILayout.Width(180))) TableEditorWindow.OpenTable(TablePath);
+                if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) TableEditorWindow.OpenTable(TablePath);
 
                 Step("gen.step4", "gen.help4");
                 using (new EditorGUILayout.HorizontalScope())
@@ -166,7 +166,7 @@ namespace Kmnk.FaceTrackingGenerator
                     menuSub = EditorGUILayout.TextField("Submenu (empty: none)", menuSub ?? model.SubMenu ?? "");
                     using (new EditorGUILayout.HorizontalScope())
                     {
-                        if (GUILayout.Button("Save names to the table")) Do(() =>
+                        if (GUILayout.Button("Save names")) Do(() =>
                         {
                             TableWriter.SetTopLevel(TablePath, "faceTrackLabel", TableWriter.StringJson(menuFace));
                             TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
@@ -180,7 +180,7 @@ namespace Kmnk.FaceTrackingGenerator
 
                 Step("gen.step6", "gen.help6");
                 for (int i = 0; i < 6; i++) afk[i] = (AnimationClip)EditorGUILayout.ObjectField(AfkLabels[i], afk[i], typeof(AnimationClip), false);
-                if (GUILayout.Button("Save AFK clips to the table")) Do(() =>
+                if (GUILayout.Button("Save AFK clips")) Do(() =>
                 {
                     TableWriter.SetAfkClips(TablePath, afk);
                     Reload();
