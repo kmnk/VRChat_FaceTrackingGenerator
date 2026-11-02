@@ -18,7 +18,7 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class TableEditorWindow : EditorWindow
     {
         const string TablePrefKey = "Kmnk.FaceTrackingGenerator.AvatarTable";  // shared with GeneratorWindow
-        static readonly string[] Tabs = { "Avatar", "Preview" };
+        static readonly string[] Tabs = { "Avatar", "Preview", "Tuning" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
@@ -48,6 +48,11 @@ namespace Kmnk.FaceTrackingGenerator
         readonly Dictionary<string, float> unusedInputs = new Dictionary<string, float>();
         const string DevicePrefKey = "Kmnk.FaceTrackingGenerator.PreviewDevice";
         string captureDevice;  // set by TableEditorChecks.Capture instead of the saved choice
+
+        // tuning: open folds ("<tree>" and "<tree>/<node>"), try values per node, and the node shown in Face view
+        readonly Dictionary<string, bool> tuneOpen = new Dictionary<string, bool>();
+        readonly Dictionary<string, float> tuneTry = new Dictionary<string, float>();
+        string tuneShown;
 
         [MenuItem("Tools/Kmnk/Face Tracking Settings Editor")]
         static void Open() => GetWindow<TableEditorWindow>("FT Settings Editor");
@@ -133,6 +138,7 @@ namespace Kmnk.FaceTrackingGenerator
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
             if (preview.Running) ApplyPreview();
+            else if (tab == 2 && tuneShown != null) ShowTuning(tuneShown);
             else ShowSelected();
         }
 
@@ -158,10 +164,13 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // Records the tables for Undo, applies the edit, and rebuilds the model.
-        void Edit(string undoName, Action<JObject> edit)
+        void Edit(string undoName, Action<JObject> edit) => Edit(TableDocument.Avatar, undoName, edit);
+
+        // The same for the input or expression table (kind is a TableDocument kind).
+        void Edit(string kind, string undoName, Action<JObject> edit)
         {
             Undo.RecordObject(state, undoName);
-            edit(doc.Json(TableDocument.Avatar));
+            edit(doc.Json(kind));
             state.snapshot = doc.Snapshot();
             EditorUtility.SetDirty(state);
             Rebuild();
@@ -212,7 +221,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (error != null) EditorGUILayout.HelpBox(error, MessageType.Error);
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == 0) DrawAvatarTab();
-            else DrawPreviewTab();
+            else if (tab == 1) DrawPreviewTab();
+            else DrawTuningTab();
             EditorGUILayout.EndScrollView();
         }
 
@@ -278,14 +288,26 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         static GUIStyle partsStyle;
-        static void PartsLine(string text)
+        static GUIStyle PartsStyle
         {
-            if (partsStyle == null)
+            get
             {
-                partsStyle = new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
-                partsStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+                if (partsStyle == null)
+                {
+                    partsStyle = new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
+                    partsStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+                }
+                return partsStyle;
             }
-            EditorGUILayout.LabelField(text, partsStyle);
+        }
+
+        static void PartsLine(string text) => EditorGUILayout.LabelField(text, PartsStyle);
+
+        // Gray text beside a field in a horizontal row: a fixed width, or the rest of the row with width 0.
+        static void SideNote(string text, float width)
+        {
+            if (width > 0) GUILayout.Label(text, PartsStyle, GUILayout.Width(width));
+            else GUILayout.Label(text, PartsStyle, GUILayout.ExpandWidth(true));
         }
 
         static void RowBackground(int i)
@@ -796,6 +818,184 @@ namespace Kmnk.FaceTrackingGenerator
             FaceView.Show(model, Prefab(), weights, "Preview");
         }
 
+        // ---- Tuning tab
+
+        static readonly Color[] CurveColors =
+        {
+            new Color(0.31f, 0.64f, 1f), new Color(1f, 0.63f, 0.25f), new Color(0.4f, 0.8f, 0.4f), new Color(0.75f, 0.5f, 1f),
+            new Color(1f, 0.45f, 0.55f), new Color(0.35f, 0.85f, 0.85f),
+        };
+
+        void DrawTuningTab()
+        {
+            if (model == null) return;
+            var expression = doc.Json(TableDocument.Expression);
+            var trees = Tuning.Trees(expression);
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+
+            EditorGUILayout.LabelField("Thresholds", EditorStyles.boldLabel);
+            Help("help.thresholds");
+            var withNodes = trees.Where(t => t.Nodes.Count > 0).ToList();
+            if (withNodes.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.no1d"), EditorStyles.wordWrappedLabel);
+            var firstNode = true;
+            foreach (var t in withNodes)
+            {
+                tuneOpen.TryGetValue(t.Name, out var open);
+                if (!tuneOpen.ContainsKey(t.Name)) open = t == withNodes[0];
+                tuneOpen[t.Name] = open = EditorGUILayout.Foldout(open, Tuning.TreeTitle(t), true, EditorStyles.foldoutHeader);
+                if (!open) { firstNode = false; continue; }
+                EditorGUI.indentLevel++;
+                for (int i = 0; i < t.Nodes.Count; i++)
+                {
+                    var key = t.Name + "/" + i;
+                    if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
+                    firstNode = false;
+                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.NodeTitle(t.Nodes[i]), true);
+                    if (tuneOpen[key]) DrawTuningNode(t, i, key);
+                }
+                EditorGUI.indentLevel--;
+            }
+            var only2d = trees.Where(t => t.Nodes.Count == 0 && t.Has2D).Select(t => Tuning.Label(t.Name)).ToList();
+            if (only2d.Count > 0)
+                PartsLine(string.Format(EditorText.Get("tune.only2d"), string.Join(ja ? "・" : ", ", only2d)));
+
+            EditorGUILayout.Space(6);
+            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
+            EditorGUILayout.Space(4);
+
+            EditorGUILayout.LabelField("Smoothing", EditorStyles.boldLabel);
+            Help("help.smoothing");
+            var smoothings = Tuning.Smoothings(doc.Json(TableDocument.Input));
+            if (smoothings.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.noSmoothing"));
+            foreach (var (name, def) in smoothings)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(name, EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
+                    SideNote(Tuning.Uses(model.Inputs.Where(x => x.Smoothing == name).Select(x => x.Name)), 0);
+                }
+                EditorGUI.indentLevel++;
+                foreach (var local in new[] { true, false })
+                {
+                    var field = local ? "localTau" : "remoteTau";
+                    var ms = Tuning.Ms(def[field]?.Value<float>() ?? 0);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUI.BeginChangeCheck();
+                        var v = EditorGUILayout.DelayedIntField(EditorText.Get(local ? "tune.local" : "tune.remote"), ms, GUILayout.Width(260));
+                        GUILayout.Label("ms", GUILayout.ExpandWidth(false));
+                        if (EditorGUI.EndChangeCheck() && v != ms)
+                        {
+                            var n = name; var l = local;
+                            Edit(TableDocument.Input, "Set FT smoothing", j => Tuning.SetMs(Tuning.Smoothings(j).First(x => x.name == n).def, l, v));
+                        }
+                    }
+                }
+                var syncNote = EditorText.Help("help.syncDelay");
+                if (syncNote != null) PartsLine(syncNote);
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        void DrawTuningNode(Tuning.Tree t, int index, string key)
+        {
+            var n = t.Nodes[index];
+            var (lo, hi) = Tuning.InputRange(n);
+
+            // Graph: amount of each face movement (0-100) along the input, positions as dotted lines, the try value as a line.
+            var rect = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(100, 90, GUILayout.ExpandWidth(true)));
+            tuneTry.TryGetValue(key, out var tryValue);
+            if (Event.current.type == EventType.Repaint) DrawTuningGraph(rect, n, lo, hi, tryValue);
+
+            for (int i = 0; i < n.Children.Count; i++)
+            {
+                var (plo, phi) = Tuning.PositionRange(n, i);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var v = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.position"), i + 1), n.Position(i), plo, phi);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        var j = i; var at = index; var name = t.Name;
+                        tuneShown = key;
+                        Edit(TableDocument.Expression, "Set FT position", e => Tuning.SetPosition(Tuning.Trees(e).First(x => x.Name == name).Nodes[at], j, v));
+                    }
+                    SideNote(Tuning.ChildText(n.Child(i)), 150);
+                }
+            }
+
+            EditorGUI.BeginChangeCheck();
+            var tv = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.Input)), tryValue, lo, hi);
+            if (EditorGUI.EndChangeCheck())
+            {
+                tuneTry[key] = (float)Math.Round(tv, 2);
+                ShowTuning(key);
+            }
+            var note = EditorText.Help("help.tuneTry");
+            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
+            EditorGUILayout.Space(4);
+        }
+
+        void DrawTuningGraph(Rect r, Tuning.Blend1D n, float lo, float hi, float tryValue)
+        {
+            var pro = EditorGUIUtility.isProSkin;
+            EditorGUI.DrawRect(r, pro ? new Color(0.165f, 0.165f, 0.165f) : new Color(0.85f, 0.85f, 0.85f));
+            var plot = new Rect(r.x + 28, r.y + 8, r.width - 40, r.height - 24);
+            float X(float v) => plot.x + (hi > lo ? (v - lo) / (hi - lo) : 0) * plot.width;
+            float Y(float amount) => plot.yMax - Mathf.Clamp(amount, 0, 100) / 100f * plot.height;
+            var label = new GUIStyle(EditorStyles.miniLabel);
+            label.normal.textColor = pro ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+
+            Handles.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+            Handles.DrawLine(new Vector3(plot.x, plot.yMax), new Vector3(plot.xMax, plot.yMax));
+            for (int i = 0; i < n.Children.Count; i++)
+            {
+                var x = X(n.Position(i));
+                Handles.DrawDottedLine(new Vector3(x, plot.y), new Vector3(x, plot.yMax), 3);
+            }
+            GUI.Label(new Rect(r.x + 2, plot.y - 7, 26, 14), "100", label);
+            GUI.Label(new Rect(r.x + 2, plot.yMax - 7, 26, 14), "0", label);
+            var mid = (lo + hi) / 2;
+            foreach (var v in new[] { lo, mid, hi })
+                GUI.Label(new Rect(X(v) - 14, plot.yMax + 1, 28, 14), v.ToString("0.##"), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
+
+            const int steps = 64;
+            var xs = Enumerable.Range(0, steps + 1).Select(k => lo + (hi - lo) * k / steps).ToArray();
+            var curves = Tuning.Curve(n, xs);
+            // Legend at the top right, in the order of the lines.
+            var texts = curves.Keys.Select(Tuning.Label).ToList();
+            var widths = texts.Select(t => label.CalcSize(new GUIContent(t)).x).ToList();
+            var legendX = plot.xMax - widths.Sum(w => w + 14);
+            var c = 0;
+            foreach (var kv in curves)
+            {
+                var color = CurveColors[c % CurveColors.Length];
+                Handles.color = color;
+                Handles.DrawAAPolyLine(2f, xs.Select((x, k) => new Vector3(X(x), Y(kv.Value[k]))).ToArray());
+                EditorGUI.DrawRect(new Rect(legendX, r.y + 4, 8, 8), color);
+                GUI.Label(new Rect(legendX + 10, r.y - 1, widths[c] + 4, 14), texts[c], label);
+                legendX += widths[c] + 14;
+                c++;
+            }
+            Handles.color = pro ? Color.white : Color.black;
+            var tx = X(Mathf.Clamp(tryValue, lo, hi));
+            Handles.DrawLine(new Vector3(tx, plot.y), new Vector3(tx, plot.yMax));
+        }
+
+        // Face view for the try value of a node ("<tree>/<node>"), with the other inputs at the Preview tab's values.
+        void ShowTuning(string key)
+        {
+            if (model == null || doc == null) return;
+            tuneShown = key;
+            var k = key.LastIndexOf('/');
+            var t = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, k));
+            if (t == null || !int.TryParse(key.Substring(k + 1), out var i) || i >= t.Nodes.Count) return;
+            tuneTry.TryGetValue(key, out var value);
+            var weights = Tuning.TryWeights(model, t, t.Nodes[i], value, inputs);
+            FaceView.Show(model, Prefab(), weights, $"{Tuning.Label(t.Nodes[i].Input)} = {value:0.##} ({Tuning.Label(t.Name)})");
+        }
+
         // ---- TableEditorChecks.Capture
 
         // -ftTable <avatar.jsonc>, -ftTab avatar|preview, -ftHelp en|ja|off, -ftState dirty|picker|preview|notable,
@@ -815,7 +1015,31 @@ namespace Kmnk.FaceTrackingGenerator
                 catch (Exception e) { doc = null; error = e.Message; }
                 UpdateDirty();
             }
-            tab = CliArgs.Get("-ftTab") == "preview" ? 1 : 0;
+            var tabArg = CliArgs.Get("-ftTab");
+            tab = tabArg == "preview" ? 1 : tabArg == "tuning" ? 2 : 0;
+            var tuneSet = CliArgs.Get("-ftTuneSet");
+            if (tuneSet != null && doc != null)
+                foreach (var item in tuneSet.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.LastIndexOf('=');
+                    var key = item.Substring(0, k).Split('/');
+                    var value = float.Parse(item.Substring(k + 1), System.Globalization.CultureInfo.InvariantCulture);
+                    Edit(TableDocument.Expression, "Capture", e =>
+                    {
+                        var t = Tuning.Trees(e).First(x => x.Name == key[0]);
+                        Tuning.SetPosition(t.Nodes[int.Parse(key[1])], int.Parse(key[2]), value);
+                    });
+                }
+            var tuneTryArg = CliArgs.Get("-ftTuneTry");
+            if (tuneTryArg != null && doc != null)
+            {
+                var t = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Nodes.Count > 0);
+                if (t != null)
+                {
+                    tuneTry[t.Name + "/0"] = float.Parse(tuneTryArg, System.Globalization.CultureInfo.InvariantCulture);
+                    ShowTuning(t.Name + "/0");
+                }
+            }
             scroll.y = CliArgs.GetFloat("-ftScroll", 0);
             if (st.Contains("dirty") && doc != null)
             {
