@@ -970,24 +970,136 @@ namespace Kmnk.FaceTrackingGenerator
             return icon?.image != null ? new GUIContent(icon.image, EditorText.Get("tip.removePosition")) : new GUIContent("Del", EditorText.Get("tip.removePosition"));
         }
 
+        readonly Dictionary<string, Vector2> tuneTry2D = new Dictionary<string, Vector2>();
+
         void DrawTuningNode2D(Tuning.Tree t, int k, ICollection<string> allNames)
         {
             var n = t.Nodes2D[k];
-            var ja = EditorText.Current == EditorText.Language.Japanese;
+            var name = t.Name;
+            var key = $"{t.Name}/2d/{k}";
+            var (rx, ry) = Tuning.InputRange(n);
             if (t.Nodes2D.Count > 1 || t.Nodes.Count > 0) EditorGUILayout.LabelField(Tuning.Label(n.InputX) + " × " + Tuning.Label(n.InputY), EditorStyles.miniBoldLabel);
             PartsLine(string.Format(EditorText.Get("tune.2d"), Tuning.Label(n.InputX), Tuning.Label(n.InputY)));
-            var key = $"{t.Name}/2d/{k}";
+            tuneTry2D.TryGetValue(key, out var tryPoint);
+
+            // Square graph: positions as numbered points, Try as a ring. Click or drag inside to move Try.
+            const float size = 220;
+            var area = GUILayoutUtility.GetRect(size + 60, size + 46, GUILayout.ExpandWidth(false));
+            area.x += EditorGUI.indentLevel * 15;
+            var plot = new Rect(area.x + 28, area.y + 26, size, size);
+            var e = Event.current;
+            var id = GUIUtility.GetControlID(FocusType.Passive);
+            float X(float v) => plot.x + (rx.hi > rx.lo ? (v - rx.lo) / (rx.hi - rx.lo) : 0) * plot.width;
+            float Y(float v) => plot.yMax - (ry.hi > ry.lo ? (v - ry.lo) / (ry.hi - ry.lo) : 0) * plot.height;
+            Vector2 ToValue(Vector2 m) => new Vector2(
+                (float)Math.Round(Mathf.Lerp(rx.lo, rx.hi, Mathf.Clamp01((m.x - plot.x) / plot.width)), 2),
+                (float)Math.Round(Mathf.Lerp(ry.lo, ry.hi, Mathf.Clamp01((plot.yMax - m.y) / plot.height)), 2));
+            switch (e.GetTypeForControl(id))
+            {
+                case EventType.MouseDown when e.button == 0 && plot.Contains(e.mousePosition):
+                    GUIUtility.hotControl = id;
+                    tuneTry2D[key] = tryPoint = ToValue(e.mousePosition);
+                    ShowTuning(key); e.Use();
+                    break;
+                case EventType.MouseDrag when GUIUtility.hotControl == id:
+                    tuneTry2D[key] = tryPoint = ToValue(e.mousePosition);
+                    ShowTuning(key); e.Use();
+                    break;
+                case EventType.MouseUp when GUIUtility.hotControl == id:
+                    GUIUtility.hotControl = 0; e.Use();
+                    break;
+                case EventType.Repaint:
+                    DrawGraph2D(plot, n, rx, ry, tryPoint, X, Y);
+                    break;
+            }
+
+            // Try
+            EditorGUI.BeginChangeCheck();
+            var tx = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.InputX)), tryPoint.x, rx.lo, rx.hi);
+            var ty = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.InputY)), tryPoint.y, ry.lo, ry.hi);
+            if (EditorGUI.EndChangeCheck())
+            {
+                tuneTry2D[key] = tryPoint = new Vector2((float)Math.Round(tx, 2), (float)Math.Round(ty, 2));
+                ShowTuning(key);
+            }
+            var note = EditorText.Help("help.tuneTry");
+            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(EditorGUI.indentLevel * 15);
+                using (new EditorGUI.DisabledScope(!Tuning.CanAddPosition2D(n, tryPoint.x, tryPoint.y)))
+                    if (GUILayout.Button(string.Format(EditorText.Get("tune.addPosition"), $"{tryPoint.x:0.##}, {tryPoint.y:0.##}"), GUILayout.ExpandWidth(false)))
+                    {
+                        var p0 = tryPoint;
+                        EditTreeAndShow("Add FT position", name, key, x => Tuning.AddPosition2D(x.Nodes2D[k], p0.x, p0.y));
+                        GUIUtility.ExitGUI();
+                    }
+            }
+
+            // Positions
             for (int i = 0; i < n.Children.Count; i++)
             {
-                var (x, y) = n.Position(i);
+                var (px, py) = n.Position(i);
                 var j = i;
-                var old = GUI.contentColor;
-                GUI.contentColor = Color.gray;
-                EditorGUILayout.LabelField($"Position ({x:0.##}, {y:0.##})");
-                GUI.contentColor = old;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(string.Format(EditorText.Get("tune.position"), i + 1));
+                    GUILayout.FlexibleSpace();
+                    EditorGUI.BeginChangeCheck();
+                    var lw = EditorGUIUtility.labelWidth;
+                    EditorGUIUtility.labelWidth = 14;
+                    var indent = EditorGUI.indentLevel;
+                    EditorGUI.indentLevel = 0;
+                    var nx = EditorGUILayout.DelayedFloatField("X", px, GUILayout.Width(74));
+                    var ny = EditorGUILayout.DelayedFloatField("Y", py, GUILayout.Width(74));
+                    EditorGUI.indentLevel = indent;
+                    EditorGUIUtility.labelWidth = lw;
+                    if (EditorGUI.EndChangeCheck())
+                        EditTreeAndShow("Set FT position", name, key + "/" + j, x => Tuning.SetPosition2D(x.Nodes2D[k], j, nx, ny));
+                    using (new EditorGUI.DisabledScope(!Tuning.CanRemovePosition2D(n)))
+                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
+                        {
+                            EditTreeAndShow("Remove FT position", name, key, x => Tuning.RemovePosition2D(x.Nodes2D[k], j));
+                            GUIUtility.ExitGUI();
+                        }
+                }
                 DrawPose(t, n.Child(i), key + "/" + i, allNames, (tree, edit) => edit(Tuning.PoseObject(tree.Nodes2D[k].Children, j)));
             }
             EditorGUILayout.Space(4);
+        }
+
+        void DrawGraph2D(Rect plot, Tuning.Blend2D n, (float lo, float hi) rx, (float lo, float hi) ry, Vector2 tryPoint, Func<float, float> X, Func<float, float> Y)
+        {
+            var pro = EditorGUIUtility.isProSkin;
+            EditorGUI.DrawRect(plot, pro ? new Color(0.165f, 0.165f, 0.165f) : new Color(0.85f, 0.85f, 0.85f));
+            var label = new GUIStyle(EditorStyles.miniLabel);
+            label.normal.textColor = pro ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+            Handles.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            if (rx.lo < 0 && rx.hi > 0) Handles.DrawLine(new Vector3(X(0), plot.y), new Vector3(X(0), plot.yMax));
+            if (ry.lo < 0 && ry.hi > 0) Handles.DrawLine(new Vector3(plot.x, Y(0)), new Vector3(plot.xMax, Y(0)));
+            Handles.DrawLine(new Vector3(plot.x, plot.yMax), new Vector3(plot.xMax, plot.yMax));
+            Handles.DrawLine(new Vector3(plot.x, plot.y), new Vector3(plot.x, plot.yMax));
+            var center = new GUIStyle(label) { alignment = TextAnchor.UpperCenter };
+            foreach (var v in new[] { rx.lo, 0f, rx.hi }.Distinct().Where(v => v >= rx.lo && v <= rx.hi))
+                GUI.Label(new Rect(X(v) - 14, plot.yMax + 1, 28, 14), v.ToString("0.##"), center);
+            GUI.Label(new Rect(plot.x, plot.yMax + 13, plot.width, 14), Tuning.Label(n.InputX), center);
+            var right = new GUIStyle(label) { alignment = TextAnchor.MiddleRight };
+            foreach (var v in new[] { ry.lo, 0f, ry.hi }.Distinct().Where(v => v >= ry.lo && v <= ry.hi))
+                GUI.Label(new Rect(plot.x - 28, Y(v) - 7, 25, 14), v.ToString("0.##"), right);
+            GUI.Label(new Rect(plot.x - 28, plot.y - 26, 120, 14), Tuning.Label(n.InputY), label);
+            for (int i = 0; i < n.Children.Count; i++)
+            {
+                var (px, py) = n.Position(i);
+                var c = new Vector2(X(px), Y(py));
+                Handles.color = new Color(0.82f, 0.82f, 0.82f);
+                Handles.DrawSolidDisc(c, Vector3.forward, 4);
+                GUI.Label(new Rect(c.x + 5, c.y - 15, 20, 14), (i + 1).ToString(), label);
+            }
+            var t = new Vector2(X(tryPoint.x), Y(tryPoint.y));
+            Handles.color = pro ? Color.white : Color.black;
+            Handles.DrawWireDisc(t, Vector3.forward, 6);
+            Handles.DrawLine(new Vector3(t.x - 4, t.y), new Vector3(t.x + 4, t.y));
+            Handles.DrawLine(new Vector3(t.x, t.y - 4), new Vector3(t.x, t.y + 4));
         }
 
         // The face movement rows of a position, and "+ Add face movement". locate finds the pose again in a tree made
@@ -1104,7 +1216,14 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var rest = key.Substring(at2d + 4).Split('/');
                 var t2 = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, at2d));
-                if (t2 == null || rest.Length < 2 || !int.TryParse(rest[0], out var k2) || !int.TryParse(rest[1], out var c) || k2 >= t2.Nodes2D.Count || c >= t2.Nodes2D[k2].Children.Count) return;
+                if (t2 == null || !int.TryParse(rest[0], out var k2) || k2 >= t2.Nodes2D.Count) return;
+                if (rest.Length == 1)
+                {
+                    tuneTry2D.TryGetValue(key, out var tp);
+                    FaceView.Show(model, Prefab(), Tuning.TryWeights2D(model, t2, t2.Nodes2D[k2], tp.x, tp.y, inputs), $"Try ({tp.x:0.##}, {tp.y:0.##}) ({Tuning.Label(t2.Name)})");
+                    return;
+                }
+                if (!int.TryParse(rest[1], out var c) || c >= t2.Nodes2D[k2].Children.Count) return;
                 var (px, py) = t2.Nodes2D[k2].Position(c);
                 FaceView.Show(model, Prefab(), Tuning.TryWeights2D(model, t2, t2.Nodes2D[k2], c, inputs), $"({px:0.##}, {py:0.##}) ({Tuning.Label(t2.Name)})");
                 return;
@@ -1152,7 +1271,18 @@ namespace Kmnk.FaceTrackingGenerator
                     });
                 }
             var tuneOpenArg = CliArgs.Get("-ftTuneOpen");
-            if (tuneOpenArg != null) foreach (var o in tuneOpenArg.Split(';')) tuneOpen[o] = true;
+            // "<fold>;!<fold>": open, or close with "!"
+            if (tuneOpenArg != null) foreach (var o in tuneOpenArg.Split(';')) { if (o.StartsWith("!")) tuneOpen[o.Substring(1)] = false; else tuneOpen[o] = true; }
+            var tuneTry2DArg = CliArgs.Get("-ftTuneTry2D");
+            if (tuneTry2DArg != null && doc != null)
+            {
+                var kk = tuneTry2DArg.IndexOf('=');
+                var head = tuneTry2DArg.Substring(0, kk).Split('/');
+                var xy = tuneTry2DArg.Substring(kk + 1).Split(',');
+                var key2 = $"{head[0]}/2d/{head[1]}";
+                tuneTry2D[key2] = new Vector2(float.Parse(xy[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(xy[1], System.Globalization.CultureInfo.InvariantCulture));
+                ShowTuning(key2);
+            }
             var tuneTryArg = CliArgs.Get("-ftTuneTry");
             if (tuneTryArg != null && doc != null)
             {

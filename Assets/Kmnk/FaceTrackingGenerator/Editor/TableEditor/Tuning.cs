@@ -87,6 +87,9 @@ namespace Kmnk.FaceTrackingGenerator
             return null;
         }
 
+        // A number for the file: whole numbers as integers ("1", not "1.0"), others as they are.
+        public static JToken Num(double v) => Math.Abs(v - Math.Round(v)) < 1e-9 ? (JToken)(long)Math.Round(v) : new JValue(v);
+
         public static string Sub(string s, Dictionary<string, string> vars)
         {
             if (vars != null) foreach (var kv in vars) s = s.Replace("{" + kv.Key + "}", kv.Value);
@@ -151,14 +154,87 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- positions
 
-        // The range of an input's values (the same rule as the device lists), widened to the positions of the node.
-        public static (float lo, float hi) InputRange(Blend1D n)
+        // The range of an input's values (the same rule as the device lists), widened to the given positions.
+        public static (float lo, float hi) Range(string input, IEnumerable<float> positions)
         {
-            var name = Label(n.Input);
+            var name = Label(input);
             var signed = name.EndsWith("X") || name.EndsWith("Y") || name == "SmileSad" || name == "SmileFrown" || name.StartsWith("CheekPuffSuck");
             float lo = signed ? -1 : 0, hi = 1;
-            for (int i = 0; i < n.Children.Count; i++) { lo = Math.Min(lo, n.Position(i)); hi = Math.Max(hi, n.Position(i)); }
+            foreach (var p in positions) { lo = Math.Min(lo, p); hi = Math.Max(hi, p); }
             return (lo, hi);
+        }
+
+        public static (float lo, float hi) InputRange(Blend1D n) => Range(n.Input, Enumerable.Range(0, n.Children.Count).Select(n.Position));
+
+        public static ((float lo, float hi) x, (float lo, float hi) y) InputRange(Blend2D n)
+        {
+            var pts = Enumerable.Range(0, n.Children.Count).Select(n.Position).ToList();
+            return (Range(n.InputX, pts.Select(p => p.x)), Range(n.InputY, pts.Select(p => p.y)));
+        }
+
+        // ---- 2D positions
+
+        // The amount of each face movement at a point of a 2D node (pose children only).
+        public static Dictionary<string, float> Amounts2D(Blend2D n, float x, float y)
+        {
+            var pts = Enumerable.Range(0, n.Children.Count).Select(n.Position).ToList();
+            var poses = Enumerable.Range(0, n.Children.Count).Select(i => Pose(n.Child(i)) ?? new Dictionary<string, float>()).ToList();
+            var result = new Dictionary<string, float>();
+            if (pts.Count == 0) return result;
+            var w = CurveEval.W2D(pts, (x, y));
+            for (int i = 0; i < poses.Count; i++)
+                foreach (var kv in poses[i]) result[kv.Key] = (result.TryGetValue(kv.Key, out var v) ? v : 0) + w[i] * kv.Value;
+            return result;
+        }
+
+        public static bool HasNested(Blend2D n) => Enumerable.Range(0, n.Children.Count).Any(i => Pose(n.Child(i)) == null);
+
+        public static bool CanAddPosition2D(Blend2D n, float x, float y)
+        {
+            double rx = Math.Round((double)x, 2), ry = Math.Round((double)y, 2);
+            return !HasNested(n) && Enumerable.Range(0, n.Children.Count).All(i => { var p = n.Position(i); return Math.Abs(p.x - rx) > 0.001 || Math.Abs(p.y - ry) > 0.001; });
+        }
+
+        public static bool CanRemovePosition2D(Blend2D n) => n.Children.Count > 3;
+
+        // Adds a position at (x, y) with the amounts the node has there now, at the end. Returns its index.
+        public static int AddPosition2D(Blend2D n, float x, float y)
+        {
+            double rx = Math.Round((double)x, 2), ry = Math.Round((double)y, 2);
+            var pose = new JObject();
+            foreach (var kv in Amounts2D(n, (float)rx, (float)ry).OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var a = (long)Math.Round(kv.Value);
+                if (a != 0) pose[kv.Key] = a;
+            }
+            n.Children.Add(new JArray(new JArray(Num(rx), Num(ry)), pose));
+            return n.Children.Count - 1;
+        }
+
+        public static void RemovePosition2D(Blend2D n, int i)
+        {
+            if (CanRemovePosition2D(n)) n.Children.RemoveAt(i);
+        }
+
+        // Sets X or Y of a position, kept in the input's range and rounded to 2 decimals.
+        public static void SetPosition2D(Blend2D n, int i, float x, float y)
+        {
+            var (rx, ry) = InputRange(n);
+            var pos = (JArray)((JArray)n.Children[i])[0];
+            pos[0] = Num(Math.Round((double)Math.Min(Math.Max(x, rx.lo), rx.hi), 2));
+            pos[1] = Num(Math.Round((double)Math.Min(Math.Max(y, ry.lo), ry.hi), 2));
+        }
+
+        // The weights of the face at a point of a 2D node, with the switches above the node held in its states.
+        public static SortedDictionary<string, float> TryWeights2D(TableModel model, Tree t, Blend2D n, float x, float y, IDictionary<string, float> others)
+        {
+            var inputs = new Dictionary<string, float>(others ?? new Dictionary<string, float>());
+            foreach (var name in Expanded(t, n.InputX)) inputs[name] = x;
+            foreach (var name in Expanded(t, n.InputY)) inputs[name] = y;
+            var tracker = new SwitchTracker();
+            foreach (var (sw, st) in n.When)
+                foreach (var name in Expanded(t, sw)) tracker.Pinned[name] = st;
+            return CurveEval.Evaluate(model, inputs, tracker.Update(model, inputs));
         }
 
         // Position i may move between its neighbours (the ends of the input range for the first and last).
@@ -174,7 +250,7 @@ namespace Kmnk.FaceTrackingGenerator
             var (lo, hi) = PositionRange(n, i);
             // Written as a double so that 0.5 stays "0.5" in the file (a float would widen to 0.5000000xxx).
             var v = Math.Round((double)Math.Min(Math.Max(value, lo), hi), 2);
-            ((JArray)n.Children[i])[0] = v;
+            ((JArray)n.Children[i])[0] = Num(v);
             return (float)v;
         }
 
@@ -252,7 +328,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (a != 0) pose[kv.Key] = a;
             }
             var index = Enumerable.Range(0, n.Children.Count).Count(i => n.Position(i) < v);
-            n.Children.Insert(index, new JArray(v, pose));
+            n.Children.Insert(index, new JArray(Num(v), pose));
             return index;
         }
 
@@ -328,17 +404,10 @@ namespace Kmnk.FaceTrackingGenerator
             return NameProblem.None;
         }
 
-        // The weights of the face at a 2D position, with the switches above the node held in its states.
         public static SortedDictionary<string, float> TryWeights2D(TableModel model, Tree t, Blend2D n, int i, IDictionary<string, float> others)
         {
-            var inputs = new Dictionary<string, float>(others ?? new Dictionary<string, float>());
             var (x, y) = n.Position(i);
-            foreach (var name in Expanded(t, n.InputX)) inputs[name] = x;
-            foreach (var name in Expanded(t, n.InputY)) inputs[name] = y;
-            var tracker = new SwitchTracker();
-            foreach (var (sw, st) in n.When)
-                foreach (var name in Expanded(t, sw)) tracker.Pinned[name] = st;
-            return CurveEval.Evaluate(model, inputs, tracker.Update(model, inputs));
+            return TryWeights2D(model, t, n, x, y, others);
         }
 
         // ---- smoothing
@@ -357,7 +426,7 @@ namespace Kmnk.FaceTrackingGenerator
         public static double SetMs(JObject def, bool local, int ms)
         {
             var tau = Tau(Math.Min(Math.Max(ms, 0), 2000));
-            def[local ? "localTau" : "remoteTau"] = tau;
+            def[local ? "localTau" : "remoteTau"] = Num(tau);
             return tau;
         }
     }

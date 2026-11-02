@@ -120,6 +120,45 @@ namespace Kmnk.FaceTrackingGenerator
                     Kmnk.FaceTrackingGenerator.Tuning.RemovePosition(node, int.Parse(parts[2]));
                     Debug.Log($"[FTG] tuning remove-position {item}: can={can.ToString().ToLower()} positions={string.Join(",", Enumerable.Range(0, node.Children.Count).Select(j => F(node.Position(j))))}");
                 }
+            (float x, float y) XY(string v) { var a = v.Split(','); return (float.Parse(a[0], CultureInfo.InvariantCulture), float.Parse(a[1], CultureInfo.InvariantCulture)); }
+            string Positions2D(Kmnk.FaceTrackingGenerator.Tuning.Blend2D n) => string.Join(" ", Enumerable.Range(0, n.Children.Count).Select(j => { var p = n.Position(j); return $"({F(p.x)},{F(p.y)})"; }));
+            var add2d = CliArgs.Get("-ftAddPosition2D");
+            if (add2d != null)
+                foreach (var item in add2d.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.IndexOf('=');
+                    var parts = item.Substring(0, k).Split('/');
+                    var (x, y) = XY(item.Substring(k + 1));
+                    var node = trees.First(t => t.Name == parts[0]).Nodes2D[int.Parse(parts[1])];
+                    var before = Kmnk.FaceTrackingGenerator.Tuning.Amounts2D(node, x, y);
+                    var can = Kmnk.FaceTrackingGenerator.Tuning.CanAddPosition2D(node, x, y);
+                    var index = can ? Kmnk.FaceTrackingGenerator.Tuning.AddPosition2D(node, x, y) : -1;
+                    var after = Kmnk.FaceTrackingGenerator.Tuning.Amounts2D(node, x, y);
+                    var diff = before.Keys.Union(after.Keys).Select(p => Mathf.Abs((before.TryGetValue(p, out var b) ? b : 0) - (after.TryGetValue(p, out var a) ? a : 0))).DefaultIfEmpty(0).Max();
+                    Debug.Log($"[FTG] tuning add-position-2d {item}: can={can.ToString().ToLower()} index={index} positions={Positions2D(node)} " +
+                              $"pose={(index >= 0 ? node.Child(index).ToString(Newtonsoft.Json.Formatting.None) : "-")} before={string.Join(",", before.OrderBy(b => b.Key).Select(b => $"{b.Key}={F(b.Value)}"))} max-diff={F(diff)}");
+                }
+            var set2d = CliArgs.Get("-ftSetPosition2D");
+            if (set2d != null)
+                foreach (var item in set2d.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.IndexOf('=');
+                    var parts = item.Substring(0, k).Split('/');
+                    var (x, y) = XY(item.Substring(k + 1));
+                    var node = trees.First(t => t.Name == parts[0]).Nodes2D[int.Parse(parts[1])];
+                    Kmnk.FaceTrackingGenerator.Tuning.SetPosition2D(node, int.Parse(parts[2]), x, y);
+                    Debug.Log($"[FTG] tuning set-position-2d {item}: positions={Positions2D(node)}");
+                }
+            var remove2dPos = CliArgs.Get("-ftRemovePosition2D");
+            if (remove2dPos != null)
+                foreach (var item in remove2dPos.Split(';').Where(x => x.Length > 0))
+                {
+                    var parts = item.Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes2D[int.Parse(parts[1])];
+                    var can = Kmnk.FaceTrackingGenerator.Tuning.CanRemovePosition2D(node);
+                    Kmnk.FaceTrackingGenerator.Tuning.RemovePosition2D(node, int.Parse(parts[2]));
+                    Debug.Log($"[FTG] tuning remove-position-2d {item}: can={can.ToString().ToLower()} positions={Positions2D(node)}");
+                }
             // Which buttons the tab enables: removing a position of each 1D node, and adding one at each existing position.
             foreach (var t in trees)
                 for (int i = 0; i < t.Nodes.Count; i++)
