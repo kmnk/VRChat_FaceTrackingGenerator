@@ -51,6 +51,91 @@ namespace Kmnk.FaceTrackingGenerator
                     var tau = Kmnk.FaceTrackingGenerator.Tuning.SetMs(def, parts[1] == "local", (int)value);
                     Debug.Log($"[FTG] tuning set smoothing {key}: ms={(int)value} tau={tau.ToString(CultureInfo.InvariantCulture)}");
                 }
+            var expr = doc.Json(TableDocument.Expression);
+            var addPos = CliArgs.Get("-ftAddPosition");
+            if (addPos != null)
+                foreach (var item in addPos.Split(';').Where(x => x.Contains("=")))
+                {
+                    var (key, value) = Split(item);
+                    var parts = key.Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes[int.Parse(parts[1])];
+                    var xs = Enumerable.Range(0, 65).Select(k => k / 64f).ToArray();
+                    var before = Kmnk.FaceTrackingGenerator.Tuning.Curve(node, xs);
+                    var can = Kmnk.FaceTrackingGenerator.Tuning.CanAddPosition(node, value);
+                    var index = can ? Kmnk.FaceTrackingGenerator.Tuning.AddPosition(node, value) : -1;
+                    var after = Kmnk.FaceTrackingGenerator.Tuning.Curve(node, xs);
+                    var diff = before.Keys.Union(after.Keys).Max(k => Enumerable.Range(0, xs.Length).Max(j =>
+                        Mathf.Abs((before.TryGetValue(k, out var b) ? b[j] : 0) - (after.TryGetValue(k, out var a) ? a[j] : 0))));
+                    Debug.Log($"[FTG] tuning add-position {key} x={F(value)}: can={can.ToString().ToLower()} index={index} " +
+                              $"positions={string.Join(",", Enumerable.Range(0, node.Children.Count).Select(j => F(node.Position(j))))} " +
+                              $"pose={(index >= 0 ? node.Child(index).ToString(Newtonsoft.Json.Formatting.None) : "-")} max-curve-diff={F(diff)}");
+                }
+            var addPart = CliArgs.Get("-ftAddPart");
+            if (addPart != null)
+                foreach (var item in addPart.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.LastIndexOf('=');
+                    var parts = item.Substring(0, k).Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes[int.Parse(parts[1])];
+                    var pose = Kmnk.FaceTrackingGenerator.Tuning.PoseObject(node.Children, int.Parse(parts[2]));
+                    Kmnk.FaceTrackingGenerator.Tuning.AddPart(pose, item.Substring(k + 1));
+                    Debug.Log($"[FTG] tuning add-part {item}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            var setAmount = CliArgs.Get("-ftSetAmount");
+            if (setAmount != null)
+                foreach (var item in setAmount.Split(';').Where(x => x.Contains("=")))
+                {
+                    var (key, value) = Split(item);
+                    var parts = key.Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes[int.Parse(parts[1])];
+                    var pose = Kmnk.FaceTrackingGenerator.Tuning.PoseObject(node.Children, int.Parse(parts[2]));
+                    Kmnk.FaceTrackingGenerator.Tuning.SetAmount(pose, parts[3], value);
+                    Debug.Log($"[FTG] tuning set-amount {key}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            var remove2d = CliArgs.Get("-ftRemovePart2D");
+            if (remove2d != null)
+                foreach (var item in remove2d.Split(';').Where(x => x.Length > 0))
+                {
+                    var parts = item.Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes2D[int.Parse(parts[1])];
+                    var pose = Kmnk.FaceTrackingGenerator.Tuning.PoseObject(node.Children, int.Parse(parts[2]));
+                    Kmnk.FaceTrackingGenerator.Tuning.RemovePart(pose, parts[3]);
+                    Debug.Log($"[FTG] tuning remove-part-2d {item}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            var setPart = CliArgs.Get("-ftSetPart");
+            if (setPart != null)
+                foreach (var item in setPart.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.IndexOf('=');
+                    TableEdits.SetPart(doc.Json(TableDocument.Avatar), item.Substring(0, k), item.Substring(k + 1));
+                    Debug.Log($"[FTG] tuning set-part {item}");
+                }
+            var removePos = CliArgs.Get("-ftRemovePosition");
+            if (removePos != null)
+                foreach (var item in removePos.Split(';').Where(x => x.Length > 0))
+                {
+                    var parts = item.Split('/');
+                    var node = trees.First(t => t.Name == parts[0]).Nodes[int.Parse(parts[1])];
+                    var can = Kmnk.FaceTrackingGenerator.Tuning.CanRemovePosition(node);
+                    Kmnk.FaceTrackingGenerator.Tuning.RemovePosition(node, int.Parse(parts[2]));
+                    Debug.Log($"[FTG] tuning remove-position {item}: can={can.ToString().ToLower()} positions={string.Join(",", Enumerable.Range(0, node.Children.Count).Select(j => F(node.Position(j))))}");
+                }
+            // Which buttons the tab enables: removing a position of each 1D node, and adding one at each existing position.
+            foreach (var t in trees)
+                for (int i = 0; i < t.Nodes.Count; i++)
+                {
+                    var n = t.Nodes[i];
+                    var addAtExisting = Enumerable.Range(0, n.Children.Count).Any(j => Kmnk.FaceTrackingGenerator.Tuning.CanAddPosition(n, n.Position(j)));
+                    Debug.Log($"[FTG] tuning can {t.Name}/{i}: remove={Kmnk.FaceTrackingGenerator.Tuning.CanRemovePosition(n).ToString().ToLower()} add-at-existing={addAtExisting.ToString().ToLower()} add-at-0.6={Kmnk.FaceTrackingGenerator.Tuning.CanAddPosition(n, 0.6f).ToString().ToLower()}");
+                }
+            var all = Kmnk.FaceTrackingGenerator.Tuning.AllPartNames(doc.Json(TableDocument.Avatar), expr);
+            foreach (var t in trees)
+                Debug.Log($"[FTG] tuning menu {t.Name}: " + string.Join(" ", Kmnk.FaceTrackingGenerator.Tuning.Choices(t, all).Select(c => c.label == c.write ? c.label : $"{c.label}->{c.write}")));
+            var names = CliArgs.Get("-ftNames");
+            if (names != null)
+                foreach (var n in names.Split(','))
+                    Debug.Log($"[FTG] tuning name {n}: {Kmnk.FaceTrackingGenerator.Tuning.CheckName(n, true, all).ToString().ToLower()}");
+
             model = doc.Model();  // the edited tables must still load
 
             var tryValues = CliArgs.Get("-ftTry");

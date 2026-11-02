@@ -831,17 +831,17 @@ namespace Kmnk.FaceTrackingGenerator
             if (model == null) return;
             var expression = doc.Json(TableDocument.Expression);
             var trees = Tuning.Trees(expression);
-            var ja = EditorText.Current == EditorText.Language.Japanese;
+            var allNames = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), expression);
 
-            EditorGUILayout.LabelField("Thresholds", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Expressions", EditorStyles.boldLabel);
             Help("help.thresholds");
-            var withNodes = trees.Where(t => t.Nodes.Count > 0).ToList();
-            if (withNodes.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.no1d"), EditorStyles.wordWrappedLabel);
+            var shown = trees.Where(t => t.Nodes.Count > 0 || t.Has2D).ToList();
+            if (shown.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.no1d"), EditorStyles.wordWrappedLabel);
             var firstNode = true;
-            foreach (var t in withNodes)
+            foreach (var t in shown)
             {
                 tuneOpen.TryGetValue(t.Name, out var open);
-                if (!tuneOpen.ContainsKey(t.Name)) open = t == withNodes[0];
+                if (!tuneOpen.ContainsKey(t.Name)) open = t == shown[0];
                 tuneOpen[t.Name] = open = EditorGUILayout.Foldout(open, Tuning.TreeTitle(t), true, EditorStyles.foldoutHeader);
                 if (!open) { firstNode = false; continue; }
                 EditorGUI.indentLevel++;
@@ -851,13 +851,11 @@ namespace Kmnk.FaceTrackingGenerator
                     if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
                     firstNode = false;
                     tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.NodeTitle(t.Nodes[i]), true);
-                    if (tuneOpen[key]) DrawTuningNode(t, i, key);
+                    if (tuneOpen[key]) DrawTuningNode(t, i, key, allNames);
                 }
+                for (int k = 0; k < t.Nodes2D.Count; k++) DrawTuningNode2D(t, k, allNames);
                 EditorGUI.indentLevel--;
             }
-            var only2d = trees.Where(t => t.Nodes.Count == 0 && t.Has2D).Select(t => Tuning.Label(t.Name)).ToList();
-            if (only2d.Count > 0)
-                PartsLine(string.Format(EditorText.Get("tune.only2d"), string.Join(ja ? "・" : ", ", only2d)));
 
             EditorGUILayout.Space(6);
             var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
@@ -898,10 +896,15 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        void DrawTuningNode(Tuning.Tree t, int index, string key)
+        // Edits the expression table at a tree found again by name (the trees are made again after each edit).
+        void EditTree(string undoName, string tree, Action<Tuning.Tree> edit) =>
+            Edit(TableDocument.Expression, undoName, e => edit(Tuning.Trees(e).First(x => x.Name == tree)));
+
+        void DrawTuningNode(Tuning.Tree t, int index, string key, ICollection<string> allNames)
         {
             var n = t.Nodes[index];
             var (lo, hi) = Tuning.InputRange(n);
+            var name = t.Name;
 
             // Graph: amount of each face movement (0-100) along the input, positions as dotted lines, the try value as a line.
             var rect = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(100, 90, GUILayout.ExpandWidth(true)));
@@ -911,18 +914,25 @@ namespace Kmnk.FaceTrackingGenerator
             for (int i = 0; i < n.Children.Count; i++)
             {
                 var (plo, phi) = Tuning.PositionRange(n, i);
+                var j = i;
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     EditorGUI.BeginChangeCheck();
                     var v = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.position"), i + 1), n.Position(i), plo, phi);
                     if (EditorGUI.EndChangeCheck())
                     {
-                        var j = i; var at = index; var name = t.Name;
                         tuneShown = key;
-                        Edit(TableDocument.Expression, "Set FT position", e => Tuning.SetPosition(Tuning.Trees(e).First(x => x.Name == name).Nodes[at], j, v));
+                        EditTree("Set FT position", name, x => Tuning.SetPosition(x.Nodes[index], j, v));
                     }
-                    SideNote(Tuning.ChildText(n.Child(i)), 150);
+                    using (new EditorGUI.DisabledScope(!Tuning.CanRemovePosition(n)))
+                        if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removePosition")), EditorStyles.miniButton, GUILayout.Width(20)))
+                        {
+                            tuneShown = key;
+                            EditTree("Remove FT position", name, x => Tuning.RemovePosition(x.Nodes[index], j));
+                            GUIUtility.ExitGUI();
+                        }
                 }
+                DrawPose(t, n.Child(i), key, allNames, (x, edit) => edit(Tuning.PoseObject(x.Nodes[index].Children, j)));
             }
 
             EditorGUI.BeginChangeCheck();
@@ -934,7 +944,97 @@ namespace Kmnk.FaceTrackingGenerator
             }
             var note = EditorText.Help("help.tuneTry");
             if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(EditorGUI.indentLevel * 15);
+                using (new EditorGUI.DisabledScope(!Tuning.CanAddPosition(n, tryValue)))
+                    if (GUILayout.Button(string.Format(EditorText.Get("tune.addPosition"), tryValue.ToString("0.##")), GUILayout.ExpandWidth(false)))
+                    {
+                        var x0 = tryValue;
+                        tuneShown = key;
+                        EditTree("Add FT position", name, x => Tuning.AddPosition(x.Nodes[index], x0));
+                        GUIUtility.ExitGUI();
+                    }
+            }
             EditorGUILayout.Space(4);
+        }
+
+        void DrawTuningNode2D(Tuning.Tree t, int k, ICollection<string> allNames)
+        {
+            var n = t.Nodes2D[k];
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            if (t.Nodes2D.Count > 1 || t.Nodes.Count > 0) EditorGUILayout.LabelField(Tuning.Label(n.InputX) + " × " + Tuning.Label(n.InputY), EditorStyles.miniBoldLabel);
+            PartsLine(string.Format(EditorText.Get("tune.2d"), Tuning.Label(n.InputX), Tuning.Label(n.InputY)));
+            var key = $"{t.Name}/2d/{k}";
+            for (int i = 0; i < n.Children.Count; i++)
+            {
+                var (x, y) = n.Position(i);
+                var j = i;
+                var old = GUI.contentColor;
+                GUI.contentColor = Color.gray;
+                EditorGUILayout.LabelField($"Position ({x:0.##}, {y:0.##})");
+                GUI.contentColor = old;
+                DrawPose(t, n.Child(i), key + "/" + i, allNames, (tree, edit) => edit(Tuning.PoseObject(tree.Nodes2D[k].Children, j)));
+            }
+            EditorGUILayout.Space(4);
+        }
+
+        // The face movement rows of a position, and "+ Add face movement". locate finds the pose again in a tree made
+        // after the edit and passes it to an edit.
+        void DrawPose(Tuning.Tree t, JToken child, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate)
+        {
+            var name = t.Name;
+            EditorGUI.indentLevel++;
+            var pose = Tuning.Pose(child);
+            if (pose == null) { PartsLine(Tuning.ChildText(child)); EditorGUI.indentLevel--; return; }
+            if (pose.Count == 0) PartsLine(Tuning.ChildText(child));
+            foreach (var kv in pose)
+            {
+                var part = kv.Key;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var v = EditorGUILayout.IntSlider(Tuning.Label(part), (int)Math.Round(kv.Value), 0, 100);
+                    if (EditorGUI.EndChangeCheck())
+                        EditTreeAndShow("Set FT amount", name, showKey, tree => locate(tree, p => Tuning.SetAmount(p, part, v)));
+                    if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removePart")), EditorStyles.miniButton, GUILayout.Width(20)))
+                    {
+                        EditTreeAndShow("Remove FT face movement", name, showKey, tree => locate(tree, p => Tuning.RemovePart(p, part)));
+                        GUIUtility.ExitGUI();
+                    }
+                }
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(EditorGUI.indentLevel * 15);
+                var content = new GUIContent("+ Add face movement");
+                if (EditorGUILayout.DropdownButton(content, FocusType.Passive, GUILayout.ExpandWidth(false)))
+                {
+                    var r = GUILayoutUtility.GetLastRect();
+                    var menu = new GenericMenu();
+                    foreach (var (label, write) in Tuning.Choices(t, allNames))
+                    {
+                        var dot = label.IndexOf('.');
+                        var path = (dot > 0 ? label.Substring(0, dot) + "/" : "") + label;
+                        var w = write;
+                        if (pose.ContainsKey(write)) menu.AddDisabledItem(new GUIContent(path));
+                        else menu.AddItem(new GUIContent(path), false, () => EditTreeAndShow("Add FT face movement", name, showKey, tree => locate(tree, p => Tuning.AddPart(p, w))));
+                    }
+                    if (menu.GetItemCount() > 0) menu.AddSeparator("");
+                    var pairVar = Tuning.PairVariable(t);
+                    menu.AddItem(new GUIContent("New face movement…"), false, () =>
+                        PopupWindow.Show(r, new NewPartPopup(allNames, pairVar, part => EditTreeAndShow("Add FT face movement", name, showKey, tree => locate(tree, p => Tuning.AddPart(p, part))))));
+                    menu.DropDown(r);
+                }
+            }
+            EditorGUI.indentLevel--;
+        }
+
+        void EditTreeAndShow(string undoName, string tree, string showKey, Action<Tuning.Tree> edit)
+        {
+            tuneShown = showKey;
+            EditTree(undoName, tree, edit);
+            Repaint();
         }
 
         void DrawTuningGraph(Rect r, Tuning.Blend1D n, float lo, float hi, float tryValue)
@@ -988,6 +1088,16 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (model == null || doc == null) return;
             tuneShown = key;
+            var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
+            if (at2d >= 0)
+            {
+                var rest = key.Substring(at2d + 4).Split('/');
+                var t2 = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, at2d));
+                if (t2 == null || rest.Length < 2 || !int.TryParse(rest[0], out var k2) || !int.TryParse(rest[1], out var c) || k2 >= t2.Nodes2D.Count || c >= t2.Nodes2D[k2].Children.Count) return;
+                var (px, py) = t2.Nodes2D[k2].Position(c);
+                FaceView.Show(model, Prefab(), Tuning.TryWeights2D(model, t2, t2.Nodes2D[k2], c, inputs), $"({px:0.##}, {py:0.##}) ({Tuning.Label(t2.Name)})");
+                return;
+            }
             var k = key.LastIndexOf('/');
             var t = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, k));
             if (t == null || !int.TryParse(key.Substring(k + 1), out var i) || i >= t.Nodes.Count) return;
@@ -1030,6 +1140,8 @@ namespace Kmnk.FaceTrackingGenerator
                         Tuning.SetPosition(t.Nodes[int.Parse(key[1])], int.Parse(key[2]), value);
                     });
                 }
+            var tuneOpenArg = CliArgs.Get("-ftTuneOpen");
+            if (tuneOpenArg != null) foreach (var o in tuneOpenArg.Split(';')) tuneOpen[o] = true;
             var tuneTryArg = CliArgs.Get("-ftTuneTry");
             if (tuneTryArg != null && doc != null)
             {

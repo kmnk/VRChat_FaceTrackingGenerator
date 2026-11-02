@@ -20,12 +20,23 @@ namespace Kmnk.FaceTrackingGenerator
             public JToken Child(int i) => ((JArray)Children[i])[1];
         }
 
+        public sealed class Blend2D
+        {
+            public JObject Node;                                   // {"2d": [inputX, inputY], "children": [[[x, y], pose or node], ...]}
+            public string InputX, InputY;
+            public List<(string sw, string state)> When = new List<(string, string)>();
+            public JArray Children => (JArray)Node["children"];
+            public (float x, float y) Position(int i) { var p = (JArray)((JArray)Children[i])[0]; return (p[0].Value<float>(), p[1].Value<float>()); }
+            public JToken Child(int i) => ((JArray)Children[i])[1];
+        }
+
         public sealed class Tree
         {
             public string Name;                                    // as written, e.g. "Eyelid{side}"
             public List<Dictionary<string, string>> Sides;         // the side variables, or null for a tree without sides
             public List<Blend1D> Nodes = new List<Blend1D>();
-            public bool Has2D;
+            public List<Blend2D> Nodes2D = new List<Blend2D>();
+            public bool Has2D => Nodes2D.Count > 0;
         }
 
         // ---- finding
@@ -54,7 +65,8 @@ namespace Kmnk.FaceTrackingGenerator
             }
             else if (o["2d"] != null && o["children"] is JArray ch2)
             {
-                t.Has2D = true;
+                var axes = o["2d"] as JArray;
+                t.Nodes2D.Add(new Blend2D { Node = o, InputX = (string)axes?[0], InputY = (string)axes?[1], When = path.ToList() });
                 foreach (var c in ch2.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t);
             }
             else if (o["switch"] != null && o["cases"] is JObject cases)
@@ -189,6 +201,140 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var inputs = new Dictionary<string, float>(others ?? new Dictionary<string, float>());
             foreach (var name in Expanded(t, n.Input)) inputs[name] = value;
+            var tracker = new SwitchTracker();
+            foreach (var (sw, st) in n.When)
+                foreach (var name in Expanded(t, sw)) tracker.Pinned[name] = st;
+            return CurveEval.Evaluate(model, inputs, tracker.Update(model, inputs));
+        }
+
+        // ---- face movements of a position (a pose: part -> amount)
+
+        // The pose object of a child, made when the child is null. Null when the child is a nested node.
+        public static JObject PoseObject(JArray children, int i)
+        {
+            var row = (JArray)children[i];
+            if (row[1] == null || row[1].Type == JTokenType.Null) row[1] = new JObject();
+            return Pose(row[1]) != null ? (JObject)row[1] : null;
+        }
+
+        // Amounts are written as whole numbers so that 100 stays "100".
+        public static void SetAmount(JObject pose, string part, float amount) =>
+            pose[part] = (long)Math.Round(Math.Min(Math.Max(amount, 0), 100));
+
+        public static void RemovePart(JObject pose, string part) => pose.Remove(part);
+
+        public static void AddPart(JObject pose, string part, float amount = 100)
+        {
+            if (pose[part] == null) SetAmount(pose, part, amount);
+        }
+
+        // ---- adding and removing positions of a 1D node
+
+        public static bool HasNested(Blend1D n) => Enumerable.Range(0, n.Children.Count).Any(i => Pose(n.Child(i)) == null);
+
+        public static bool CanAddPosition(Blend1D n, float x)
+        {
+            var v = Math.Round((double)x, 2);
+            return !HasNested(n) && Enumerable.Range(0, n.Children.Count).All(i => Math.Abs(n.Position(i) - v) > 0.001);
+        }
+
+        public static bool CanRemovePosition(Blend1D n) => n.Children.Count > 2;
+
+        // Adds a position at x with the amounts the node has there now, so the face does not change. Returns its index.
+        public static int AddPosition(Blend1D n, float x)
+        {
+            var v = Math.Round((double)x, 2);
+            var amounts = Curve(n, new[] { (float)v });
+            var pose = new JObject();
+            foreach (var kv in amounts.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                var a = (long)Math.Round(kv.Value[0]);
+                if (a != 0) pose[kv.Key] = a;
+            }
+            var index = Enumerable.Range(0, n.Children.Count).Count(i => n.Position(i) < v);
+            n.Children.Insert(index, new JArray(v, pose));
+            return index;
+        }
+
+        public static void RemovePosition(Blend1D n, int i)
+        {
+            if (CanRemovePosition(n)) n.Children.RemoveAt(i);
+        }
+
+        // ---- names for "+ Add face movement"
+
+        // The side variable whose values are L and R (the template's "s"), or null.
+        public static string PairVariable(Tree t)
+        {
+            if (t.Sides == null || t.Sides.Count != 2) return null;
+            foreach (var k in t.Sides[0].Keys)
+            {
+                if (k == "side" || !t.Sides[1].ContainsKey(k)) continue;
+                var vals = new[] { t.Sides[0][k], t.Sides[1][k] };
+                if (vals.Contains("L") && vals.Contains("R")) return k;
+            }
+            return null;
+        }
+
+        // All face movement names: the avatar settings' parts and missing parts, and the expression's parts expanded.
+        public static SortedSet<string> AllPartNames(JObject avatar, JObject expression)
+        {
+            var names = new SortedSet<string>(StringComparer.Ordinal);
+            if (avatar?["parts"] is JObject parts) foreach (var p in parts.Properties()) names.Add(p.Name);
+            if (avatar?["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) names.Add((string)x);
+            foreach (var t in Trees(expression))
+            {
+                var poses = t.Nodes.SelectMany(n => Enumerable.Range(0, n.Children.Count).Select(n.Child))
+                    .Concat(t.Nodes2D.SelectMany(n => Enumerable.Range(0, n.Children.Count).Select(n.Child)))
+                    .Select(Pose).Where(p => p != null);
+                foreach (var pose in poses)
+                    foreach (var part in pose.Keys)
+                        foreach (var vars in t.Sides ?? new List<Dictionary<string, string>> { null })
+                            names.Add(Sub(part, vars));
+            }
+            return names;
+        }
+
+        // Menu items for a tree: (label, name to write). In a left/right tree, "<base>_L" and "<base>_R" become one
+        // item "<base>" written as "<base>_{s}".
+        public static List<(string label, string write)> Choices(Tree t, IEnumerable<string> allNames)
+        {
+            var names = allNames.ToList();
+            var v = PairVariable(t);
+            var result = new List<(string, string)>();
+            var paired = new HashSet<string>();
+            if (v != null)
+                foreach (var n in names.Where(n => n.EndsWith("_L")))
+                {
+                    var b = n.Substring(0, n.Length - 2);
+                    if (!names.Contains(b + "_R")) continue;
+                    result.Add((b, b + "_{" + v + "}"));
+                    paired.Add(b + "_L"); paired.Add(b + "_R");
+                }
+            foreach (var n in names.Where(n => !paired.Contains(n))) result.Add((n, n));
+            return result.OrderBy(x => x.Item1, StringComparer.Ordinal).ToList();
+        }
+
+        static readonly Regex NameRule = new Regex(@"^[a-z0-9_]+\.[a-z0-9_]+$");
+
+        public enum NameProblem { None, Form, Used }
+
+        // A new face movement name: lowercase letters, digits and _, with one dot, and not used yet (also as _L/_R).
+        public static NameProblem CheckName(string name, bool separate, IEnumerable<string> allNames)
+        {
+            if (string.IsNullOrEmpty(name) || !NameRule.IsMatch(name)) return NameProblem.Form;
+            var names = new HashSet<string>(allNames);
+            if (names.Contains(name) || names.Contains(name + "_L") || names.Contains(name + "_R")) return NameProblem.Used;
+            return NameProblem.None;
+        }
+
+        // The weights of the face at a 2D position, with the switches above the node held in its states.
+        public static SortedDictionary<string, float> TryWeights2D(TableModel model, Tree t, Blend2D n, int i, IDictionary<string, float> others)
+        {
+            var inputs = new Dictionary<string, float>(others ?? new Dictionary<string, float>());
+            var (x, y) = n.Position(i);
+            foreach (var name in Expanded(t, n.InputX)) inputs[name] = x;
+            foreach (var name in Expanded(t, n.InputY)) inputs[name] = y;
             var tracker = new SwitchTracker();
             foreach (var (sw, st) in n.When)
                 foreach (var name in Expanded(t, sw)) tracker.Pinned[name] = st;
