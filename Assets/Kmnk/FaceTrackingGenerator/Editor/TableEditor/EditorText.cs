@@ -105,6 +105,8 @@ namespace Kmnk.FaceTrackingGenerator
             ["help.newPart"] = ("Write it as \"region.movement\". Regions: eye, mouth, brow, cheek, tongue and so on.", "「部位.動き」の形で。部位は eye・mouth・brow・cheek・tongue など。"),
             ["newPart.form"] = ("Use lowercase letters, digits and _, with one dot.", "英小文字・数字・_ で、. を 1 つ含めてください。"),
             ["newPart.used"] = ("This name is already used.", "この名前はもうあります。"),
+            ["graph.help"] = ("Select a box to show its node in the Tuning tab of the settings editor. Drag from the circle right of a position and release on empty space to split that position with 1D.", "箱を選ぶと、設定エディタの Tuning にその節が出ます。位置の右の丸から線を引いて空いた所で離すと、その位置を 1D で分けられます。"),
+            ["graph.noTable"] = ("Open settings in the settings editor.", "設定エディタで設定を開いてください。"),
             ["tune.no1d"] = ("No expression moves with one value.", "1 つの値で動く表情がありません。"),
             ["tune.noSmoothing"] = ("No smoothing settings.", "smoothing の設定がありません。"),
             ["tune.local"] = ("Your view", "Your view"),

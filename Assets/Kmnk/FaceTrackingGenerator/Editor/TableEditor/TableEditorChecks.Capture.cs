@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -10,7 +11,8 @@ namespace Kmnk.FaceTrackingGenerator
     {
         // Opens a window, lets it draw for a while, and writes what it drew to a PNG (-ftOut). Run from an editor
         // started with graphics and without -batchmode (scripts/unity-gui.sh): batchmode does not draw windows.
-        //   -ftWindow generator | table   (default table)
+        //   -ftWindow generator | table | graph   (default table; graph also opens the table editor and writes it to <out>.tuning.png)
+        //   -ftGraphTree <tree>  -ftGraphSelect <box path>  -ftGraphSplitList "<box path>#<row>"   (graph only)
         //   -ftSize 560x1000               window size in points
         // Other arguments are passed to the window (see TableEditorWindow.ApplyCaptureArgs).
         // Unity exits when done: 0 written, 2 error.
@@ -37,6 +39,17 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                     window = g;
                 }
+                else if (which == "graph")
+                {
+                    var t = EditorWindow.GetWindow<TableEditorWindow>("FT Table Editor");
+                    t.ApplyCaptureArgs();
+                    t.position = new Rect(80 + w + 20, 80, 560, 1000);
+                    var g = ExpressionGraphWindow.Open();
+                    var treeArg = CliArgs.Get("-ftGraphTree");
+                    if (treeArg != null) g.SelectTree(treeArg);
+                    g.Refresh();
+                    window = g;
+                }
                 else
                 {
                     var t = EditorWindow.GetWindow<TableEditorWindow>("FT Table Editor");
@@ -53,6 +66,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     window.Repaint();
                     if (window is TableEditorWindow tw) tw.CaptureTick(frames);
+                    if (window is ExpressionGraphWindow gw) GraphTick(gw, frames);
                     if (++frames < 60) return;
                     EditorApplication.update -= tick;
                     try
@@ -65,6 +79,25 @@ namespace Kmnk.FaceTrackingGenerator
                             var facePath = Path.ChangeExtension(outPath, null) + ".faceview.png";
                             Grab(face, facePath);
                             Debug.Log($"[FTG] capture: wrote {facePath}");
+                        }
+                        if (window is ExpressionGraphWindow)
+                        {
+                            var te = TableEditorWindow.Current;
+                            if (te != null)
+                            {
+                                te.Repaint();
+                                var tePath = Path.ChangeExtension(outPath, null) + ".tuning.png";
+                                Grab(te, tePath);
+                                Debug.Log($"[FTG] capture: wrote {tePath}");
+                                Debug.Log($"[FTG] capture: tuning {te.TuningState()}");
+                            }
+                            var search = Resources.FindObjectsOfTypeAll<EditorWindow>().FirstOrDefault(x => x.GetType().Name == "SearchWindow");
+                            if (search != null)
+                            {
+                                var searchPath = Path.ChangeExtension(outPath, null) + ".split.png";
+                                Grab(search, searchPath);
+                                Debug.Log($"[FTG] capture: wrote {searchPath} (list at {search.position})");
+                            }
                         }
                         var popup = TableEditorWindow.OpenPicker();
                         if (popup != null)
@@ -80,6 +113,34 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorApplication.update += tick;
             }
             catch (Exception e) { Debug.LogException(e); Debug.Log("[FTG] error: " + e.Message); EditorApplication.Exit(2); }
+        }
+
+        // Selects a box and opens the split list on the graph at set frames, as a user would.
+        static void GraphTick(ExpressionGraphWindow g, int frame)
+        {
+            TableEditorWindow.Current?.Repaint();
+            if (frame == 20)
+            {
+                var select = CliArgs.Get("-ftGraphSelect");
+                var box = g.View.Boxes.FirstOrDefault(b => b.Box.Path == select);
+                if (box != null) { g.View.ClearSelection(); g.View.AddToSelection(box); }
+                Debug.Log($"[FTG] capture: graph boxes={g.View.Boxes.Count} edges={g.View.edges.ToList().Count} selected={(box != null ? box.Box.Path : "-")} scale={g.View.viewTransform.scale.x:0.##}");
+            }
+            if (frame == 35)
+            {
+                var split = CliArgs.Get("-ftGraphSplitList");
+                if (split != null)
+                {
+                    var parts = split.Split('#');
+                    var box = g.View.Boxes.FirstOrDefault(b => b.Box.Path == parts[0]);
+                    if (box != null)
+                    {
+                        var port = box.Outputs[int.Parse(parts[1])];
+                        var p = port.worldBound.center + new Vector2(140, 160);
+                        g.OpenSplitList(parts[0], int.Parse(parts[1]), g.position.position + p);
+                    }
+                }
+            }
         }
 
         // Copies the pixels of the window's own view (internal GUIView.GrabPixels) to a PNG. Only the window is

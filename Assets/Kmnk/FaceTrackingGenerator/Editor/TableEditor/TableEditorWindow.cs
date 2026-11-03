@@ -53,6 +53,11 @@ namespace Kmnk.FaceTrackingGenerator
         readonly Dictionary<string, bool> tuneOpen = new Dictionary<string, bool>();
         readonly Dictionary<string, float> tuneTry = new Dictionary<string, float>();
         string tuneShown;
+        string tuneScrollTo;  // a fold key to scroll to on the next repaint (from the expression graph)
+
+        // The open settings editor, for the expression graph. Changed is raised after the tables change.
+        internal static TableEditorWindow Current { get; private set; }
+        internal static event Action Changed;
 
         [MenuItem("Tools/Kmnk/Face Tracking Settings Editor")]
         static void Open() => GetWindow<TableEditorWindow>("FT Settings Editor");
@@ -75,6 +80,7 @@ namespace Kmnk.FaceTrackingGenerator
         void OnEnable()
         {
             titleContent = new GUIContent("FT Settings Editor");
+            Current = this;
             state = CreateInstance<TableEditState>();
             state.hideFlags = HideFlags.HideAndDontSave;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -88,6 +94,7 @@ namespace Kmnk.FaceTrackingGenerator
         void OnDisable()
         {
             preview.Stop();
+            if (Current == this) { Current = null; Changed?.Invoke(); }
             Undo.undoRedoPerformed -= OnUndoRedo;
             EditorApplication.playModeStateChanged -= OnPlayMode;
             if (state != null) { Undo.ClearUndo(state); DestroyImmediate(state); }
@@ -131,6 +138,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             catch (Exception e) { doc = null; error = e.Message; }
             UpdateDirty();
+            if (Current == this) Changed?.Invoke();
         }
 
         void Rebuild()
@@ -140,7 +148,52 @@ namespace Kmnk.FaceTrackingGenerator
             if (preview.Running) ApplyPreview();
             else if (tab == 2 && tuneShown != null) ShowTuning(tuneShown);
             else ShowSelected();
+            if (Current == this) Changed?.Invoke();
         }
+
+        // ---- the expression graph
+
+        internal JObject ExpressionJson => doc?.Json(TableDocument.Expression);
+        internal JObject InputJson => doc?.Json(TableDocument.Input);
+
+        // Opens the Tuning tab at a node: the tree's fold, the node's fold (1D), and scrolls to it. A null key (a switch)
+        // opens the tree only.
+        internal void RevealInTuning(string tree, string key)
+        {
+            if (doc == null || tree == null) return;
+            tab = 2;
+            tuneOpen[tree] = true;
+            if (key != null)
+            {
+                if (key.IndexOf("/2d/", StringComparison.Ordinal) < 0) tuneOpen[key] = true;
+                tuneScrollTo = key;
+                ShowTuning(key);
+            }
+            else tuneScrollTo = tree;
+            Repaint();
+        }
+
+        // Splits a position of the tree with 1D (ExpressionGraph.Split) as an unsaved edit. Returns the new box's path.
+        internal string SplitPosition(string tree, string path, int row, string input)
+        {
+            if (doc == null || !ExpressionGraph.CanSplit(ExpressionJson, tree, path, row)) return null;
+            string made = null;
+            Edit(TableDocument.Expression, "Split FT position", e => made = ExpressionGraph.Split(e, tree, path, row, input));
+            return made;
+        }
+
+        // Called right after a fold's header: scrolls to the header when the graph asked for it. Adds nothing to the layout.
+        void ScrollMark(string key)
+        {
+            if (tuneScrollTo != key || Event.current.type != EventType.Repaint) return;
+            var r = GUILayoutUtility.GetLastRect();
+            tuneScrollTo = null;
+            scroll.y = Math.Max(0, r.y - 4);
+            Repaint();
+        }
+
+        // For TableEditorChecks.Capture: the tab and the open folds.
+        internal string TuningState() => $"tab={Tabs[tab]} open={string.Join(",", tuneOpen.Where(kv => kv.Value).Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal))}";
 
         // ---- Face View
 
@@ -843,6 +896,7 @@ namespace Kmnk.FaceTrackingGenerator
                 tuneOpen.TryGetValue(t.Name, out var open);
                 if (!tuneOpen.ContainsKey(t.Name)) open = t == shown[0];
                 tuneOpen[t.Name] = open = EditorGUILayout.Foldout(open, Tuning.TreeTitle(t), true, EditorStyles.foldoutHeader);
+                ScrollMark(t.Name);
                 if (!open) { firstNode = false; continue; }
                 EditorGUI.indentLevel++;
                 for (int i = 0; i < t.Nodes.Count; i++)
@@ -851,6 +905,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
                     firstNode = false;
                     tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.NodeTitle(t.Nodes[i]), true);
+                    ScrollMark(key);
                     if (tuneOpen[key]) DrawTuningNode(t, i, key, allNames);
                 }
                 for (int k = 0; k < t.Nodes2D.Count; k++) DrawTuningNode2D(t, k, allNames);
@@ -979,6 +1034,7 @@ namespace Kmnk.FaceTrackingGenerator
             var key = $"{t.Name}/2d/{k}";
             var (rx, ry) = Tuning.InputRange(n);
             if (t.Nodes2D.Count > 1 || t.Nodes.Count > 0) EditorGUILayout.LabelField(Tuning.Label(n.InputX) + " × " + Tuning.Label(n.InputY), EditorStyles.miniBoldLabel);
+            ScrollMark(key);
             PartsLine(string.Format(EditorText.Get("tune.2d"), Tuning.Label(n.InputX), Tuning.Label(n.InputY)));
             tuneTry2D.TryGetValue(key, out var tryPoint);
 
