@@ -12,6 +12,7 @@ namespace Kmnk.FaceTrackingGenerator
         // saves with -ftSave 1.
         //   -ftTree <name>                        default: every tree
         //   -ftSplit "<tree>|<box path>|<row>=<input>;..."   e.g. "Mouth|root/0/0|0=SmileFrown"
+        //   -ftOpen "<box path>;..."           boxes shown open (face movements one per line)
         // Lines:
         //   [FTG] graph box <tree> <path>: <title> | x=<x> y=<y> | tuning=<key> | <row>; <row>; ...   (rows marked "->" hold a box)
         //   [FTG] graph edge <tree> <path>#<row> -> <child path>
@@ -24,8 +25,9 @@ namespace Kmnk.FaceTrackingGenerator
             var doc = TableDocument.Open(path);
             var expression = doc.Json(TableDocument.Expression);
             var only = CliArgs.Get("-ftTree");
+            var open = new HashSet<string>((CliArgs.Get("-ftOpen") ?? "").Split(';').Where(x => x != ""));
             foreach (var tree in ExpressionGraph.TreeNames(expression).Where(t => only == null || t == only))
-                PrintGraph(expression, doc.Json(TableDocument.Input), tree);
+                PrintGraph(expression, doc.Json(TableDocument.Input), tree, open);
 
             var split = CliArgs.Get("-ftSplit");
             if (split != null)
@@ -49,12 +51,14 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
-        static void PrintGraph(Newtonsoft.Json.Linq.JObject expression, Newtonsoft.Json.Linq.JObject input, string tree)
+        static void PrintGraph(Newtonsoft.Json.Linq.JObject expression, Newtonsoft.Json.Linq.JObject input, string tree, ICollection<string> open = null)
         {
-            var boxes = ExpressionGraph.Build(expression, tree);
+            var boxes = ExpressionGraph.Build(expression, tree, open);
             foreach (var b in boxes)
-                Debug.Log($"[FTG] graph box {tree} {b.Path}: {b.Title} | x={F(b.X)} y={F(b.Y)} | tuning={b.TuningKey ?? "-"} | " +
-                          string.Join("; ", b.Rows.Select(r => (r.Nested ? "-> " : "") + r.Label)));
+                Debug.Log($"[FTG] graph box {tree} {b.Path}: {b.Title} | x={F(b.X)} y={F(b.Y)} h={F(b.Height)} open={b.Open.ToString().ToLower()} | tuning={b.TuningKey ?? "-"} | " +
+                          string.Join("; ", b.Rows.Select(r => (r.Nested ? "-> " : "") + r.Label + (r.Lines.Count > 0 ? " [" + string.Join(" / ", r.Lines) + "]" : ""))));
+            foreach (var b in boxes) foreach (var r in b.Rows.Where(r => r.FullLabel != r.Label && !b.Open))
+                Debug.Log($"[FTG] graph tip {tree} {b.Path}: {r.FullLabel}");
             foreach (var b in boxes.Where(b => b.ParentPath != null))
                 Debug.Log($"[FTG] graph edge {tree} {b.ParentPath}#{b.ParentRow} -> {b.Path}");
             Debug.Log($"[FTG] graph inputs {tree}: {string.Join(",", ExpressionGraph.SplitInputs(input, expression, tree))}");

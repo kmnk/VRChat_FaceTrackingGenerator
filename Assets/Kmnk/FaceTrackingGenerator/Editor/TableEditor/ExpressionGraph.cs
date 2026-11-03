@@ -11,7 +11,7 @@ namespace Kmnk.FaceTrackingGenerator
     // pair stays one tree. A box is found by its path: the row indices from the top box ("root", "root/0", "root/0/1").
     public static class ExpressionGraph
     {
-        public const float ColumnWidth = 370, BoxWidth = 320, TitleHeight = 44, RowHeight = 24, Gap = 20;
+        public const float ColumnWidth = 370, BoxWidth = 320, TitleHeight = 44, RowHeight = 24, LineHeight = 16, Gap = 20;
         const int PoseTextLength = 26;
 
         public sealed class Row
@@ -19,6 +19,8 @@ namespace Kmnk.FaceTrackingGenerator
             public string Label;      // "0.3", "(0.7, 0)" or a state name, with ":  <face movements>" for a pose
             public bool Nested;       // the row's content is a box (drawn as a line to it)
             public bool CanSplit;     // the row holds face movements and can become a 1D node
+            public string FullLabel;  // the label without cutting (for the tooltip)
+            public List<string> Lines = new List<string>();  // one face movement per line, for an open box ("mouth.smile  100")
         }
 
         public sealed class Box
@@ -32,6 +34,7 @@ namespace Kmnk.FaceTrackingGenerator
             public int Depth;
             public float X, Y, Height;
             public string TuningKey;  // the fold key of the Tuning tab ("<tree>/<i>", "<tree>/2d/<k>"), or null for a switch
+            public bool Open;         // shows the face movements one per line
         }
 
         public static List<string> TreeNames(JObject expression) =>
@@ -58,12 +61,20 @@ namespace Kmnk.FaceTrackingGenerator
             ? t.Value<double>().ToString("0.##", CultureInfo.InvariantCulture) : t.ToString();
 
         // "mouth.sad 100, eye.sad 100" cut to 26 characters, or "Neutral".
-        public static string PoseText(JToken child)
+        public static string PoseText(JToken child, bool cut = true)
         {
             var pose = Tuning.Pose(child);
             if (pose == null || pose.Count == 0) return "Neutral";
             var s = string.Join(", ", pose.Select(kv => $"{Tuning.Label(kv.Key)} {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}"));
-            return s.Length > PoseTextLength ? s.Substring(0, PoseTextLength - 1) + "…" : s;
+            return cut && s.Length > PoseTextLength ? s.Substring(0, PoseTextLength - 1) + "…" : s;
+        }
+
+        // The face movements of a pose, one per line ("Neutral" for an empty one).
+        public static List<string> PoseLines(JToken child)
+        {
+            var pose = Tuning.Pose(child);
+            if (pose == null || pose.Count == 0) return new List<string> { "Neutral" };
+            return pose.Select(kv => $"{Tuning.Label(kv.Key)}  {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}").ToList();
         }
 
         static string Title(JObject o)
@@ -76,27 +87,28 @@ namespace Kmnk.FaceTrackingGenerator
         public static JObject TreeRoot(JObject expression, string tree) => expression?["trees"]?[tree]?["tree"] as JObject;
 
         // The boxes of a tree in the order of a depth-first walk, laid out left to right.
-        public static List<Box> Build(JObject expression, string tree)
+        public static List<Box> Build(JObject expression, string tree, ICollection<string> open = null)
         {
             var boxes = new List<Box>();
             var root = TreeRoot(expression, tree);
             if (!IsBranch(root)) return boxes;
             var keys = TuningKeys(expression, tree);
             float nextY = 0;
-            Place(root, "root", null, 0, 0, boxes, keys, ref nextY);
+            Place(root, "root", null, 0, 0, boxes, keys, open, ref nextY);
             boxes.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
             boxes[0].Title = Tuning.Label(tree) + " · " + boxes[0].Title;
             return boxes;
         }
 
         // A parent sits at the height of its first child; boxes without children stack from the top.
-        static void Place(JObject o, string path, string parentPath, int parentRow, int depth, List<Box> boxes, Dictionary<JObject, string> keys, ref float nextY)
+        static void Place(JObject o, string path, string parentPath, int parentRow, int depth, List<Box> boxes, Dictionary<JObject, string> keys, ICollection<string> open, ref float nextY)
         {
             var box = new Box
             {
                 Path = path, Kind = o["1d"] != null ? "1d" : o["2d"] != null ? "2d" : "switch", Title = Title(o),
                 ParentPath = parentPath, ParentRow = parentRow, Depth = depth, X = depth * ColumnWidth,
                 TuningKey = keys.TryGetValue(o, out var k) ? k : null,
+                Open = open != null && open.Contains(path),
             };
             var startY = nextY;
             var rows = Children(o);
@@ -106,13 +118,17 @@ namespace Kmnk.FaceTrackingGenerator
                 var (label, child) = rows[i];
                 if (IsBranch(child))
                 {
-                    box.Rows.Add(new Row { Label = label, Nested = true });
-                    Place((JObject)child, path + "/" + i, path, i, depth + 1, boxes, keys, ref nextY);
+                    box.Rows.Add(new Row { Label = label, FullLabel = label, Nested = true });
+                    Place((JObject)child, path + "/" + i, path, i, depth + 1, boxes, keys, open, ref nextY);
                     hasChild = true;
                 }
-                else box.Rows.Add(new Row { Label = label + ":  " + PoseText(child), CanSplit = true });
+                else box.Rows.Add(new Row
+                {
+                    Label = box.Open ? label : label + ":  " + PoseText(child), FullLabel = label + ":  " + PoseText(child, false),
+                    CanSplit = true, Lines = box.Open ? PoseLines(child) : new List<string>(),
+                });
             }
-            box.Height = TitleHeight + rows.Count * RowHeight;
+            box.Height = TitleHeight + rows.Count * RowHeight + box.Rows.Sum(r => r.Lines.Count) * LineHeight;
             box.Y = startY;
             nextY = hasChild ? Math.Max(nextY, startY + box.Height + Gap) : nextY + box.Height + Gap;
             boxes.Add(box);

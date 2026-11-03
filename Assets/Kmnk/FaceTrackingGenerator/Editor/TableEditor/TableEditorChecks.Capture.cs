@@ -12,7 +12,7 @@ namespace Kmnk.FaceTrackingGenerator
         // Opens a window, lets it draw for a while, and writes what it drew to a PNG (-ftOut). Run from an editor
         // started with graphics and without -batchmode (scripts/unity-gui.sh): batchmode does not draw windows.
         //   -ftWindow generator | table | graph   (default table; graph also opens the table editor and writes it to <out>.tuning.png)
-        //   -ftGraphTree <tree>  -ftGraphSelect <box path>  -ftGraphSplitList "<box path>#<row>"   (graph only)
+        //   -ftGraphTree <tree>  -ftGraphSelect <box path>  -ftGraphSplitList "<box path>#<row>"  -ftGraphOpen "<box path>;..."   (graph only)
         //   -ftSize 560x1000               window size in points
         // Other arguments are passed to the window (see TableEditorWindow.ApplyCaptureArgs).
         // Unity exits when done: 0 written, 2 error.
@@ -47,6 +47,8 @@ namespace Kmnk.FaceTrackingGenerator
                     var g = ExpressionGraphWindow.Open();
                     var treeArg = CliArgs.Get("-ftGraphTree");
                     if (treeArg != null) g.SelectTree(treeArg);
+                    var openArg = CliArgs.Get("-ftGraphOpen");  // "<box path>;..."
+                    if (openArg != null) foreach (var path in openArg.Split(';').Where(x => x != "")) g.SetOpen(path, true);
                     g.Refresh();
                     window = g;
                 }

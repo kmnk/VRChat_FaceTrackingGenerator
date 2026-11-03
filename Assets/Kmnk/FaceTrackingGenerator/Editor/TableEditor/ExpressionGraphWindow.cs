@@ -16,6 +16,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         string tree;
         string selectedPath;
+        readonly HashSet<string> openBoxes = new HashSet<string>();  // "<tree>|<box path>" of the boxes shown open
         bool frameNext = true;
         ToolbarMenu treeMenu;
         Label help;
@@ -73,7 +74,7 @@ namespace Kmnk.FaceTrackingGenerator
                 help.text = EditorText.Get("graph.noTable");
                 help.style.display = DisplayStyle.Flex;
                 treeMenu.text = "";
-                graph.Show(null, null, null);
+                graph.Show(null, null, null, null);
                 return;
             }
             var note = EditorText.Help("graph.help");
@@ -88,7 +89,7 @@ namespace Kmnk.FaceTrackingGenerator
                 treeMenu.menu.AppendAction(TreeTitle(expression, name), _ => SelectTree(name),
                     _ => name == tree ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
             }
-            graph.Show(expression, tree, selectedPath);
+            graph.Show(expression, tree, selectedPath, OpenPaths());
             if (frameNext)
             {
                 frameNext = false;
@@ -100,6 +101,17 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var t = Tuning.Trees(expression).FirstOrDefault(x => x.Name == name);
             return t != null ? Tuning.TreeTitle(t) : Tuning.Label(name);
+        }
+
+        internal HashSet<string> OpenPaths() =>
+            new HashSet<string>(openBoxes.Where(k => k.StartsWith(tree + "|", StringComparison.Ordinal)).Select(k => k.Substring(tree.Length + 1)));
+
+        // Opens or closes a box (its face movements one per line); for the arrow in the box title and for checks.
+        internal void SetOpen(string path, bool open)
+        {
+            var k = tree + "|" + path;
+            if (open) openBoxes.Add(k); else openBoxes.Remove(k);
+            Refresh();
         }
 
         internal void OnBoxSelected(ExpressionGraph.Box box)
@@ -181,14 +193,14 @@ namespace Kmnk.FaceTrackingGenerator
             // No port accepts a line: a line from a position always ends on empty space.
             public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter) => new List<Port>();
 
-            internal void Show(Newtonsoft.Json.Linq.JObject expression, string tree, string selectedPath)
+            internal void Show(Newtonsoft.Json.Linq.JObject expression, string tree, string selectedPath, ICollection<string> open)
             {
                 showing = true;
                 foreach (var e in graphElements.ToList()) RemoveElement(e);
                 Boxes.Clear();
                 if (expression != null && tree != null)
                 {
-                    var boxes = ExpressionGraph.Build(expression, tree);
+                    var boxes = ExpressionGraph.Build(expression, tree, open);
                     var byPath = new Dictionary<string, BoxNode>();
                     foreach (var b in boxes)
                     {
@@ -216,6 +228,8 @@ namespace Kmnk.FaceTrackingGenerator
                 if (!showing && selectable is BoxNode node) window.OnBoxSelected(node.Box);
             }
 
+            internal void ToggleOpen(BoxNode node) => window.SetOpen(node.Box.Path, !node.Box.Open);
+
             internal void DroppedOutside(BoxNode node, int row, Vector2 panelPosition)
             {
                 window.OpenSplitList(node.Box.Path, row, window.position.position + panelPosition);
@@ -237,6 +251,18 @@ namespace Kmnk.FaceTrackingGenerator
                 capabilities = Capabilities.Selectable | Capabilities.Movable | Capabilities.Ascendable;
                 style.width = ExpressionGraph.BoxWidth;
                 titleButtonContainer.style.display = DisplayStyle.None;
+                // The arrow that opens the box. It does not select the box.
+                var arrow = new Label(box.Open ? "\u25BC" : "\u25B6") { tooltip = box.Open ? "Close" : "Open" };
+                arrow.style.color = new Color(0.69f, 0.69f, 0.69f);
+                arrow.style.fontSize = 10;
+                arrow.style.unityTextAlign = TextAnchor.MiddleCenter;
+                arrow.style.width = 16;
+                arrow.style.marginLeft = 4;
+                arrow.RegisterCallback<MouseDownEvent>(e => { if (e.button == 0) { graph.ToggleOpen(this); e.StopPropagation(); } });
+                titleContainer.Insert(0, arrow);
+                titleContainer.style.justifyContent = Justify.FlexStart;
+                var titleLabel = titleContainer.Q<Label>("title-label");
+                if (titleLabel != null) { titleLabel.style.flexGrow = 1; titleLabel.style.marginLeft = 2; titleLabel.style.unityTextAlign = TextAnchor.MiddleLeft; }
                 Input = RowPort.Make(Direction.Input, null);
                 Input.portName = "";
                 inputContainer.Add(Input);
@@ -246,9 +272,19 @@ namespace Kmnk.FaceTrackingGenerator
                     var row = i;
                     var port = RowPort.Make(Direction.Output, r.CanSplit ? new Listener(this, row) : null);
                     port.portName = r.Label;
-                    port.tooltip = r.Label;
+                    port.tooltip = r.FullLabel;
                     outputContainer.Add(port);
                     Outputs.Add(port);
+                    foreach (var line in r.Lines)
+                    {
+                        var l = new Label(line);
+                        l.style.color = new Color(0.72f, 0.72f, 0.72f);
+                        l.style.fontSize = 11;
+                        l.style.unityTextAlign = TextAnchor.MiddleRight;
+                        l.style.height = ExpressionGraph.LineHeight;
+                        l.style.paddingRight = 24;
+                        outputContainer.Add(l);
+                    }
                 }
                 RefreshExpandedState();
                 RefreshPorts();
