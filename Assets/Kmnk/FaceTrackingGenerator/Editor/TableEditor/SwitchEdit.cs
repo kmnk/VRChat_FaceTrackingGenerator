@@ -122,13 +122,27 @@ namespace Kmnk.FaceTrackingGenerator
             return names;
         }
 
+        // The boxes that use a switch: by the name written in the box, or by a left/right name whose sides give it
+        // ("EyelidSmile{side}" in a box uses "EyelidSmileLeft").
         static IEnumerable<(string tree, JObject node)> Boxes(JObject expression, string reference)
         {
             var names = Names(reference);
+            bool Uses(string r) => r != null && (names.Contains(r) || (r.Contains("{side}") && Sides(r).Any(s => names.Contains(r.Replace("{side}", s)))));
             if (!(expression["trees"] is JObject trees)) yield break;
             foreach (var p in trees.Properties())
                 foreach (var n in Nodes(p.Value?["tree"]))
-                    if (names.Contains((string)n["switch"])) yield return (p.Name, n);
+                    if (Uses((string)n["switch"])) yield return (p.Name, n);
+        }
+
+        // The switches as written in the table, in order.
+        public static List<string> Written(JObject expression) =>
+            Switches(expression)?.Properties().Select(p => p.Name).ToList() ?? new List<string>();
+
+        // Removes a switch that no box uses.
+        public static bool Remove(JObject expression, string name)
+        {
+            if (Users(expression, name).Count > 0) return false;
+            return Switches(expression)?.Remove(name) ?? false;
         }
 
         // The expressions that use the switch (names without side marks).
@@ -291,7 +305,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (def == null) return result;
             foreach (var t in (def["transitions"] as JArray ?? new JArray()).OfType<JObject>())
             {
-                var v = new TransitionView { From = (string)t["from"], To = (string)t["to"], Duration = t["duration"]?.Value<double>() ?? 0 };
+                // A transition without its own duration uses the switch's "duration" (TableLoader does the same).
+                var v = new TransitionView { From = (string)t["from"], To = (string)t["to"], Duration = t["duration"]?.Value<double>() ?? def["duration"]?.Value<double>() ?? 0 };
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>().Where(c => c.Count == 3))
                 {
                     var input = (string)c[0];

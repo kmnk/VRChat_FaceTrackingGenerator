@@ -1145,9 +1145,58 @@ namespace Kmnk.FaceTrackingGenerator
                 if (syncNote != null) PartsLine(syncNote);
                 EditorGUI.indentLevel--;
             }
+            DrawSwitchList(expression);
         }
 
         bool? captureShowSelected;  // set by TableEditorChecks.Capture instead of the saved choice
+        readonly HashSet<string> switchOpen = new HashSet<string>();
+
+        // Show: All, at the bottom: every switch in the table, with its users; open one to edit it; unused ones can go.
+        void DrawSwitchList(JObject expression)
+        {
+            EditorGUILayout.Space(6);
+            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Switches", EditorStyles.boldLabel);
+            Help("help.switches");
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            foreach (var name in SwitchEdit.Written(expression))
+            {
+                var users = SwitchEdit.Users(expression, name);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var title = ExpressionGraph.InputText(name);
+                    var titleWidth = EditorStyles.foldout.CalcSize(new GUIContent(title)).x + 16;
+                    var foldRect = GUILayoutUtility.GetRect(titleWidth, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(false));
+                    var open = EditorGUI.Foldout(foldRect, switchOpen.Contains(name), title, true);
+                    if (open) switchOpen.Add(name); else switchOpen.Remove(name);
+                    GUILayout.Label(users.Count > 0 ? string.Format(EditorText.Get("inputs.usedBy"), string.Join(ja ? "・" : ", ", users)) : EditorText.Get("switch.unused"), PartsStyle, GUILayout.ExpandWidth(false));
+                    GUILayout.FlexibleSpace();
+                    using (new EditorGUI.DisabledScope(users.Count > 0))
+                        if (GUILayout.Button(new GUIContent(TrashContent().image, users.Count > 0 ? EditorText.Get("switch.cannotRemove") : null), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
+                        {
+                            var n = name;
+                            EditExpression("Set FT switch", e => SwitchEdit.Remove(e, n));
+                            GUIUtility.ExitGUI();
+                        }
+                }
+                if (switchOpen.Contains(name))
+                {
+                    EditorGUI.indentLevel++;
+                    DrawSwitchPanel(expression, name, null);
+                    EditorGUI.indentLevel--;
+                    EditorGUILayout.Space(4);
+                }
+            }
+            if (GUILayout.Button("+ New Switch", GUILayout.ExpandWidth(false)))
+            {
+                var first = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, null).FirstOrDefault();
+                var made = EditExpression("Set FT switch", e => SwitchEdit.NewSwitch(e, false, first));
+                if (made != null) switchOpen.Add(made);
+                GUIUtility.ExitGUI();
+            }
+        }
 
         // Show: Selected. Only the node of the box selected in the expression graph, under the path to it.
         void DrawTuningSelected(JObject expression, List<Tuning.Tree> trees, ICollection<string> allNames)
@@ -1181,7 +1230,7 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUI.indentLevel--;
         }
 
-        // The switch of the selected switch box: its name, states and transitions (SwitchEdit).
+        // The switch of the selected switch box, or of a row of Switches: its name, states and transitions (SwitchEdit).
         void DrawSwitchPanel(JObject expression, string reference, string tree)
         {
             if (reference == null || SwitchEdit.Defs(expression, reference).Count == 0) return;
@@ -1222,7 +1271,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             if (GUILayout.Button("+ Add State", GUILayout.ExpandWidth(false))) { EditExpression(undo, e => SwitchEdit.AddState(e, reference)); GUIUtility.ExitGUI(); }
 
-            var inputs = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, tree);
+            var inputs = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, tree, reference.Contains("{side}"));
             var inputTexts = inputs.Select(ExpressionGraph.InputText).ToArray();
             var stateArray = states.ToArray();
             EditorGUILayout.Space(4);
@@ -1259,7 +1308,7 @@ namespace Kmnk.FaceTrackingGenerator
                             var choices = inputs.Contains(input) ? inputTexts : inputTexts.Concat(new[] { ExpressionGraph.InputText(input) }).ToArray();
                             var names = inputs.Contains(input) ? inputs : inputs.Concat(new[] { input }).ToList();
                             EditorGUI.BeginChangeCheck();
-                            var ii = EditorGUILayout.Popup(names.IndexOf(input), choices, GUILayout.Width(140));
+                            var ii = EditorGUILayout.Popup(names.IndexOf(input), choices, GUILayout.Width(170));
                             var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
                             var vv = EditorGUILayout.DelayedFloatField((float)value, GUILayout.Width(60));
                             if (EditorGUI.EndChangeCheck())
@@ -1696,6 +1745,8 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
             captureDevice = CliArgs.Get("-ftDevice");
+            var openSw = CliArgs.Get("-ftSwitchOpen");  // "<switch>;..." open rows of Switches
+            if (openSw != null) foreach (var n in openSw.Split(';').Where(x => x != "")) switchOpen.Add(n);
             var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
             if (showArg != null) captureShowSelected = showArg == "selected";
             // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")

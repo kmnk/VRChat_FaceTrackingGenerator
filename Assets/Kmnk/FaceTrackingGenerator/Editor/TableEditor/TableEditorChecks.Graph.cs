@@ -120,7 +120,8 @@ namespace Kmnk.FaceTrackingGenerator
             }
             // "-ftSwitchEdit "<op>|<switch>|<args...>;..."": rename|<sw>|<name>, state|<sw>|<old>|<new>, add-state|<sw>,
             // remove-state|<sw>|<state>, add-tr|<sw>|<input>, remove-tr|<sw>|<i>, set-tr|<sw>|<i>|<from>|<to>|<duration>,
-            // add-cond|<sw>|<i>|<input>, remove-cond|<sw>|<i>|<j>, set-cond|<sw>|<i>|<j>|<input>|<op>|<value>
+            // add-cond|<sw>|<i>|<input>, remove-cond|<sw>|<i>|<j>, set-cond|<sw>|<i>|<j>|<input>|<op>|<value>,
+            // new|-, remove|<sw> (only when unused)
             foreach (var item in (CliArgs.Get("-ftSwitchEdit") ?? "").Split(';').Where(x => x.Contains("|")))
             {
                 var f = item.Split('|');
@@ -137,6 +138,8 @@ namespace Kmnk.FaceTrackingGenerator
                     "add-cond" => Do(() => SwitchEdit.AddCondition(expression, f[1], int.Parse(f[2]), f[3])),
                     "remove-cond" => SwitchEdit.RemoveCondition(expression, f[1], int.Parse(f[2]), int.Parse(f[3])),
                     "set-cond" => Do(() => SwitchEdit.SetCondition(expression, f[1], int.Parse(f[2]), int.Parse(f[3]), f[4], f[5], D(f[6]))),
+                    "new" => SwitchEdit.NewSwitch(expression, false, ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, null).FirstOrDefault()),
+                    "remove" => SwitchEdit.Remove(expression, f[1]),
                     _ => "unknown op",
                 };
                 Debug.Log($"[FTG] graph switch-edit {item}: {result}");
@@ -144,6 +147,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (CliArgs.Get("-ftSwitchEdit") != null)
             {
                 Debug.Log($"[FTG] graph switches: {expression["switches"]?.ToString(Newtonsoft.Json.Formatting.None)}");
+                foreach (var sw in SwitchEdit.Written(expression))
+                    Debug.Log($"[FTG] graph switch-list {sw}: users={string.Join(",", SwitchEdit.Users(expression, sw))}");
                 foreach (var t in ExpressionGraph.TreeNames(expression))
                     foreach (var b in ExpressionGraph.Build(expression, t).Where(b => b.Kind == "switch"))
                         Debug.Log($"[FTG] graph switch-box-now {t} {b.Path}: {b.Title} | {string.Join("; ", b.Rows.Select(r => r.Label))}");
