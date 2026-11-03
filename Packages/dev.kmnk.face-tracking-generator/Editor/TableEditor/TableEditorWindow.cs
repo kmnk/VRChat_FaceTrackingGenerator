@@ -752,6 +752,16 @@ namespace Kmnk.FaceTrackingGenerator
                         }
                 }
                 var rowRect = GUILayoutUtility.GetLastRect();
+                if (Event.current.type == EventType.ContextClick && rowRect.Contains(Event.current.mousePosition))
+                {
+                    var p = part;
+                    var at = rowRect;
+                    var menu = new GenericMenu();
+                    menu.AddItem(new GUIContent("Rename…"), false, () => ShowRenamePart(p, at));
+                    menu.ShowAsContext();
+                    Event.current.Use();
+                }
+                if (renameAt == part && Event.current.type == EventType.Repaint) renameRect = rowRect;
                 if (pendingParts.Contains(part) && part != selectedPart && Event.current.type == EventType.Repaint)
                     EditorGUI.DrawRect(new Rect(0, rowRect.y, rowRect.width + rowRect.x * 2, rowRect.height), new Color(0.17f, 0.36f, 0.53f, 0.35f));
                 if (partScrollTo == part && Event.current.type == EventType.Repaint) { scroll.y = Math.Max(0, rowRect.y - 60); partScrollTo = null; Repaint(); }
@@ -782,6 +792,39 @@ namespace Kmnk.FaceTrackingGenerator
                 var names = Tuning.AllPartNames(avatar, doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
                 PopupWindow.Show(addRect, new NewPartPopup(names, "s", AddPendingPart));
             }
+        }
+
+        string renameAt, renameCapture;  // for TableEditorChecks.Capture: open the rename panel at this row
+        Rect renameRect;
+
+        void ShowRenamePart(string part, Rect at)
+        {
+            var avatar = doc.Json(TableDocument.Avatar);
+            var expression = doc.Json(TableDocument.Expression);
+            var all = Tuning.AllPartNames(avatar, expression).Concat(pendingParts).ToList();
+            var popup = new RenamePartPopup(part, PartRename.Partner(all, part),
+                (to, together) => PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), part, to, together, pendingParts),
+                (to, together) => RenamePart(part, to, together));
+            if (renameCapture != null) popup.SetNameForCapture(renameCapture);
+            PopupWindow.Show(at, popup);
+        }
+
+        // Renames in both tables (PartRename); rows still waiting for a blendshape are renamed here only.
+        internal void RenamePart(string from, string to, bool together)
+        {
+            var all = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
+            var map = PartRename.Map(all, from, to, together);
+            foreach (var kv in map.Where(kv => pendingParts.Contains(kv.Key)).ToList()) { pendingParts.Remove(kv.Key); pendingParts.Add(kv.Value); }
+            var avatar = doc.Json(TableDocument.Avatar);
+            var expression = doc.Json(TableDocument.Expression);
+            Undo.RecordObject(state, "Rename FT face movement");
+            PartRename.Apply(avatar, expression, from, to, together, pendingParts);
+            state.snapshot = doc.Snapshot();
+            EditorUtility.SetDirty(state);
+            Rebuild();
+            UpdateDirty();
+            if (selectedPart != null && map.TryGetValue(selectedPart, out var sel)) selectedPart = sel;
+            Repaint();
         }
 
         // Adds "name" (or "name_L" and "name_R" for "name_{s}") as rows waiting for a blendshape, and opens the first.
@@ -1796,6 +1839,8 @@ namespace Kmnk.FaceTrackingGenerator
             captureDevice = CliArgs.Get("-ftDevice");
             var openSw = CliArgs.Get("-ftSwitchOpen");  // "<switch>;..." open rows of Switches
             if (openSw != null) foreach (var n in openSw.Split(';').Where(x => x != "")) switchOpen.Add(n);
+            var renameArg = CliArgs.Get("-ftAvatarRename");  // "<part>=<new name>": open the rename panel with the name typed
+            if (renameArg != null && renameArg.Contains("=")) { renameAt = renameArg.Substring(0, renameArg.IndexOf('=')); renameCapture = renameArg.Substring(renameArg.IndexOf('=') + 1); selectedPart = renameAt; }
             var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>" or "<name>_{s}": as + Add Face Movement
             if (addPart != null && doc != null) AddPendingPart(addPart);
             var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
@@ -1834,7 +1879,11 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        internal void CaptureTick(int frame) { }
+        internal void CaptureTick(int frame)
+        {
+            // Opens the rename panel after the windows have their places (a popup closes when focus moves).
+            if (frame == 40 && renameAt != null && renameRect.height > 0) { var p = renameAt; renameAt = null; ShowRenamePart(p, renameRect); }
+        }
 
         // For the capture of the picker: the open picker window, if any.
         internal static EditorWindow OpenPicker() => Resources.FindObjectsOfTypeAll<PopupWindow>().FirstOrDefault();

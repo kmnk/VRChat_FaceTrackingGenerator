@@ -7,6 +7,7 @@ namespace Kmnk.FaceTrackingGenerator
     public static partial class TableEditorChecks
     {
         // The face movements of the Avatar tab: adds them with a blendshape and removes unused ones, as the tab does.
+        //   -ftRenamePart "<from>=<to>[,both];..."
         //   -ftAddPart "<name>=<shape>;..."   -ftRemovePart "<name>;..." (refused when an expression uses it)   -ftSave 1
         // Lines: [FTG] parts add|remove <name>: done=<bool> ; [FTG] parts <name>: shape=<s> used=<bool> ; [FTG] parts tuning-choices: ...
         public static void Parts() => Cli.Run(() =>
@@ -29,6 +30,19 @@ namespace Kmnk.FaceTrackingGenerator
                 var can = !Used().Contains(name);
                 if (can) TableEdits.RemovePart(doc.Json(TableDocument.Avatar), name);
                 Debug.Log($"[FTG] parts remove {name}: done={can.ToString().ToLower()}");
+            }
+            foreach (var item in (CliArgs.Get("-ftRenamePart") ?? "").Split(';').Where(x => x.Contains("=")))
+            {
+                // "<from>=<to>" renames one side only; "<from>=<to>,both" renames a left/right pair together
+                var k = item.IndexOf('=');
+                var from = item.Substring(0, k);
+                var rest = item.Substring(k + 1).Split(',');
+                var together = rest.Length > 1 && rest[1] == "both";
+                var before = doc.Model();
+                var problem = PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0], together);
+                var map = PartRename.Apply(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0], together);
+                var diff = map != null ? MaxWeightDiff(before, doc.Model()) : 0f;
+                Debug.Log($"[FTG] parts rename {item}: problem={problem} map={(map == null ? "-" : string.Join(",", map.Select(kv => kv.Key + ">" + kv.Value)))} max-weight-diff={F(diff)}");
             }
             var used = Used();
             var avatar = doc.Json(TableDocument.Avatar);
