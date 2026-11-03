@@ -112,6 +112,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["inputs.through"] = (" (through the average {0})", "（{0} の平均）"),
             ["inputs.added"] = ("Added. No expression uses it yet.", "追加。まだどの表情も使っていません"),
             ["inputs.addedPrefix"] = ("Added. ", "追加。"),
+            ["inputs.locked"] = ("Cannot uncheck: {0}", "外せません: {0}"),
             ["inputs.notSent"] = ("This device does not send it.", "この機器は送りません"),
             ["inputs.over"] = ("Over 256 bits: this cannot be saved. Uncheck values or make them Local.", "256 bit を超えているので保存できません。印を外すか Local にしてください。"),
             ["graph.help"] = ("Select a box to show its node in the Tuning tab of the settings editor. Drag from the circle right of a position and release on empty space to split that position with 1D.", "箱を選ぶと、設定エディタの Tuning にその節が出ます。位置の右の丸から線を引いて空いた所で離すと、その位置を 1D で分けられます。"),

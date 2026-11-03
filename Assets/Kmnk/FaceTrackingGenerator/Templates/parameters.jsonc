@@ -1,0 +1,63 @@
+// What each face tracking value (v2/<name>) is, for the tooltips of the settings editor.
+// "{side}" stands for Left and Right: one entry covers both. Written in our own words from the VRCFaceTracking docs and source:
+//   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/parameters
+//   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/unified-blendshapes
+//   https://github.com/benaclejames/VRCFaceTracking/blob/e3f40dd1fdd5e03a645a32691cbf54b4a99afbdd/VRCFaceTracking.Core/Params/Expressions/UnifiedExpressionsParameters.cs
+// The sign of the eye values (Eye*X, Eye*Y) is not stated here: not checked yet.
+{
+  "parameters": {
+    "Eye{side}X": {"en": "Where the {side} eye looks, sideways (-1 to 1).", "ja": "{side}目の視線の左右の向き（-1〜1）"},
+    "Eye{side}Y": {"en": "Where the {side} eye looks, up and down (-1 to 1).", "ja": "{side}目の視線の上下の向き（-1〜1）"},
+    "EyeLid{side}": {"en": "How open the {side} eyelid is: 0 closed, about 0.75 relaxed, 1 wide open.", "ja": "{side}まぶたの開き具合。0 で閉じ、0.75 ほどがふつう、1 で見開く"},
+    "EyeClosed{side}": {"en": "How far the {side} eyelid closes (0 open, 1 closed).", "ja": "{side}まぶたを閉じる量（0 で開き、1 で閉じる）"},
+    "EyeWide{side}": {"en": "How far the {side} eyelid opens wider than relaxed.", "ja": "{side}まぶたをふつうより大きく開く量"},
+    "EyeSquint{side}": {"en": "Squeezing the muscles around the {side} eye.", "ja": "{side}目のまわりの筋肉を細めるように締める量"},
+    "EyeLookUp{side}": {"en": "How far the {side} eye looks up.", "ja": "{side}目が上を見る量"},
+    "EyeLookDown{side}": {"en": "How far the {side} eye looks down.", "ja": "{side}目が下を見る量"},
+    "EyeLookIn{side}": {"en": "How far the {side} eye looks toward the nose.", "ja": "{side}目が鼻の側を見る量"},
+    "EyeLookOut{side}": {"en": "How far the {side} eye looks away from the nose.", "ja": "{side}目が外側を見る量"},
+    "BrowInnerUp{side}": {"en": "Raising the inner end of the {side} brow (a worried look).", "ja": "{side}眉の内側（眉頭）を上げる量。困り眉"},
+    "BrowOuterUp{side}": {"en": "Raising the outer end of the {side} brow.", "ja": "{side}眉の外側（眉尻）を上げる量"},
+    "BrowLowerer{side}": {"en": "Pulling the outer part of the {side} brow down.", "ja": "{side}眉の外側を下げる量"},
+    "BrowPinch{side}": {"en": "Drawing the {side} brow toward the middle.", "ja": "{side}眉を眉間の側へ寄せる量"},
+    "NoseSneer{side}": {"en": "Wrinkling the nose on the {side} side, as in a sneer.", "ja": "{side}側の鼻にしわを寄せる量（嫌そうな顔）"},
+    "CheekPuff{side}": {"en": "Puffing out the {side} cheek.", "ja": "{side}頬を膨らませる量"},
+    "CheekSuck{side}": {"en": "Sucking in the {side} cheek.", "ja": "{side}頬を吸い込む量"},
+    "CheekPuffSuck{side}": {"en": "The {side} cheek: puffed out is positive, sucked in is negative (-1 to 1).", "ja": "{side}頬。膨らませると正、吸い込むと負（-1〜1）"},
+    "CheekSquint{side}": {"en": "Raising the {side} cheek.", "ja": "{side}頬を持ち上げる量"},
+    "JawOpen": {"en": "Opening the jaw.", "ja": "顎を開く量"},
+    "JawForward": {"en": "Pushing the jaw forward.", "ja": "顎を前に出す量"},
+    "Jaw{side}": {"en": "Moving the jaw to the {side}.", "ja": "顎を{side}へ動かす量"},
+    "MouthClosed": {"en": "Closing the lips while the jaw is open.", "ja": "顎を開いたまま唇を閉じる量"},
+    "MouthOpen": {"en": "Opening the lips so the teeth show: the average of the upper lip going up and the lower lip going down.", "ja": "唇を開いて歯を見せる量。上唇を上げる量と下唇を下げる量の平均"},
+    "LipPucker": {"en": "Pushing the lips forward.", "ja": "唇を前に突き出す量"},
+    "LipPuckerUpper{side}": {"en": "Pushing the {side} part of the upper lip forward.", "ja": "上唇の{side}側を前に突き出す量"},
+    "LipPuckerLower{side}": {"en": "Pushing the {side} part of the lower lip forward.", "ja": "下唇の{side}側を前に突き出す量"},
+    "LipFunnelUpper{side}": {"en": "Rounding the {side} part of the upper lip into a funnel.", "ja": "上唇の{side}側をすぼめて筒のようにする量"},
+    "LipFunnelLower{side}": {"en": "Rounding the {side} part of the lower lip into a funnel.", "ja": "下唇の{side}側をすぼめて筒のようにする量"},
+    "LipSuckUpper{side}": {"en": "Tucking the {side} part of the upper lip into the mouth.", "ja": "上唇の{side}側を口の中へ巻き込む量"},
+    "LipSuckLower{side}": {"en": "Tucking the {side} part of the lower lip into the mouth.", "ja": "下唇の{side}側を口の中へ巻き込む量"},
+    "MouthUpperUp{side}": {"en": "Raising the {side} part of the upper lip.", "ja": "上唇の{side}側を上げる量"},
+    "MouthLowerDown{side}": {"en": "Lowering the {side} part of the lower lip.", "ja": "下唇の{side}側を下げる量"},
+    "MouthUpper{side}": {"en": "Moving the upper lip to the {side}.", "ja": "上唇を{side}へずらす量"},
+    "MouthLower{side}": {"en": "Moving the lower lip to the {side}.", "ja": "下唇を{side}へずらす量"},
+    "MouthCornerPull{side}": {"en": "Pulling the {side} mouth corner up and out (a smile).", "ja": "{side}口角を斜め上・外へ引く量（笑い）"},
+    "MouthCornerSlant{side}": {"en": "Tilting the {side} mouth corner up.", "ja": "{side}口角を上へ傾ける量"},
+    "MouthFrown{side}": {"en": "Pulling the {side} mouth corner down.", "ja": "{side}口角を下げる量"},
+    "MouthStretch{side}": {"en": "Pulling the {side} mouth corner out and down.", "ja": "{side}口角を外・下へ引く量"},
+    "MouthDimple{side}": {"en": "Pulling the {side} mouth corner back (a dimple).", "ja": "{side}口角を奥へ引く量（えくぼ）"},
+    "MouthPress{side}": {"en": "Pressing the lips together flat on the {side} side.", "ja": "{side}側の唇を上下から押し付けて平らにする量"},
+    "MouthTightener{side}": {"en": "Squeezing the lips together from the sides on the {side} side.", "ja": "{side}側の唇を横から締める量"},
+    "MouthRaiserUpper": {"en": "Raising and pushing out the upper part of the mouth.", "ja": "口の上側を持ち上げて少し前に出す量"},
+    "MouthRaiserLower": {"en": "Raising and pushing out the lower part of the mouth (the chin).", "ja": "口の下側（あご先）を持ち上げて少し前に出す量"},
+    "SmileFrown": {"en": "Mouth corners: smiling (corner pulled up and out, a little tilt) is positive, corners pulled down (frown) are negative (-1 to 1). Same smile side as SmileSad.", "ja": "口角。笑う（口角を斜め上へ引く・少し上げる）と正、口角を下げると負（-1〜1）。正の側は SmileSad と同じ"},
+    "SmileSad": {"en": "Like SmileFrown, but the negative side also counts the corners pulled out and down (stretch): it takes whichever of frown and stretch is larger (-1 to 1).", "ja": "SmileFrown と同じだが、負の側に口角を外・下へ引く動き（stretch）も含め、下げる動きと外下へ引く動きの大きい方を使う（-1〜1）"},
+    "TongueOut": {"en": "Sticking the tongue out.", "ja": "舌を出す量"},
+    "TongueX": {"en": "Where the tongue points, sideways: right is positive, left is negative (-1 to 1).", "ja": "舌の左右の向き。右が正、左が負（-1〜1）"},
+    "TongueY": {"en": "Where the tongue points, up and down: up is positive, down is negative (-1 to 1).", "ja": "舌の上下の向き。上が正、下が負（-1〜1）"},
+    "TongueUp": {"en": "Pointing the tongue up.", "ja": "舌を上へ向ける量"},
+    "TongueDown": {"en": "Pointing the tongue down.", "ja": "舌を下へ向ける量"},
+    "Tongue{side}": {"en": "Pointing the tongue to the {side}.", "ja": "舌を{side}へ向ける量"},
+    "TongueRoll": {"en": "Rolling the sides of the tongue up into a tube.", "ja": "舌の両端を丸めて筒のようにする量"}
+  }
+}

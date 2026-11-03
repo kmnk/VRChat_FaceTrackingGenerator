@@ -159,6 +159,13 @@ namespace Kmnk.FaceTrackingGenerator
             if (Current == this) Changed?.Invoke();
         }
 
+        // The tooltip of the input a Tuning node moves with (the first side of a left/right pair).
+        string NodeInputTooltip(Tuning.Tree t, string input)
+        {
+            var name = Tuning.Expanded(t, input).FirstOrDefault();
+            return model == null || name == null ? null : ParameterHelp.Tooltip(model, model.Input(name));
+        }
+
         // ---- Inputs tab
 
         Devices.Device ChosenDevice(List<Devices.Device> devices) =>
@@ -168,6 +175,18 @@ namespace Kmnk.FaceTrackingGenerator
             ChosenDevice(Devices.Load()), doc.SavedJson(TableDocument.Input), avatarBits);
 
         static readonly Color OverColor = new Color(0.75f, 0.22f, 0.17f);
+
+        static GUIStyle lockedNameStyle;
+        static GUIStyle LockedNameStyle
+        {
+            get
+            {
+                if (lockedNameStyle != null) return lockedNameStyle;
+                lockedNameStyle = new GUIStyle(EditorStyles.label);
+                lockedNameStyle.normal.textColor = EditorStyles.label.normal.textColor * new Color(1, 1, 1, 0.5f);
+                return lockedNameStyle;
+            }
+        }
 
         void DrawInputsTab()
         {
@@ -227,10 +246,12 @@ namespace Kmnk.FaceTrackingGenerator
             var note = row.InTable ? InputChoices.Note(row) : null;
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUI.DisabledScope(row.InTable && row.Locked))
+                // The check box is disabled for a locked row; the name stays enabled (gray) so that its tooltip shows.
+                var locked = row.InTable && row.Locked;
+                using (new EditorGUI.DisabledScope(locked))
                 {
                     EditorGUI.BeginChangeCheck();
-                    var on = EditorGUILayout.ToggleLeft(new GUIContent(row.Display, row.Locked ? note : null), row.InTable);
+                    var on = EditorGUILayout.Toggle(row.InTable, GUILayout.Width(16));
                     if (EditorGUI.EndChangeCheck())
                     {
                         if (on && !row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Add(j, row));
@@ -238,6 +259,8 @@ namespace Kmnk.FaceTrackingGenerator
                         GUIUtility.ExitGUI();
                     }
                 }
+                var nameStyle = locked ? LockedNameStyle : EditorStyles.label;
+                GUILayout.Label(new GUIContent(row.Display, InputChoices.Tooltip(row)), nameStyle, GUILayout.ExpandWidth(true));
                 if (row.InTable)
                 {
                     EditorGUI.BeginChangeCheck();
@@ -833,7 +856,7 @@ namespace Kmnk.FaceTrackingGenerator
                 using (new EditorGUI.DisabledScope(!sent))
                 {
                     EditorGUI.BeginChangeCheck();
-                    v = EditorGUILayout.Slider(sent ? input.Name : input.Name + EditorText.Get("device.notSent"), v, lo, hi);
+                    v = EditorGUILayout.Slider(new GUIContent(sent ? input.Name : input.Name + EditorText.Get("device.notSent"), ParameterHelp.Tooltip(model, input)), v, lo, hi);
                     if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
                 }
                 if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
@@ -842,7 +865,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var v = input.Average.Average(s => inputs.TryGetValue(s, out var x) ? x : 0f);
                 var (lo, hi) = SliderRange(input.Name);
-                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(input.Name + " (average)", v, lo, hi);
+                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(new GUIContent(input.Name + " (average)", ParameterHelp.Tooltip(model, input)), v, lo, hi);
             }
             if (device != null)
             {
@@ -853,7 +876,7 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         var name = Devices.NameOf(k.key);
                         var v = unusedInputs.TryGetValue(name, out var x) ? x : 0f;
-                        unusedInputs[name] = (float)Math.Round(EditorGUILayout.Slider(name, v, k.min, k.max), 2);
+                        unusedInputs[name] = (float)Math.Round(EditorGUILayout.Slider(new GUIContent(name, ParameterHelp.Tooltip(new[] { k.key })), v, k.min, k.max), 2);
                     }
             }
 
@@ -1010,7 +1033,7 @@ namespace Kmnk.FaceTrackingGenerator
                     var key = t.Name + "/" + i;
                     if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
                     firstNode = false;
-                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.NodeTitle(t.Nodes[i]), true);
+                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], new GUIContent(Tuning.NodeTitle(t.Nodes[i]), NodeInputTooltip(t, t.Nodes[i].Input)), true);
                     ScrollMark(key);
                     if (tuneOpen[key]) DrawTuningNode(t, i, key, allNames);
                 }

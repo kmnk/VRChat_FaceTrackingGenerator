@@ -158,6 +158,21 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- texts
 
+        // The tooltip of a row: what the value is, its v2 keys, and why it cannot be unchecked.
+        public static string Tooltip(Row row)
+        {
+            var describe = row.Keys.FirstOrDefault();
+            if (row.Sided && describe != null && describe.Contains("Left")) describe = describe.Replace("Left", "{side}");
+            var tip = ParameterHelp.Tooltip(row.Keys, describe);
+            if (row.InTable && row.Locked)
+            {
+                var ja = EditorText.Current == EditorText.Language.Japanese;
+                var used = string.Format(EditorText.Get("inputs.usedBy"), string.Join(ja ? "・" : ", ", row.UsedBy));
+                tip = (tip == null ? "" : tip + "\n") + string.Format(EditorText.Get("inputs.locked"), used);
+            }
+            return tip;
+        }
+
         public static string Note(Row row)
         {
             var ja = EditorText.Current == EditorText.Language.Japanese;

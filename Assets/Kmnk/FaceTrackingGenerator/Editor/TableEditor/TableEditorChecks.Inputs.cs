@@ -10,6 +10,7 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftAddInput "<name>;..."       check rows of "Not in the settings" (names as written, "BrowInnerUp{side}")
         //   -ftRemoveInput "<name>;..."    uncheck rows of "In the settings"
         //   -ftSetSync "<name>=synced|local;..."
+        //   -ftTips 1                      prints the tooltips (in the -ftHelp language) and the rows without a description
         // Lines:
         //   [FTG] inputs total=<bits> saved=<b> added=<b> avatar=<b or -1> over=<bool>
         //   [FTG] inputs in <name> | <display> | sync=<s> bits=<b> added=<bool> locked=<bool> | <note>
@@ -18,7 +19,8 @@ namespace Kmnk.FaceTrackingGenerator
         //   [FTG] inputs saved <path>   or   [FTG] inputs save blocked: <reason>  (exit 1)
         public static void Inputs() => Cli.Run(() =>
         {
-            EditorText.Override = CliArgs.Get("-ftHelp") == "en" ? EditorText.Language.English : EditorText.Language.Japanese;
+            var help = CliArgs.Get("-ftHelp");
+            EditorText.Override = help == "en" ? EditorText.Language.English : help == "off" ? EditorText.Language.Off : EditorText.Language.Japanese;
             var doc = TableDocument.Open(CliArgs.Require("-ftTable"));
             var deviceId = CliArgs.Get("-ftDevice");
             var device = deviceId == null ? null : Devices.Load().FirstOrDefault(d => d.Id == deviceId)
@@ -38,6 +40,19 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] inputs out {row.Name} | {row.Display} | bits={row.Bits}");
             }
             Print(Rows());
+            if (CliArgs.Get("-ftTips") == "1")
+            {
+                // The tooltips: every row, and every input of the model (the Preview sliders and Tuning headings).
+                string One(string t) => t == null ? "-" : t.Replace("\n", " / ");
+                var r0 = Rows();
+                var rows = r0.InTable.Concat(r0.NotInTable).ToList();
+                foreach (var row in rows) Debug.Log($"[FTG] inputs tip row {row.Name}: {One(InputChoices.Tooltip(row))}");
+                var m = doc.Model();
+                foreach (var i in m.Inputs) Debug.Log($"[FTG] inputs tip input {i.Name}: {One(ParameterHelp.Tooltip(m, i))}");
+                var missing = rows.Where(x => ParameterHelp.Describe(x.Sided && x.Keys.Count > 0 && x.Keys[0].Contains("Left") ? x.Keys[0].Replace("Left", "{side}") : x.Keys.FirstOrDefault()) == null).Select(x => x.Name)
+                    .Concat(m.Inputs.Where(i => !i.IsDerived && ParameterHelp.Describe(i.Key) == null).Select(i => i.Name)).ToList();
+                Debug.Log($"[FTG] inputs tips: rows={rows.Count} inputs={m.Inputs.Count} without-description={missing.Count} {string.Join(",", missing)}");
+            }
 
             var changed = false;
             foreach (var name in (CliArgs.Get("-ftAddInput") ?? "").Split(';').Where(x => x != ""))
