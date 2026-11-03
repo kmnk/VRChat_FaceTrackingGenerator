@@ -169,13 +169,34 @@ namespace Kmnk.FaceTrackingGenerator
 
         // The inputs a position of the tree can be split with: the input table's names as written, sorted. A tree
         // without sides cannot use a name with a side mark ("EyeLid{side}").
-        public static List<string> SplitInputs(JObject input, JObject expression, string tree)
+        // For a left/right tree (sided, or a tree written with "sides"): the inputs written with "{side}", the pairs of
+        // inputs written per side ("EyeLidLeft" and "EyeLidRight" give "EyeLid{side}"), and the inputs without sides.
+        // One side alone is left out (both sides would move with it). For other trees: the inputs without "{".
+        public static List<string> SplitInputs(JObject input, JObject expression, string tree, bool sided = false)
         {
-            var hasSides = tree != null && expression?["trees"]?[tree]?["sides"] != null;
-            var names = input?["inputs"] is JObject o ? o.Properties().Select(p => p.Name)
-                : input?["inputs"] is JArray a ? a.OfType<JObject>().Select(x => (string)x["name"]).Where(x => x != null) : Enumerable.Empty<string>();
-            return names.Where(n => hasSides || !n.Contains("{")).Distinct().OrderBy(n => Tuning.Label(n), StringComparer.Ordinal).ToList();
+            var hasSides = sided || (tree != null && expression?["trees"]?[tree]?["sides"] != null);
+            var names = (input?["inputs"] is JObject o ? o.Properties().Select(p => p.Name)
+                : input?["inputs"] is JArray a ? a.OfType<JObject>().Select(x => (string)x["name"]).Where(x => x != null) : Enumerable.Empty<string>()).ToList();
+            List<string> result;
+            if (!hasSides) result = names.Where(n => !n.Contains("{")).ToList();
+            else
+            {
+                var set = new HashSet<string>(names);
+                result = new List<string>();
+                foreach (var n in names)
+                {
+                    if (n.Contains("{")) { result.Add(n); continue; }
+                    if (n.Contains("Left") && set.Contains(n.Replace("Left", "Right"))) { result.Add(n.Replace("Left", "{side}")); continue; }
+                    if (n.Contains("Right") && set.Contains(n.Replace("Right", "Left"))) continue;
+                    if (n.Contains("Left") || n.Contains("Right")) continue;  // one side alone
+                    result.Add(n);
+                }
+            }
+            return result.Distinct().OrderBy(n => Tuning.Label(n), StringComparer.Ordinal).ToList();
         }
+
+        // How an input shows in the lists: "EyeLid (left and right)" for "EyeLid{side}".
+        public static string InputText(string name) => Tuning.Label(name) + (name.Contains("{side}") ? " (left and right)" : "");
 
         public static bool CanSplit(JObject expression, string tree, string path, int row)
         {
@@ -275,17 +296,30 @@ namespace Kmnk.FaceTrackingGenerator
             return path;
         }
 
-        public static bool CanCreateTree(JObject expression, string name) =>
-            !string.IsNullOrWhiteSpace(name) && !(expression?["trees"] is JObject trees && trees[name.Trim()] != null);
-
-        // A new expression whose first box has neutral face movements at every position. Returns the name, or null.
-        public static string NewTree(JObject expression, string name, string inputX, string inputY = null)
+        // The names a new expression would take (a left/right one: "<name>{side}", "<name>Left", "<name>Right") must not
+        // be the name of an expression, as written or after the sides.
+        public static bool CanCreateTree(JObject expression, string name, bool sided = false)
         {
-            if (!CanCreateTree(expression, name) || string.IsNullOrEmpty(inputX) || inputX == inputY) return null;
-            if (!(expression["trees"] is JObject trees)) expression["trees"] = trees = new JObject();
+            if (string.IsNullOrWhiteSpace(name) || name.Contains("{") || name.Contains("}")) return false;
             name = name.Trim();
-            trees.Add(name, new JObject { ["tree"] = NewNode(inputX, inputY, new JObject(), new JObject(), origin: false) });
-            return name;
+            var taken = new HashSet<string>(TreeNames(expression));
+            foreach (var t in Tuning.Trees(expression)) foreach (var n in Tuning.Expanded(t, t.Name)) taken.Add(n);
+            var mine = sided ? new[] { name + "{side}", name + "Left", name + "Right" } : new[] { name };
+            return mine.All(n => !taken.Contains(n));
+        }
+
+        // A new expression whose first box has neutral face movements at every position; a left/right one is written once
+        // with "sides" (Left/Right, {s} = L/R) like the template's Eyelid. Returns the name as written, or null.
+        public static string NewTree(JObject expression, string name, string inputX, string inputY = null, bool sided = false)
+        {
+            if (!CanCreateTree(expression, name, sided) || string.IsNullOrEmpty(inputX) || inputX == inputY) return null;
+            if (!(expression["trees"] is JObject trees)) expression["trees"] = trees = new JObject();
+            var key = name.Trim() + (sided ? "{side}" : "");
+            var entry = new JObject();
+            if (sided) entry["sides"] = new JObject { ["Left"] = new JObject { ["s"] = "L" }, ["Right"] = new JObject { ["s"] = "R" } };
+            entry["tree"] = NewNode(inputX, inputY, new JObject(), new JObject(), origin: false);
+            trees.Add(key, entry);
+            return key;
         }
 
         public static bool RemoveTree(JObject expression, string name) =>

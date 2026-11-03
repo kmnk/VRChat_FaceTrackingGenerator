@@ -317,11 +317,11 @@ namespace Kmnk.FaceTrackingGenerator
             return made;
         }
 
-        internal string NewTree(string name, string inputX, string inputY)
+        internal string NewTree(string name, string inputX, string inputY, bool sided = false)
         {
-            if (doc == null || !ExpressionGraph.CanCreateTree(ExpressionJson, name)) return null;
+            if (doc == null || !ExpressionGraph.CanCreateTree(ExpressionJson, name, sided)) return null;
             string made = null;
-            Edit(TableDocument.Expression, "New FT expression", e => made = ExpressionGraph.NewTree(e, name, inputX, inputY));
+            Edit(TableDocument.Expression, "New FT expression", e => made = ExpressionGraph.NewTree(e, name, inputX, inputY, sided));
             return made;
         }
 

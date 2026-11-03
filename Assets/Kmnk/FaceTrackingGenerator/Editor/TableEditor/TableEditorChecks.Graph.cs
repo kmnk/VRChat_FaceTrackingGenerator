@@ -88,7 +88,14 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var k = item.LastIndexOf('=');
                 var xy = item.Substring(k + 1).Split(',');
-                var made = ExpressionGraph.NewTree(expression, item.Substring(0, k), xy[0], xy.Length > 1 ? xy[1] : null);
+                var nm = item.Substring(0, k);
+                var sided = nm.EndsWith("{side}");  // "Brow{side}=..." makes a left/right expression
+                if (sided)
+                {
+                    nm = nm.Substring(0, nm.Length - 6);
+                    Debug.Log($"[FTG] graph inputs-sided: {string.Join(",", ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, null, true))}");
+                }
+                var made = ExpressionGraph.NewTree(expression, nm, xy[0], xy.Length > 1 ? xy[1] : null, sided);
                 Debug.Log($"[FTG] graph new-tree {item.Substring(0, k)} {item.Substring(k + 1)}: done={(made != null).ToString().ToLower()}");
                 if (made != null) PrintGraph(expression, doc.Json(TableDocument.Input), made);
             }

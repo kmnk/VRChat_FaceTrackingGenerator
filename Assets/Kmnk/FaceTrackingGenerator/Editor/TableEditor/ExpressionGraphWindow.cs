@@ -147,7 +147,7 @@ namespace Kmnk.FaceTrackingGenerator
         internal void OpenSplitList(string path, int row, Vector2 screenPosition) => OpenList(ListMode.Split, path, row, null, screenPosition);
 
         // The input list for splitting a position, inserting a box above a box, or the first box of a new expression.
-        internal void OpenList(ListMode mode, string path, int row, string newName, Vector2 screenPosition)
+        internal void OpenList(ListMode mode, string path, int row, string newName, Vector2 screenPosition, bool newSided = false)
         {
             var editor = TableEditorWindow.Current;
             if (editor == null) return;
@@ -157,7 +157,8 @@ namespace Kmnk.FaceTrackingGenerator
             provider.Path = path;
             provider.Row = row;
             provider.NewName = newName;
-            provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, mode == ListMode.NewTree ? null : tree);
+            provider.NewSided = newSided;
+            provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, mode == ListMode.NewTree ? null : tree, mode == ListMode.NewTree && newSided);
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
         }
 
@@ -172,20 +173,20 @@ namespace Kmnk.FaceTrackingGenerator
             if (box != null) editor.RevealInTuning(tree, box.TuningKey, box.Path);
         }
 
-        internal void CreateTree(string name, string inputX, string inputY)
+        internal void CreateTree(string name, string inputX, string inputY, bool sided = false)
         {
-            var made = TableEditorWindow.Current?.NewTree(name, inputX, inputY);
+            var made = TableEditorWindow.Current?.NewTree(name, inputX, inputY, sided);
             if (made != null) SelectTree(made);
         }
 
-        void ShowNewTree(string name = "")
+        void ShowNewTree(string name = "", bool sided = false)
         {
             if (TableEditorWindow.Current?.ExpressionJson == null) return;
             var r = newButton.worldBound;
-            UnityEditor.PopupWindow.Show(new Rect(r.x, r.y, r.width, r.height), new NewTreePopup { Window = this, Name = name });
+            UnityEditor.PopupWindow.Show(new Rect(r.x, r.y, r.width, r.height), new NewTreePopup { Window = this, Name = name, Sided = sided });
         }
 
-        internal void ShowNewTreeForCapture(string name) => ShowNewTree(name);
+        internal void ShowNewTreeForCapture(string name, bool sided) => ShowNewTree(name, sided);
 
         internal void AskRemoveTree(string name)
         {
@@ -199,9 +200,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             public ExpressionGraphWindow Window;
             internal string Name = "";
+            internal bool Sided;
             bool focused;
 
-            public override Vector2 GetWindowSize() => new Vector2(260, 84);
+            public override Vector2 GetWindowSize() => new Vector2(260, Sided ? 104 : 84);
 
             public override void OnGUI(Rect rect)
             {
@@ -210,6 +212,18 @@ namespace Kmnk.FaceTrackingGenerator
                 var labelWidth = EditorGUIUtility.labelWidth;
                 EditorGUIUtility.labelWidth = 60;
                 Name = EditorGUILayout.TextField("Name", Name);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(63);  // under the field, past the 60 px label
+                    Sided = EditorGUILayout.ToggleLeft("Left and right", Sided);
+                }
+                var pair = Sided ? EditorText.Help("graph.pairNote") : null;
+                if (pair != null)
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(63);
+                        GUILayout.Label(string.Format(pair, Name.Trim()), EditorStyles.miniLabel);
+                    }
                 EditorGUIUtility.labelWidth = labelWidth;
                 if (!focused) { EditorGUI.FocusTextInControl("ftNewName"); focused = true; }
                 var note = EditorText.Help("graph.newNote");
@@ -217,13 +231,13 @@ namespace Kmnk.FaceTrackingGenerator
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     GUILayout.FlexibleSpace();
-                    using (new EditorGUI.DisabledScope(!ExpressionGraph.CanCreateTree(TableEditorWindow.Current?.ExpressionJson, Name)))
+                    using (new EditorGUI.DisabledScope(!ExpressionGraph.CanCreateTree(TableEditorWindow.Current?.ExpressionJson, Name, Sided)))
                         if (GUILayout.Button("Choose the First Box…", GUILayout.ExpandWidth(false)))
                         {
                             var at = GUIUtility.GUIToScreenPoint(new Vector2(rect.x, rect.yMax));
                             var name = Name;
                             editorWindow.Close();
-                            Window.OpenList(ListMode.NewTree, null, -1, name, at);
+                            Window.OpenList(ListMode.NewTree, null, -1, name, at, Sided);
                         }
                 }
             }
@@ -247,6 +261,7 @@ namespace Kmnk.FaceTrackingGenerator
             public ExpressionGraphWindow Window;
             public ListMode Mode;
             public string Path, NewName;
+            public bool NewSided;
             public int Row;
             public List<string> Inputs;
 
@@ -259,13 +274,13 @@ namespace Kmnk.FaceTrackingGenerator
                     new SearchTreeGroupEntry(new GUIContent("Split with 1D"), 1),
                 };
                 foreach (var name in Inputs)
-                    list.Add(new SearchTreeEntry(new GUIContent(Tuning.Label(name))) { level = 2, userData = new[] { name } });
+                    list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(name))) { level = 2, userData = new[] { name } });
                 list.Add(new SearchTreeGroupEntry(new GUIContent("Split with 2D: X"), 1));
                 foreach (var x in Inputs)
                 {
-                    list.Add(new SearchTreeGroupEntry(new GUIContent(Tuning.Label(x)), 2));
+                    list.Add(new SearchTreeGroupEntry(new GUIContent(ExpressionGraph.InputText(x)), 2));
                     foreach (var y in Inputs.Where(y => y != x))
-                        list.Add(new SearchTreeEntry(new GUIContent(Tuning.Label(x) + " × " + Tuning.Label(y))) { level = 3, userData = new[] { x, y } });
+                        list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(x) + " × " + ExpressionGraph.InputText(y))) { level = 3, userData = new[] { x, y } });
                 }
                 return list;
             }
@@ -275,7 +290,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var names = (string[])entry.userData;
                 var y = names.Length > 1 ? names[1] : null;
                 if (Mode == ListMode.InsertAbove) Window.InsertAbove(Path, names[0], y);
-                else if (Mode == ListMode.NewTree) Window.CreateTree(NewName, names[0], y);
+                else if (Mode == ListMode.NewTree) Window.CreateTree(NewName, names[0], y, NewSided);
                 else Window.Split(Path, Row, names[0], y);
                 return true;
             }

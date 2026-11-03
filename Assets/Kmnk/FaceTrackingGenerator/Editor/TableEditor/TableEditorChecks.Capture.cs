@@ -137,7 +137,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (frame == 33 && CliArgs.Get("-ftGraphNew") != null)
             {
                 // "-ftGraphNew <name>": opens the "+ New Expression" panel with the name typed in.
-                g.ShowNewTreeForCapture(CliArgs.Get("-ftGraphNew"));
+                g.ShowNewTreeForCapture(CliArgs.Get("-ftGraphNew"), CliArgs.Get("-ftGraphNewSides") == "1");
             }
             if (frame == 35)
             {

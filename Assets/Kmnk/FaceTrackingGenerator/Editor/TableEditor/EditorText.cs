@@ -124,6 +124,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["graph.help"] = ("Select a box to show its node in the Tuning tab of the settings editor. Drag from the circle right of a position and release on empty space to split it with 1D or 2D. Right-click a box to insert a box above it or to remove it.", "箱を選ぶと、設定エディタの Tuning にその節が出ます。位置の右の丸から線を引いて空いた所で離すと、その位置を 1D・2D で分けられます。箱を右クリックすると、上に箱を挟んだり消したりできます。"),
             ["tune.selectBox"] = ("Select a box in the expression graph.", "図のウィンドウで箱を選んでください。"),
             ["tune.switchNoEdit"] = ("Switches cannot be changed in Tuning.", "切り替えは Tuning では変えられません。"),
+            ["graph.pairNote"] = ("Makes {0}Left and {0}Right.", "{0}Left・{0}Right の 2 つになります。"),
             ["graph.newNote"] = ("Choose the input of the first box in the next list.", "最初の箱の入力は、次の一覧で選びます。"),
             ["graph.removeTree"] = ("Remove the expression \"{0}\"?", "表情 \"{0}\" を消します。"),
             ["graph.noTable"] = ("Open settings in the settings editor.", "設定エディタで設定を開いてください。"),
