@@ -13,6 +13,8 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftTree <name>                        default: every tree
         //   -ftSplit "<tree>|<box path>|<row>=<input>;..."   e.g. "Mouth|root/0/0|0=SmileFrown"
         //   -ftOpen "<box path>;..."           boxes shown open (face movements one per line)
+        //   -ftSplit2D "<tree>|<box path>|<row>=<x>,<y>;..."   split with 2D
+        //   -ftRemove "<tree>|<box path>|<keep row>;..."      remove a box, keeping one row's content
         // Lines:
         //   [FTG] graph box <tree> <path>: <title> | x=<x> y=<y> | tuning=<key> | <row>; <row>; ...   (rows marked "->" hold a box)
         //   [FTG] graph edge <tree> <path>#<row> -> <child path>
@@ -46,6 +48,28 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] graph split {head[0]} {head[1]}#{row} {input}: can={can.ToString().ToLower()} new={made ?? "-"} node={node} max-weight-diff={F(diff)}");
                     if (made != null) PrintGraph(expression, doc.Json(TableDocument.Input), head[0]);
                 }
+            foreach (var item in (CliArgs.Get("-ftSplit2D") ?? "").Split(';').Where(x => x.Contains("=")))
+            {
+                var k = item.LastIndexOf('=');
+                var head = item.Substring(0, k).Split('|');
+                var xy = item.Substring(k + 1).Split(',');
+                var row = int.Parse(head[2]);
+                var before = doc.Model();
+                var made = ExpressionGraph.Split2D(expression, head[0], head[1], row, xy[0], xy[1]);
+                var after = doc.Model();
+                var node = made != null ? ExpressionGraph.Find(expression, head[0], made).ToString(Newtonsoft.Json.Formatting.None) : "-";
+                Debug.Log($"[FTG] graph split2d {head[0]} {head[1]}#{row} {xy[0]},{xy[1]}: new={made ?? "-"} node={node} max-weight-diff={F(MaxWeightDiff(before, after))}");
+                if (made != null) PrintGraph(expression, doc.Json(TableDocument.Input), head[0]);
+            }
+            foreach (var item in (CliArgs.Get("-ftRemove") ?? "").Split(';').Where(x => x.Contains("|")))
+            {
+                var head = item.Split('|');
+                var can = ExpressionGraph.CanRemove(expression, head[0], head[1]);
+                var kept = ExpressionGraph.Remove(expression, head[0], head[1], int.Parse(head[2]));
+                var content = kept != null ? ExpressionGraph.Find(expression, head[0], kept)?.ToString(Newtonsoft.Json.Formatting.None) : null;
+                Debug.Log($"[FTG] graph remove {head[0]} {head[1]} keep={head[2]}: can={can.ToString().ToLower()} done={(kept != null).ToString().ToLower()} now={(content ?? "(face movements)")}");
+                if (kept != null) PrintGraph(expression, doc.Json(TableDocument.Input), head[0]);
+            }
             if (CliArgs.Get("-ftSave") == "1")
                 foreach (var p in doc.Save()) Debug.Log($"[FTG] graph saved {p}");
             return 0;

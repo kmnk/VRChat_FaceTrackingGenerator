@@ -114,6 +114,17 @@ namespace Kmnk.FaceTrackingGenerator
             Refresh();
         }
 
+        internal void RemoveBox(string path, int keepRow)
+        {
+            var editor = TableEditorWindow.Current;
+            if (editor == null) return;
+            var kept = editor.RemoveBox(tree, path, keepRow);
+            if (kept == null) return;
+            openBoxes.RemoveWhere(k => k.StartsWith(tree + "|" + path, StringComparison.Ordinal));
+            selectedPath = null;
+            Refresh();
+        }
+
         internal void OnBoxSelected(ExpressionGraph.Box box)
         {
             selectedPath = box.Path;
@@ -133,11 +144,12 @@ namespace Kmnk.FaceTrackingGenerator
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
         }
 
-        internal void Split(string path, int row, string input)
+        // Splits with 1D (inputY null) or 2D.
+        internal void Split(string path, int row, string input, string inputY = null)
         {
             var editor = TableEditorWindow.Current;
             if (editor == null) return;
-            var made = editor.SplitPosition(tree, path, row, input);
+            var made = inputY == null ? editor.SplitPosition(tree, path, row, input) : editor.SplitPosition2D(tree, path, row, input, inputY);
             if (made == null) return;
             selectedPath = made;
             Refresh();
@@ -152,17 +164,30 @@ namespace Kmnk.FaceTrackingGenerator
             public int Row;
             public List<string> Inputs;
 
+            // Split > Split with 1D > <input>, and Split > Split with 2D: X > <X> > "<X> × <Y>".
             public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
             {
-                var list = new List<SearchTreeEntry> { new SearchTreeGroupEntry(new GUIContent("Split with 1D"), 0) };
+                var list = new List<SearchTreeEntry>
+                {
+                    new SearchTreeGroupEntry(new GUIContent("Split"), 0),
+                    new SearchTreeGroupEntry(new GUIContent("Split with 1D"), 1),
+                };
                 foreach (var name in Inputs)
-                    list.Add(new SearchTreeEntry(new GUIContent(Tuning.Label(name))) { level = 1, userData = name });
+                    list.Add(new SearchTreeEntry(new GUIContent(Tuning.Label(name))) { level = 2, userData = new[] { name } });
+                list.Add(new SearchTreeGroupEntry(new GUIContent("Split with 2D: X"), 1));
+                foreach (var x in Inputs)
+                {
+                    list.Add(new SearchTreeGroupEntry(new GUIContent(Tuning.Label(x)), 2));
+                    foreach (var y in Inputs.Where(y => y != x))
+                        list.Add(new SearchTreeEntry(new GUIContent(Tuning.Label(x) + " × " + Tuning.Label(y))) { level = 3, userData = new[] { x, y } });
+                }
                 return list;
             }
 
             public bool OnSelectEntry(SearchTreeEntry entry, SearchWindowContext context)
             {
-                Window.Split(Path, Row, (string)entry.userData);
+                var names = (string[])entry.userData;
+                Window.Split(Path, Row, names[0], names.Length > 1 ? names[1] : null);
                 return true;
             }
         }
@@ -185,9 +210,32 @@ namespace Kmnk.FaceTrackingGenerator
                 var grid = new GridBackground();
                 Insert(0, grid);
                 grid.StretchToParentSize();
-                deleteSelection = (op, ask) => { };
+                deleteSelection = (op, ask) => DeleteKey();
                 serializeGraphElements = _ => null;
                 canPasteSerializedData = _ => false;
+            }
+
+            // Only the boxes' own menu (Remove Box): no Cut, Copy, Paste, Delete or Duplicate.
+            public override void BuildContextualMenu(ContextualMenuPopulateEvent evt) { }
+
+            internal void RemoveBox(BoxNode node, int keepRow) => window.RemoveBox(node.Box.Path, keepRow);
+
+            internal Newtonsoft.Json.Linq.JObject Expression => TableEditorWindow.Current?.ExpressionJson;
+            internal string Tree => window.Tree;
+
+            // The Delete key on one selected box: the same "Keep" choices as the context menu, below the box.
+            void DeleteKey()
+            {
+                var node = selection.OfType<BoxNode>().FirstOrDefault();
+                if (node == null || !ExpressionGraph.CanRemove(Expression, Tree, node.Box.Path)) return;
+                var menu = new GenericMenu();
+                for (int i = 0; i < node.Box.Rows.Count; i++)
+                {
+                    var row = i;
+                    menu.AddItem(new GUIContent(node.KeepText(row)), false, () => RemoveBox(node, row));
+                }
+                var r = node.worldBound;
+                menu.DropDown(new Rect(r.x, r.yMax, 0, 0));
             }
 
             // No port accepts a line: a line from a position always ends on empty space.
@@ -289,6 +337,21 @@ namespace Kmnk.FaceTrackingGenerator
                 RefreshExpandedState();
                 RefreshPorts();
                 SetPosition(new Rect(box.X, box.Y, ExpressionGraph.BoxWidth, box.Height));
+            }
+
+            internal string KeepText(int row) =>
+                "Keep " + (ExpressionGraph.RowMenuText(graph.Expression, graph.Tree, Box.Path, row) ?? Box.Rows[row].Label).Replace("/", "\u2215");
+
+            // Right-click: Remove Box > Keep <row>. The top box cannot be removed.
+            public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+            {
+                var can = ExpressionGraph.CanRemove(graph.Expression, graph.Tree, Box.Path);
+                if (!can) { evt.menu.AppendAction("Remove Box", _ => { }, DropdownMenuAction.Status.Disabled); return; }
+                for (int i = 0; i < Box.Rows.Count; i++)
+                {
+                    var row = i;
+                    evt.menu.AppendAction("Remove Box/" + KeepText(row), _ => graph.RemoveBox(this, row));
+                }
             }
 
             sealed class Listener : IEdgeConnectorListener

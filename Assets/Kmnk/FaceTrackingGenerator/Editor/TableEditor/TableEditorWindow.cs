@@ -295,6 +295,23 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
+        internal string SplitPosition2D(string tree, string path, int row, string inputX, string inputY)
+        {
+            if (doc == null || !ExpressionGraph.CanSplit(ExpressionJson, tree, path, row)) return null;
+            string made = null;
+            Edit(TableDocument.Expression, "Split FT position", e => made = ExpressionGraph.Split2D(e, tree, path, row, inputX, inputY));
+            return made;
+        }
+
+        // Replaces a box with the content of one of its rows (ExpressionGraph.Remove) as an unsaved edit.
+        internal string RemoveBox(string tree, string path, int keepRow)
+        {
+            if (doc == null || !ExpressionGraph.CanRemove(ExpressionJson, tree, path)) return null;
+            string kept = null;
+            Edit(TableDocument.Expression, "Remove FT box", e => kept = ExpressionGraph.Remove(e, tree, path, keepRow));
+            return kept;
+        }
+
         // Splits a position of the tree with 1D (ExpressionGraph.Split) as an unsaved edit. Returns the new box's path.
         internal string SplitPosition(string tree, string path, int row, string input)
         {

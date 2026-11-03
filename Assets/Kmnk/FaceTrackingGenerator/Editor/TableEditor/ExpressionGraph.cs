@@ -199,9 +199,65 @@ namespace Kmnk.FaceTrackingGenerator
                 ["1d"] = input,
                 ["children"] = new JArray(new JArray(Tuning.Num(lo), copy), new JArray(Tuning.Num(hi), copy.DeepClone())),
             };
-            if (node["cases"] is JObject cases) cases.Properties().ElementAt(row).Value = nested;
-            else ((JArray)((JArray)node["children"]).OfType<JArray>().Where(c => c.Count == 2).ElementAt(row))[1] = nested;
+            SetRow(node, row, nested);
             return path + "/" + row;
+        }
+
+        static void SetRow(JObject node, int row, JToken content)
+        {
+            if (node["cases"] is JObject cases) cases.Properties().ElementAt(row).Value = content;
+            else ((JArray)((JArray)node["children"]).OfType<JArray>().Where(c => c.Count == 2).ElementAt(row))[1] = content;
+        }
+
+        // Makes the row's face movements a 2D node of the two inputs with the same face movements at three positions
+        // (the origin, the X end and the Y end), so the face does not change. The origin is 0 when the input's range
+        // has 0, its low end otherwise. Returns the new box's path, or null.
+        public static string Split2D(JObject expression, string tree, string path, int row, string inputX, string inputY)
+        {
+            if (!CanSplit(expression, tree, path, row) || string.IsNullOrEmpty(inputX) || string.IsNullOrEmpty(inputY) || inputX == inputY) return null;
+            var node = Find(expression, tree, path);
+            var pose = Children(node)[row].child;
+            var copy = pose == null || pose.Type == JTokenType.Null ? new JObject() : (JObject)pose.DeepClone();
+            var (xlo, xhi) = Tuning.Range(inputX, Enumerable.Empty<float>());
+            var (ylo, yhi) = Tuning.Range(inputY, Enumerable.Empty<float>());
+            float x0 = xlo <= 0 && 0 <= xhi ? 0 : xlo, y0 = ylo <= 0 && 0 <= yhi ? 0 : ylo;
+            JArray P(float x, float y) => new JArray(Tuning.Num(x), Tuning.Num(y));
+            var nested = new JObject
+            {
+                ["2d"] = new JArray(inputX, inputY),
+                ["children"] = new JArray(new JArray(P(x0, y0), copy), new JArray(P(xhi, y0), copy.DeepClone()), new JArray(P(x0, yhi), copy.DeepClone())),
+            };
+            SetRow(node, row, nested);
+            return path + "/" + row;
+        }
+
+        // A box other than the top one can be removed.
+        public static bool CanRemove(JObject expression, string tree, string path) =>
+            path != null && path != "root" && Find(expression, tree, path) != null;
+
+        // Replaces the box with the content of one of its rows (face movements, or a box that moves up). Returns the path
+        // where the content is now, or null.
+        public static string Remove(JObject expression, string tree, string path, int keepRow)
+        {
+            if (!CanRemove(expression, tree, path)) return null;
+            var node = Find(expression, tree, path);
+            var rows = Children(node);
+            if (keepRow < 0 || keepRow >= rows.Count) return null;
+            var cut = path.LastIndexOf('/');
+            var parent = Find(expression, tree, path.Substring(0, cut));
+            if (parent == null || !int.TryParse(path.Substring(cut + 1), out var parentRow)) return null;
+            var keep = rows[keepRow].child;
+            SetRow(parent, parentRow, keep == null || keep.Type == JTokenType.Null ? new JObject() : keep.DeepClone());
+            return path;
+        }
+
+        // The row's text for a menu: the label as the closed box shows it, or the title of the box it holds.
+        public static string RowMenuText(JObject expression, string tree, string path, int row)
+        {
+            var node = Find(expression, tree, path);
+            if (node == null) return null;
+            var (label, child) = Children(node)[row];
+            return IsBranch(child) ? label + ":  " + Title((JObject)child) : label + ":  " + PoseText(child);
         }
     }
 }
