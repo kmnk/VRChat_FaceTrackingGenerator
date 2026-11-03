@@ -291,6 +291,31 @@ namespace Kmnk.FaceTrackingGenerator
         public static bool RemoveTree(JObject expression, string name) =>
             expression?["trees"] is JObject trees && trees.Remove(name);
 
+        static string NodeLabel(JObject o)
+        {
+            if (o["1d"] != null) return Tuning.Label((string)o["1d"]);
+            if (o["2d"] is JArray a) return $"{Tuning.Label((string)a[0])} × {Tuning.Label((string)a[1])}";
+            return Tuning.Label((string)o["switch"]);
+        }
+
+        // Where a box is: "Mouth › LipPucker 0 › MouthOpen" (the tree, each box above with the position on the way,
+        // then the box's input). Null when there is no box at the path.
+        public static string PathText(JObject expression, string tree, string path)
+        {
+            var node = TreeRoot(expression, tree);
+            if (!IsBranch(node) || path == null || !path.StartsWith("root") || Find(expression, tree, path) == null) return null;
+            var parts = new List<string> { Tuning.Label(tree) };
+            foreach (var seg in path.Split('/').Skip(1))
+            {
+                var rows = Children(node);
+                var i = int.Parse(seg);
+                parts.Add(NodeLabel(node) + " " + rows[i].label);
+                node = (JObject)rows[i].child;
+            }
+            parts.Add(NodeLabel(node));
+            return string.Join(" \u203A ", parts);
+        }
+
         // A box other than the top one can be removed.
         public static bool CanRemove(JObject expression, string tree, string path) =>
             path != null && path != "root" && Find(expression, tree, path) != null;

@@ -138,7 +138,7 @@ namespace Kmnk.FaceTrackingGenerator
         internal void OnBoxSelected(ExpressionGraph.Box box)
         {
             selectedPath = box.Path;
-            TableEditorWindow.Current?.RevealInTuning(tree, box.TuningKey);
+            TableEditorWindow.Current?.RevealInTuning(tree, box.TuningKey, box.Path);
         }
 
         // The search list after a line from a position is dropped on empty space.
@@ -168,6 +168,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (made == null) return;
             selectedPath = made;
             Refresh();
+            var box = ExpressionGraph.Build(editor.ExpressionJson, tree).FirstOrDefault(b => b.Path == made);
+            if (box != null) editor.RevealInTuning(tree, box.TuningKey, box.Path);
         }
 
         internal void CreateTree(string name, string inputX, string inputY)
@@ -237,7 +239,7 @@ namespace Kmnk.FaceTrackingGenerator
             selectedPath = made;
             Refresh();
             var box = ExpressionGraph.Build(editor.ExpressionJson, tree).FirstOrDefault(b => b.Path == made);
-            if (box != null) editor.RevealInTuning(tree, box.TuningKey);
+            if (box != null) editor.RevealInTuning(tree, box.TuningKey, box.Path);
         }
 
         sealed class SplitInputList : ScriptableObject, ISearchWindowProvider

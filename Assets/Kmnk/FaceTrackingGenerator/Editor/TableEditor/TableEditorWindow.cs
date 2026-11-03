@@ -280,9 +280,15 @@ namespace Kmnk.FaceTrackingGenerator
 
         // Opens the Tuning tab at a node: the tree's fold, the node's fold (1D), and scrolls to it. A null key (a switch)
         // opens the tree only.
-        internal void RevealInTuning(string tree, string key)
+        // The box selected in the expression graph (for Show: Selected).
+        string graphTree, graphPath;
+        const string ShowSelectedPrefKey = "Kmnk.FaceTrackingGenerator.TuningShowSelected";
+
+        internal void RevealInTuning(string tree, string key, string path = null)
         {
             if (doc == null || tree == null) return;
+            graphTree = tree;
+            graphPath = path;
             tab = 2;
             tuneOpen[tree] = true;
             if (key != null)
@@ -1056,6 +1062,17 @@ namespace Kmnk.FaceTrackingGenerator
             var trees = Tuning.Trees(expression);
             var allNames = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), expression);
 
+            var selectedOnly = captureShowSelected ?? EditorPrefs.GetBool(ShowSelectedPrefKey, false);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label("Show", GUILayout.ExpandWidth(false));
+                EditorGUI.BeginChangeCheck();
+                var pick = GUILayout.Toolbar(selectedOnly ? 1 : 0, new[] { "All", "Selected" }, GUILayout.Width(140));
+                if (EditorGUI.EndChangeCheck()) { captureShowSelected = null; EditorPrefs.SetBool(ShowSelectedPrefKey, pick == 1); selectedOnly = pick == 1; }
+            }
+            EditorGUILayout.Space(4);
+            if (selectedOnly) { DrawTuningSelected(expression, trees, allNames); return; }
+
             EditorGUILayout.LabelField("Expressions", EditorStyles.boldLabel);
             Help("help.thresholds");
             var shown = trees.Where(t => t.Nodes.Count > 0 || t.Has2D).ToList();
@@ -1119,6 +1136,39 @@ namespace Kmnk.FaceTrackingGenerator
                 if (syncNote != null) PartsLine(syncNote);
                 EditorGUI.indentLevel--;
             }
+        }
+
+        bool? captureShowSelected;  // set by TableEditorChecks.Capture instead of the saved choice
+
+        // Show: Selected. Only the node of the box selected in the expression graph, under the path to it.
+        void DrawTuningSelected(JObject expression, List<Tuning.Tree> trees, ICollection<string> allNames)
+        {
+            var pathText = graphTree != null ? ExpressionGraph.PathText(expression, graphTree, graphPath) : null;
+            if (pathText == null)
+            {
+                EditorGUILayout.LabelField(EditorText.Get("tune.selectBox"), EditorStyles.wordWrappedLabel);
+                if (GUILayout.Button("Open Expression Graph", GUILayout.ExpandWidth(false))) ExpressionGraphWindow.Open();
+                return;
+            }
+            EditorGUILayout.LabelField(pathText, EditorStyles.boldLabel);
+            var box = ExpressionGraph.Build(expression, graphTree).FirstOrDefault(b => b.Path == graphPath);
+            var t = trees.FirstOrDefault(x => x.Name == graphTree);
+            if (box == null || t == null || box.TuningKey == null)
+            {
+                EditorGUILayout.LabelField(EditorText.Get("tune.switchNoEdit"), EditorStyles.wordWrappedLabel);
+                return;
+            }
+            var key = box.TuningKey;
+            var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
+            EditorGUI.indentLevel++;
+            if (at2d >= 0 && int.TryParse(key.Substring(at2d + 4), out var k) && k < t.Nodes2D.Count) DrawTuningNode2D(t, k, allNames);
+            else if (int.TryParse(key.Substring(key.LastIndexOf('/') + 1), out var i) && i < t.Nodes.Count)
+            {
+                EditorGUILayout.Foldout(true, new GUIContent(Tuning.NodeTitle(t.Nodes[i]), NodeInputTooltip(t, t.Nodes[i].Input)), true);  // always open here
+                tuneOpen[key] = true;
+                DrawTuningNode(t, i, key, allNames);
+            }
+            EditorGUI.indentLevel--;
         }
 
         // Edits the expression table at a tree found again by name (the trees are made again after each edit).
@@ -1536,6 +1586,8 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
             captureDevice = CliArgs.Get("-ftDevice");
+            var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
+            if (showArg != null) captureShowSelected = showArg == "selected";
             // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")
             var inputAdd = CliArgs.Get("-ftInputAdd");
             if (inputAdd != null && doc != null)
