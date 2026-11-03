@@ -18,7 +18,7 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class TableEditorWindow : EditorWindow
     {
         const string TablePrefKey = "Kmnk.FaceTrackingGenerator.AvatarTable";  // shared with GeneratorWindow
-        static readonly string[] Tabs = { "Avatar", "Preview", "Tuning" };
+        static readonly string[] Tabs = { "Avatar", "Preview", "Tuning", "Inputs" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
@@ -54,6 +54,11 @@ namespace Kmnk.FaceTrackingGenerator
         readonly Dictionary<string, float> tuneTry = new Dictionary<string, float>();
         string tuneShown;
         string tuneScrollTo;  // a fold key to scroll to on the next repaint (from the expression graph)
+
+        // inputs tab: the search text, and what Rebuild counted (the avatar's own synced bits, why saving is blocked)
+        string inputSearch = "";
+        int avatarBits = -1;
+        string saveBlocked;
 
         // The open settings editor, for the expression graph. Changed is raised after the tables change.
         internal static TableEditorWindow Current { get; private set; }
@@ -126,6 +131,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             preview.Stop();
             doc = null; model = null; error = null;
+            avatarBits = -1; saveBlocked = null;
             removedParts.Clear();
             switches.Reset();
             UpdateDirty();
@@ -145,10 +151,103 @@ namespace Kmnk.FaceTrackingGenerator
         {
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
+            avatarBits = model != null ? StaticChecker.AvatarSyncedBits(model) : -1;
+            saveBlocked = doc.SaveBlocked();
             if (preview.Running) ApplyPreview();
             else if (tab == 2 && tuneShown != null) ShowTuning(tuneShown);
             else ShowSelected();
             if (Current == this) Changed?.Invoke();
+        }
+
+        // ---- Inputs tab
+
+        Devices.Device ChosenDevice(List<Devices.Device> devices) =>
+            devices.FirstOrDefault(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, "")));
+
+        InputChoices.Result InputRows() => InputChoices.Rows(doc.Json(TableDocument.Input), doc.Json(TableDocument.Expression), model,
+            ChosenDevice(Devices.Load()), doc.SavedJson(TableDocument.Input), avatarBits);
+
+        static readonly Color OverColor = new Color(0.75f, 0.22f, 0.17f);
+
+        void DrawInputsTab()
+        {
+            EditorGUILayout.LabelField("Inputs", EditorStyles.boldLabel);
+            Help("help.inputsTab");
+
+            var devices = Devices.Load();
+            var deviceNames = new List<string> { "Settings" };
+            deviceNames.AddRange(devices.Select(d => d.Name));
+            var device = ChosenDevice(devices);
+            var deviceIndex = device == null ? 0 : devices.IndexOf(device) + 1;
+            EditorGUI.BeginChangeCheck();
+            deviceIndex = EditorGUILayout.Popup("Device", deviceIndex, deviceNames.ToArray());
+            if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); }
+
+            var r = InputRows();
+            EditorGUILayout.Space(4);
+            var old = GUI.contentColor;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label("Synced", EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
+                if (r.Over) GUI.contentColor = new Color(1f, 0.45f, 0.4f);  // lighter than the bar, to read on the dark skin
+                GUILayout.Label($"{r.Total} / {StaticChecker.MaxSyncedBits} bits", EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
+                GUI.contentColor = old;
+            }
+            var bar = GUILayoutUtility.GetRect(100, 8, GUILayout.ExpandWidth(true));
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(bar, new Color(0.165f, 0.165f, 0.165f));
+                var fill = bar;
+                fill.width = bar.width * Mathf.Clamp01(r.Total / (float)StaticChecker.MaxSyncedBits);
+                EditorGUI.DrawRect(fill, r.Over ? OverColor : new Color(0.227f, 0.475f, 0.733f));
+            }
+            PartsLine(r.AvatarBits >= 0 ? string.Format(EditorText.Get("inputs.breakdown"), r.SavedBits, r.AddedBits, r.AvatarBits)
+                : string.Format(EditorText.Get("inputs.breakdownNoAvatar"), r.SavedBits, r.AddedBits));
+            if (r.Over) EditorGUILayout.HelpBox(EditorText.Get("inputs.over"), MessageType.Error);
+            EditorGUILayout.Space(2);
+            inputSearch = EditorGUILayout.TextField(inputSearch, EditorStyles.toolbarSearchField);
+            bool Shown(InputChoices.Row row) => string.IsNullOrEmpty(inputSearch) || row.Display.IndexOf(inputSearch, StringComparison.OrdinalIgnoreCase) >= 0;
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("In the settings", EditorStyles.boldLabel);
+            foreach (var row in r.InTable.Where(Shown)) DrawInputRow(row);
+            if (device != null)
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("Not in the settings", EditorStyles.boldLabel);
+                foreach (var row in r.NotInTable.Where(Shown)) DrawInputRow(row);
+            }
+        }
+
+        void DrawInputRow(InputChoices.Row row)
+        {
+            var area = EditorGUILayout.BeginVertical();
+            if (row.InTable && row.Added && Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(new Rect(0, area.y, area.width + area.x * 2, area.height), new Color(0.17f, 0.29f, 0.4f, 0.8f));
+            var note = row.InTable ? InputChoices.Note(row) : null;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(row.InTable && row.Locked))
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var on = EditorGUILayout.ToggleLeft(new GUIContent(row.Display, row.Locked ? note : null), row.InTable);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        if (on && !row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Add(j, row));
+                        else if (!on && row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Remove(j, row));
+                        GUIUtility.ExitGUI();
+                    }
+                }
+                if (row.InTable)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var synced = EditorGUILayout.Popup(row.Sync == "float8" ? 0 : 1, new[] { "Synced", "Local" }, GUILayout.Width(80)) == 0;
+                    if (EditorGUI.EndChangeCheck()) Edit(TableDocument.Input, "Set FT input", j => InputChoices.SetSync(j, row.Name, synced));
+                }
+                GUILayout.Label($"{row.Bits} bits", new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight }, GUILayout.Width(50));
+            }
+            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
+            EditorGUILayout.EndVertical();
         }
 
         // ---- the expression graph
@@ -247,15 +346,21 @@ namespace Kmnk.FaceTrackingGenerator
 
         public override void SaveChanges()
         {
-            Save();
+            if (!Save()) return;  // still unsaved: the window stays open
             base.SaveChanges();
         }
 
-        void Save()
+        bool Save()
         {
-            if (doc == null) return;
-            foreach (var p in doc.Save()) AssetDatabase.ImportAsset(p);
+            if (doc == null) return true;
+            try { foreach (var p in doc.Save()) AssetDatabase.ImportAsset(p); }
+            catch (TableLoader.TableException e)
+            {
+                EditorUtility.DisplayDialog("FT Settings Editor", e.Message, "OK");
+                return false;
+            }
             UpdateDirty();
+            return true;
         }
 
         bool ConfirmDiscard() => doc == null || !doc.IsDirty() || EditorUtility.DisplayDialog("FT Settings Editor", EditorText.Get("dialog.discard"), "Discard", "Cancel");
@@ -275,7 +380,8 @@ namespace Kmnk.FaceTrackingGenerator
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == 0) DrawAvatarTab();
             else if (tab == 1) DrawPreviewTab();
-            else DrawTuningTab();
+            else if (tab == 2) DrawTuningTab();
+            else DrawInputsTab();
             EditorGUILayout.EndScrollView();
         }
 
@@ -293,8 +399,8 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 using (new EditorGUI.DisabledScope(table == null))
                     if (GUILayout.Button("Reload", GUILayout.Width(70)) && ConfirmDiscard()) Load();
-                using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty()))
-                    if (GUILayout.Button("Save", GUILayout.Width(70))) Save();
+                using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty() || saveBlocked != null))
+                    if (GUILayout.Button(new GUIContent("Save", saveBlocked), GUILayout.Width(70))) Save();
                 if (GUILayout.Button("Face view", GUILayout.Width(80)))
                 {
                     FaceViewWindow.Open();
@@ -1312,7 +1418,7 @@ namespace Kmnk.FaceTrackingGenerator
                 UpdateDirty();
             }
             var tabArg = CliArgs.Get("-ftTab");
-            tab = tabArg == "preview" ? 1 : tabArg == "tuning" ? 2 : 0;
+            tab = tabArg == "preview" ? 1 : tabArg == "tuning" ? 2 : tabArg == "inputs" ? 3 : 0;
             var tuneSet = CliArgs.Get("-ftTuneSet");
             if (tuneSet != null && doc != null)
                 foreach (var item in tuneSet.Split(';').Where(x => x.Contains("=")))
@@ -1366,6 +1472,16 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
             captureDevice = CliArgs.Get("-ftDevice");
+            // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")
+            var inputAdd = CliArgs.Get("-ftInputAdd");
+            if (inputAdd != null && doc != null)
+                foreach (var name in inputAdd.Split(';').Where(x => x != ""))
+                {
+                    var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
+                    if (row != null) Edit(TableDocument.Input, "Capture", j => InputChoices.Add(j, row));
+                    else Debug.Log($"[FTG] capture: no input row {name}");
+                }
+            inputSearch = CliArgs.Get("-ftInputSearch") ?? inputSearch;
             if (CliArgs.Get("-ftShowSwitches") == "1") showSwitches = true;
             if (CliArgs.Get("-ftFaceView") == "1") FaceViewWindow.Open();
             var select = CliArgs.Get("-ftSelectPart");

@@ -199,16 +199,26 @@ namespace Kmnk.FaceTrackingGenerator
 
         static void SyncedBits(TableModel m, List<string> f)
         {
+            var avatar = AvatarSyncedBits(m);
+            if (avatar < 0) return;
+            var bits = avatar + FtSyncedBits(m);
+            if (bits > MaxSyncedBits) f.Add($"sync: synced parameters use {bits} bits (limit {MaxSyncedBits})");
+        }
+
+        // The synced bits of the avatar's own Expression Parameters, without the FT inputs' keys and v2/ parameters;
+        // -1 when the prefab or its Expression Parameters cannot be read.
+        public static int AvatarSyncedBits(TableModel m)
+        {
             var path = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
             var prefab = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
             var expr = prefab != null ? prefab.GetComponent<VRCAvatarDescriptor>()?.expressionParameters : null;
-            if (expr == null) return;
+            if (expr == null) return -1;
             var ftKeys = new HashSet<string>(m.Inputs.Where(i => !i.IsDerived).Select(i => i.Key));
-            var bits = expr.parameters.Where(p => p.networkSynced && !string.IsNullOrEmpty(p.name) && !ftKeys.Contains(p.name) && !p.name.StartsWith("v2/"))
+            return expr.parameters.Where(p => p.networkSynced && !string.IsNullOrEmpty(p.name) && !ftKeys.Contains(p.name) && !p.name.StartsWith("v2/"))
                 .Sum(p => VRCExpressionParameters.TypeCost(p.valueType));
-            bits += m.Inputs.Count(i => !i.IsDerived && i.Sync == "float8") * 8;
-            if (bits > MaxSyncedBits) f.Add($"sync: synced parameters use {bits} bits (limit {MaxSyncedBits})");
         }
+
+        public static int FtSyncedBits(TableModel m) => m.Inputs.Count(i => !i.IsDerived && i.Sync == "float8") * 8;
 
         // ---- 4. Write Defaults mixed in FX
 

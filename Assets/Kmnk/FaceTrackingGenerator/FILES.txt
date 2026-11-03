@@ -23,6 +23,7 @@ Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FacePreview.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FaceRenderer.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/FaceViewWindow.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/Guidance.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/InputChoices.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/JsonTableWriter.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/NewPartPopup.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/SwitchTracker.cs
@@ -32,6 +33,7 @@ Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.FaceView.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Graph.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Guidance.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Inputs.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Preview.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Tuning.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorWindow.cs

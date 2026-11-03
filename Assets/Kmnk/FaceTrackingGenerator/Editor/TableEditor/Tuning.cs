@@ -74,7 +74,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // The same side variables as TableLoader.Expand: ["Left", "Right"] or {"Left": {"s": "L"}, ...}.
-        static List<Dictionary<string, string>> SidesOf(JToken sides)
+        internal static List<Dictionary<string, string>> SidesOf(JToken sides)
         {
             if (sides is JArray a) return a.Select(s => new Dictionary<string, string> { ["side"] = (string)s }).ToList();
             if (sides is JObject o)
