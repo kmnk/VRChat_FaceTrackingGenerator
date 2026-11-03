@@ -303,6 +303,30 @@ namespace Kmnk.FaceTrackingGenerator
             return made;
         }
 
+        internal string InsertBoxAbove(string tree, string path, string inputX, string inputY)
+        {
+            if (doc == null || ExpressionGraph.Find(ExpressionJson, tree, path) == null) return null;
+            string made = null;
+            Edit(TableDocument.Expression, "Insert FT box", e => made = ExpressionGraph.InsertAbove(e, tree, path, inputX, inputY));
+            return made;
+        }
+
+        internal string NewTree(string name, string inputX, string inputY)
+        {
+            if (doc == null || !ExpressionGraph.CanCreateTree(ExpressionJson, name)) return null;
+            string made = null;
+            Edit(TableDocument.Expression, "New FT expression", e => made = ExpressionGraph.NewTree(e, name, inputX, inputY));
+            return made;
+        }
+
+        internal bool RemoveTree(string name)
+        {
+            if (doc == null || !(ExpressionJson?["trees"]?[name] is JObject)) return false;
+            var done = false;
+            Edit(TableDocument.Expression, "Remove FT expression", e => done = ExpressionGraph.RemoveTree(e, name));
+            return done;
+        }
+
         // Replaces a box with the content of one of its rows (ExpressionGraph.Remove) as an unsaved edit.
         internal string RemoveBox(string tree, string path, int keepRow)
         {

@@ -171,7 +171,7 @@ namespace Kmnk.FaceTrackingGenerator
         // without sides cannot use a name with a side mark ("EyeLid{side}").
         public static List<string> SplitInputs(JObject input, JObject expression, string tree)
         {
-            var hasSides = expression?["trees"]?[tree]?["sides"] != null;
+            var hasSides = tree != null && expression?["trees"]?[tree]?["sides"] != null;
             var names = input?["inputs"] is JObject o ? o.Properties().Select(p => p.Name)
                 : input?["inputs"] is JArray a ? a.OfType<JObject>().Select(x => (string)x["name"]).Where(x => x != null) : Enumerable.Empty<string>();
             return names.Where(n => hasSides || !n.Contains("{")).Distinct().OrderBy(n => Tuning.Label(n), StringComparer.Ordinal).ToList();
@@ -230,6 +230,66 @@ namespace Kmnk.FaceTrackingGenerator
             SetRow(node, row, nested);
             return path + "/" + row;
         }
+
+        static (float lo, float origin, float hi) Ends(string input)
+        {
+            var (lo, hi) = Tuning.Range(input, Enumerable.Empty<float>());
+            return (lo, lo <= 0 && 0 <= hi ? 0 : lo, hi);
+        }
+
+        // A new 1D (inputY null) or 2D node: "first" at the origin, the face movements "rest" at the other positions
+        // (1D: the high end; 2D: the X end and the Y end). With origin false, a 1D node goes from the low end instead.
+        static JObject NewNode(string inputX, string inputY, JToken first, JToken rest, bool origin = true)
+        {
+            var x = Ends(inputX);
+            if (inputY == null)
+                return new JObject
+                {
+                    ["1d"] = inputX,
+                    ["children"] = new JArray(new JArray(Tuning.Num(origin ? x.origin : x.lo), first), new JArray(Tuning.Num(x.hi), rest)),
+                };
+            var y = Ends(inputY);
+            JArray P(float a, float b) => new JArray(Tuning.Num(a), Tuning.Num(b));
+            return new JObject
+            {
+                ["2d"] = new JArray(inputX, inputY),
+                ["children"] = new JArray(new JArray(P(x.origin, y.origin), first), new JArray(P(x.hi, y.origin), rest), new JArray(P(x.origin, y.hi), rest.DeepClone())),
+            };
+        }
+
+        // Puts a new 1D or 2D box above the box: the box goes to the new box's origin, the other positions are neutral.
+        // Works on the top box too. Returns the new box's path (the old box's path), or null.
+        public static string InsertAbove(JObject expression, string tree, string path, string inputX, string inputY = null)
+        {
+            var node = Find(expression, tree, path);
+            if (node == null || string.IsNullOrEmpty(inputX) || inputX == inputY) return null;
+            var above = NewNode(inputX, inputY, node.DeepClone(), new JObject());
+            if (path == "root") ((JObject)expression["trees"][tree])["tree"] = above;
+            else
+            {
+                var cut = path.LastIndexOf('/');
+                var parent = Find(expression, tree, path.Substring(0, cut));
+                if (parent == null || !int.TryParse(path.Substring(cut + 1), out var parentRow)) return null;
+                SetRow(parent, parentRow, above);
+            }
+            return path;
+        }
+
+        public static bool CanCreateTree(JObject expression, string name) =>
+            !string.IsNullOrWhiteSpace(name) && !(expression?["trees"] is JObject trees && trees[name.Trim()] != null);
+
+        // A new expression whose first box has neutral face movements at every position. Returns the name, or null.
+        public static string NewTree(JObject expression, string name, string inputX, string inputY = null)
+        {
+            if (!CanCreateTree(expression, name) || string.IsNullOrEmpty(inputX) || inputX == inputY) return null;
+            if (!(expression["trees"] is JObject trees)) expression["trees"] = trees = new JObject();
+            name = name.Trim();
+            trees.Add(name, new JObject { ["tree"] = NewNode(inputX, inputY, new JObject(), new JObject(), origin: false) });
+            return name;
+        }
+
+        public static bool RemoveTree(JObject expression, string name) =>
+            expression?["trees"] is JObject trees && trees.Remove(name);
 
         // A box other than the top one can be removed.
         public static bool CanRemove(JObject expression, string tree, string path) =>

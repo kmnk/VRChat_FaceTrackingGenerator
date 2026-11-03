@@ -19,6 +19,7 @@ namespace Kmnk.FaceTrackingGenerator
         readonly HashSet<string> openBoxes = new HashSet<string>();  // "<tree>|<box path>" of the boxes shown open
         bool frameNext = true;
         ToolbarMenu treeMenu;
+        ToolbarButton newButton, removeTreeButton;
         Label help;
         Graph graph;
 
@@ -33,6 +34,10 @@ namespace Kmnk.FaceTrackingGenerator
             treeMenu.style.minWidth = 120;
             toolbar.Add(treeMenu);
             toolbar.Add(new ToolbarButton(() => graph.FrameAll()) { text = "Frame All" });
+            newButton = new ToolbarButton(() => ShowNewTree()) { text = "+ New Expression" };
+            toolbar.Add(newButton);
+            removeTreeButton = new ToolbarButton(() => AskRemoveTree(tree)) { text = "Remove Expression" };
+            toolbar.Add(removeTreeButton);
             rootVisualElement.Add(toolbar);
             help = new Label();
             help.style.color = new Color(0.6f, 0.6f, 0.6f);
@@ -75,6 +80,8 @@ namespace Kmnk.FaceTrackingGenerator
                 help.text = EditorText.Get("graph.noTable");
                 help.style.display = DisplayStyle.Flex;
                 treeMenu.text = "";
+                newButton.SetEnabled(false);
+                removeTreeButton.SetEnabled(false);
                 graph.Show(null, null, null, null);
                 return;
             }
@@ -83,6 +90,8 @@ namespace Kmnk.FaceTrackingGenerator
             help.style.display = note == null ? DisplayStyle.None : DisplayStyle.Flex;
             if (tree == null || !names.Contains(tree)) { tree = names.FirstOrDefault(); selectedPath = null; frameNext = true; }
             treeMenu.text = tree == null ? "" : TreeTitle(expression, tree);
+            newButton.SetEnabled(true);
+            removeTreeButton.SetEnabled(tree != null);
             treeMenu.menu.MenuItems().Clear();
             foreach (var n in names)
             {
@@ -133,16 +142,89 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // The search list after a line from a position is dropped on empty space.
-        internal void OpenSplitList(string path, int row, Vector2 screenPosition)
+        internal enum ListMode { Split, InsertAbove, NewTree }
+
+        internal void OpenSplitList(string path, int row, Vector2 screenPosition) => OpenList(ListMode.Split, path, row, null, screenPosition);
+
+        // The input list for splitting a position, inserting a box above a box, or the first box of a new expression.
+        internal void OpenList(ListMode mode, string path, int row, string newName, Vector2 screenPosition)
         {
             var editor = TableEditorWindow.Current;
             if (editor == null) return;
             var provider = CreateInstance<SplitInputList>();
             provider.Window = this;
+            provider.Mode = mode;
             provider.Path = path;
             provider.Row = row;
-            provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, tree);
+            provider.NewName = newName;
+            provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, mode == ListMode.NewTree ? null : tree);
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
+        }
+
+        internal void InsertAbove(string path, string inputX, string inputY)
+        {
+            var editor = TableEditorWindow.Current;
+            var made = editor?.InsertBoxAbove(tree, path, inputX, inputY);
+            if (made == null) return;
+            selectedPath = made;
+            Refresh();
+        }
+
+        internal void CreateTree(string name, string inputX, string inputY)
+        {
+            var made = TableEditorWindow.Current?.NewTree(name, inputX, inputY);
+            if (made != null) SelectTree(made);
+        }
+
+        void ShowNewTree(string name = "")
+        {
+            if (TableEditorWindow.Current?.ExpressionJson == null) return;
+            var r = newButton.worldBound;
+            UnityEditor.PopupWindow.Show(new Rect(r.x, r.y, r.width, r.height), new NewTreePopup { Window = this, Name = name });
+        }
+
+        internal void ShowNewTreeForCapture(string name) => ShowNewTree(name);
+
+        internal void AskRemoveTree(string name)
+        {
+            if (name == null || TableEditorWindow.Current == null) return;
+            if (!EditorUtility.DisplayDialog("FT Expression Graph", string.Format(EditorText.Get("graph.removeTree"), Tuning.Label(name)), "Remove", "Cancel")) return;
+            if (TableEditorWindow.Current.RemoveTree(name)) { tree = null; selectedPath = null; frameNext = true; Refresh(); }
+        }
+
+        // The small panel under "+ New Expression": the name, then the list for the first box.
+        internal sealed class NewTreePopup : PopupWindowContent
+        {
+            public ExpressionGraphWindow Window;
+            internal string Name = "";
+            bool focused;
+
+            public override Vector2 GetWindowSize() => new Vector2(260, 84);
+
+            public override void OnGUI(Rect rect)
+            {
+                GUILayout.Space(4);
+                GUI.SetNextControlName("ftNewName");
+                var labelWidth = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = 60;
+                Name = EditorGUILayout.TextField("Name", Name);
+                EditorGUIUtility.labelWidth = labelWidth;
+                if (!focused) { EditorGUI.FocusTextInControl("ftNewName"); focused = true; }
+                var note = EditorText.Help("graph.newNote");
+                if (note != null) EditorGUILayout.LabelField(note, EditorStyles.miniLabel);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    using (new EditorGUI.DisabledScope(!ExpressionGraph.CanCreateTree(TableEditorWindow.Current?.ExpressionJson, Name)))
+                        if (GUILayout.Button("Choose the First Box…", GUILayout.ExpandWidth(false)))
+                        {
+                            var at = GUIUtility.GUIToScreenPoint(new Vector2(rect.x, rect.yMax));
+                            var name = Name;
+                            editorWindow.Close();
+                            Window.OpenList(ListMode.NewTree, null, -1, name, at);
+                        }
+                }
+            }
         }
 
         // Splits with 1D (inputY null) or 2D.
@@ -161,7 +243,8 @@ namespace Kmnk.FaceTrackingGenerator
         sealed class SplitInputList : ScriptableObject, ISearchWindowProvider
         {
             public ExpressionGraphWindow Window;
-            public string Path;
+            public ListMode Mode;
+            public string Path, NewName;
             public int Row;
             public List<string> Inputs;
 
@@ -170,7 +253,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var list = new List<SearchTreeEntry>
                 {
-                    new SearchTreeGroupEntry(new GUIContent("Split"), 0),
+                    new SearchTreeGroupEntry(new GUIContent(Mode == ListMode.InsertAbove ? "Insert Above" : Mode == ListMode.NewTree ? "First Box" : "Split"), 0),
                     new SearchTreeGroupEntry(new GUIContent("Split with 1D"), 1),
                 };
                 foreach (var name in Inputs)
@@ -188,7 +271,10 @@ namespace Kmnk.FaceTrackingGenerator
             public bool OnSelectEntry(SearchTreeEntry entry, SearchWindowContext context)
             {
                 var names = (string[])entry.userData;
-                Window.Split(Path, Row, names[0], names.Length > 1 ? names[1] : null);
+                var y = names.Length > 1 ? names[1] : null;
+                if (Mode == ListMode.InsertAbove) Window.InsertAbove(Path, names[0], y);
+                else if (Mode == ListMode.NewTree) Window.CreateTree(NewName, names[0], y);
+                else Window.Split(Path, Row, names[0], y);
                 return true;
             }
         }
@@ -220,6 +306,9 @@ namespace Kmnk.FaceTrackingGenerator
             public override void BuildContextualMenu(ContextualMenuPopulateEvent evt) { }
 
             internal void RemoveBox(BoxNode node, int keepRow) => window.RemoveBox(node.Box.Path, keepRow);
+            internal void InsertAboveList(BoxNode node, Vector2 panelPosition) =>
+                window.OpenList(ListMode.InsertAbove, node.Box.Path, -1, null, window.position.position + panelPosition);
+            internal void AskRemoveTree() => window.AskRemoveTree(window.Tree);
 
             internal Newtonsoft.Json.Linq.JObject Expression => TableEditorWindow.Current?.ExpressionJson;
             internal string Tree => window.Tree;
@@ -346,8 +435,15 @@ namespace Kmnk.FaceTrackingGenerator
             // Right-click: Remove Box > Keep <row>. The top box cannot be removed.
             public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
             {
+                evt.menu.AppendAction("Insert Box Above…", a => graph.InsertAboveList(this, a.eventInfo?.mousePosition ?? worldBound.center));
                 var can = ExpressionGraph.CanRemove(graph.Expression, graph.Tree, Box.Path);
-                if (!can) { evt.menu.AppendAction("Remove Box", _ => { }, DropdownMenuAction.Status.Disabled); return; }
+                if (!can)
+                {
+                    evt.menu.AppendAction("Remove Box", _ => { }, DropdownMenuAction.Status.Disabled);
+                    evt.menu.AppendSeparator();
+                    evt.menu.AppendAction($"Remove Expression \"{Tuning.Label(graph.Tree)}\"…", _ => graph.AskRemoveTree());
+                    return;
+                }
                 for (int i = 0; i < Box.Rows.Count; i++)
                 {
                     var row = i;

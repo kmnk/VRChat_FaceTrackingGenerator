@@ -134,6 +134,11 @@ namespace Kmnk.FaceTrackingGenerator
                 var after = CliArgs.Get("-ftHelpAfter");
                 if (after != null) EditorText.SetForCapture(after == "ja" ? EditorText.Language.Japanese : after == "off" ? EditorText.Language.Off : EditorText.Language.English);
             }
+            if (frame == 33 && CliArgs.Get("-ftGraphNew") != null)
+            {
+                // "-ftGraphNew <name>": opens the "+ New Expression" panel with the name typed in.
+                g.ShowNewTreeForCapture(CliArgs.Get("-ftGraphNew"));
+            }
             if (frame == 35)
             {
                 var split = CliArgs.Get("-ftGraphSplitList");
