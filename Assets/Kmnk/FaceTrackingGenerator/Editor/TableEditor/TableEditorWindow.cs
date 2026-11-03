@@ -254,7 +254,7 @@ namespace Kmnk.FaceTrackingGenerator
                     var on = EditorGUILayout.Toggle(row.InTable, GUILayout.Width(16));
                     if (EditorGUI.EndChangeCheck())
                     {
-                        if (on && !row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Add(j, row));
+                        if (on && !row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
                         else if (!on && row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Remove(j, row));
                         GUIUtility.ExitGUI();
                     }
@@ -1501,7 +1501,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var name in inputAdd.Split(';').Where(x => x != ""))
                 {
                     var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
-                    if (row != null) Edit(TableDocument.Input, "Capture", j => InputChoices.Add(j, row));
+                    if (row != null) Edit(TableDocument.Input, "Capture", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
                     else Debug.Log($"[FTG] capture: no input row {name}");
                 }
             inputSearch = CliArgs.Get("-ftInputSearch") ?? inputSearch;

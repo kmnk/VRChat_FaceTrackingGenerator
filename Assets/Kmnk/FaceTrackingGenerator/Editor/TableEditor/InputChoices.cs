@@ -133,7 +133,10 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- edits (on the input table's JSON)
 
-        public static void Add(JObject input, Row row)
+        // Adds the row's input where it falls in the device's order of keys, so that the order of the table does not
+        // depend on the order the inputs were checked in. Without a device, or after the inputs the device does not
+        // know, it goes after the last input that is not an average.
+        public static void Add(JObject input, Row row, Devices.Device device = null)
         {
             if (!(input["inputs"] is JObject inputs)) input["inputs"] = inputs = new JObject();
             if (inputs[row.Name] != null) return;
@@ -142,7 +145,32 @@ namespace Kmnk.FaceTrackingGenerator
             o["key"] = "v2/" + row.Name;
             if (input["smoothing"]?["default"] != null) o["smoothing"] = "default";
             o["sync"] = "float8";
-            inputs.Add(row.Name, o);
+
+            int Rank(IEnumerable<string> keys)
+            {
+                if (device == null) return -1;
+                var ranks = keys.Select(k => device.Keys.FindIndex(x => x.key == k)).Where(i => i >= 0).ToList();
+                return ranks.Count == 0 ? -1 : ranks.Min();
+            }
+            List<string> KeysOf(JProperty p)
+            {
+                if (!(p.Value is JObject v) || v["key"] == null) return new List<string>();
+                var sides = Tuning.SidesOf(v["sides"]);
+                return (sides ?? new List<Dictionary<string, string>> { null }).Select(x => Tuning.Sub((string)v["key"], x)).ToList();
+            }
+            var props = inputs.Properties().ToList();
+            var mine = Rank(row.Keys);
+            var at = -1;
+            if (mine >= 0)
+                at = props.FindIndex(p => p.Value is JObject v && v["average"] == null && Rank(KeysOf(p)) > mine);
+            if (at < 0)
+            {
+                var lastPlain = props.FindLastIndex(p => p.Value is JObject v && v["average"] == null);
+                at = lastPlain + 1;
+            }
+            var added = new JProperty(row.Name, o);
+            if (at >= props.Count) inputs.Add(added);
+            else props[at].AddBeforeSelf(added);
         }
 
         public static bool Remove(JObject input, Row row)

@@ -58,7 +58,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var name in (CliArgs.Get("-ftAddInput") ?? "").Split(';').Where(x => x != ""))
             {
                 var row = Rows().NotInTable.FirstOrDefault(x => x.Name == name);
-                if (row != null) InputChoices.Add(doc.Json(TableDocument.Input), row);
+                if (row != null) InputChoices.Add(doc.Json(TableDocument.Input), row, device);
                 Debug.Log($"[FTG] inputs add {name}: done={(row != null).ToString().ToLower()}");
                 changed |= row != null;
             }
