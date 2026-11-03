@@ -333,6 +333,15 @@ namespace Kmnk.FaceTrackingGenerator
             return done;
         }
 
+        // One unsaved edit of the expression table that returns a value (for the graph and the switch panel).
+        internal T EditExpression<T>(string undoName, Func<JObject, T> edit)
+        {
+            T result = default;
+            if (doc == null) return result;
+            Edit(TableDocument.Expression, undoName, e => result = edit(e));
+            return result;
+        }
+
         // Replaces a box with the content of one of its rows (ExpressionGraph.Remove) as an unsaved edit.
         internal string RemoveBox(string tree, string path, int keepRow)
         {
@@ -1153,11 +1162,12 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUILayout.LabelField(pathText, EditorStyles.boldLabel);
             var box = ExpressionGraph.Build(expression, graphTree).FirstOrDefault(b => b.Path == graphPath);
             var t = trees.FirstOrDefault(x => x.Name == graphTree);
-            if (box == null || t == null || box.TuningKey == null)
+            if (box != null && box.Kind == "switch")
             {
-                EditorGUILayout.LabelField(EditorText.Get("tune.switchNoEdit"), EditorStyles.wordWrappedLabel);
+                DrawSwitchPanel(expression, (string)ExpressionGraph.Find(expression, graphTree, graphPath)?["switch"], graphTree);
                 return;
             }
+            if (box == null || t == null || box.TuningKey == null) return;
             var key = box.TuningKey;
             var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
             EditorGUI.indentLevel++;
@@ -1169,6 +1179,106 @@ namespace Kmnk.FaceTrackingGenerator
                 DrawTuningNode(t, i, key, allNames);
             }
             EditorGUI.indentLevel--;
+        }
+
+        // The switch of the selected switch box: its name, states and transitions (SwitchEdit).
+        void DrawSwitchPanel(JObject expression, string reference, string tree)
+        {
+            if (reference == null || SwitchEdit.Defs(expression, reference).Count == 0) return;
+            const string undo = "Set FT switch";
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            EditorGUI.BeginChangeCheck();
+            var name = EditorGUILayout.DelayedTextField("Switch", Tuning.Label(reference));
+            if (EditorGUI.EndChangeCheck() && name != Tuning.Label(reference))
+            {
+                if (SwitchEdit.CanRename(expression, reference, name))
+                {
+                    var newRef = name.Trim() + (reference.Contains("{side}") ? "{side}" : "");
+                    EditExpression(undo, e => SwitchEdit.Rename(e, reference, name));
+                    reference = newRef;
+                }
+                GUIUtility.ExitGUI();
+            }
+            var users = SwitchEdit.Users(expression, reference);
+            var note = EditorText.Help("tune.switchNote");
+            if (note != null) PartsLine(string.Format(note, string.Join(ja ? "・" : ", ", users)));
+
+            var states = SwitchEdit.States(expression, reference);
+            EditorGUILayout.LabelField("States", EditorStyles.miniBoldLabel);
+            for (int i = 0; i < states.Count; i++)
+            {
+                var st = states[i];
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUI.BeginChangeCheck();
+                    var v = EditorGUILayout.DelayedTextField(st, GUILayout.Width(200));
+                    if (EditorGUI.EndChangeCheck() && v != st) { EditExpression(undo, e => SwitchEdit.RenameState(e, reference, st, v)); GUIUtility.ExitGUI(); }
+                    if (i == 0) GUILayout.Label("(default)", PartsStyle, GUILayout.ExpandWidth(false));
+                    GUILayout.FlexibleSpace();
+                    using (new EditorGUI.DisabledScope(states.Count <= 2))
+                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
+                        { EditExpression(undo, e => SwitchEdit.RemoveState(e, reference, st)); GUIUtility.ExitGUI(); }
+                }
+            }
+            if (GUILayout.Button("+ Add State", GUILayout.ExpandWidth(false))) { EditExpression(undo, e => SwitchEdit.AddState(e, reference)); GUIUtility.ExitGUI(); }
+
+            var inputs = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, tree);
+            var inputTexts = inputs.Select(ExpressionGraph.InputText).ToArray();
+            var stateArray = states.ToArray();
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Transitions", EditorStyles.miniBoldLabel);
+            var view = SwitchEdit.View(expression, reference);
+            for (int i = 0; i < view.Count; i++)
+            {
+                var tr = view[i];
+                var ti = i;
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUI.BeginChangeCheck();
+                        var from = EditorGUILayout.Popup(Math.Max(0, states.IndexOf(tr.From)), stateArray, GUILayout.Width(100));
+                        GUILayout.Label("\u2192", GUILayout.ExpandWidth(false));
+                        var to = EditorGUILayout.Popup(Math.Max(0, states.IndexOf(tr.To)), stateArray, GUILayout.Width(100));
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label("Duration", GUILayout.ExpandWidth(false));
+                        var dur = EditorGUILayout.DelayedFloatField((float)tr.Duration, GUILayout.Width(50));
+                        GUILayout.Label("s", GUILayout.ExpandWidth(false));
+                        if (EditorGUI.EndChangeCheck())
+                            EditExpression(undo, e => { SwitchEdit.SetTransition(e, reference, ti, stateArray[from], stateArray[to], Math.Max(0, Math.Round(dur, 3))); return true; });
+                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
+                        { EditExpression(undo, e => { SwitchEdit.RemoveTransition(e, reference, ti); return true; }); GUIUtility.ExitGUI(); }
+                    }
+                    for (int j = 0; j < tr.When.Count; j++)
+                    {
+                        var (input, op, value) = tr.When[j];
+                        var cj = j;
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            GUILayout.Space(16);
+                            var choices = inputs.Contains(input) ? inputTexts : inputTexts.Concat(new[] { ExpressionGraph.InputText(input) }).ToArray();
+                            var names = inputs.Contains(input) ? inputs : inputs.Concat(new[] { input }).ToList();
+                            EditorGUI.BeginChangeCheck();
+                            var ii = EditorGUILayout.Popup(names.IndexOf(input), choices, GUILayout.Width(140));
+                            var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
+                            var vv = EditorGUILayout.DelayedFloatField((float)value, GUILayout.Width(60));
+                            if (EditorGUI.EndChangeCheck())
+                                EditExpression(undo, e => { SwitchEdit.SetCondition(e, reference, ti, cj, names[ii], oi == 1 ? "<" : ">", Math.Round(vv, 3)); return true; });
+                            using (new EditorGUI.DisabledScope(tr.When.Count <= 1))
+                                if (GUILayout.Button("\u00D7", EditorStyles.miniButton, GUILayout.Width(20)))
+                                { EditExpression(undo, e => SwitchEdit.RemoveCondition(e, reference, ti, cj)); GUIUtility.ExitGUI(); }
+                        }
+                    }
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(16);
+                        if (GUILayout.Button("+ Add Condition", GUILayout.ExpandWidth(false)) && inputs.Count > 0)
+                        { EditExpression(undo, e => { SwitchEdit.AddCondition(e, reference, ti, inputs[0]); return true; }); GUIUtility.ExitGUI(); }
+                    }
+                }
+            }
+            if (GUILayout.Button("+ Add Transition", GUILayout.ExpandWidth(false)) && inputs.Count > 0)
+            { EditExpression(undo, e => { SwitchEdit.AddTransition(e, reference, inputs[0]); return true; }); GUIUtility.ExitGUI(); }
         }
 
         // Edits the expression table at a tree found again by name (the trees are made again after each edit).

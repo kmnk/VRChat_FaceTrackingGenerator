@@ -285,15 +285,53 @@ namespace Kmnk.FaceTrackingGenerator
             var node = Find(expression, tree, path);
             if (node == null || string.IsNullOrEmpty(inputX) || inputX == inputY) return null;
             var above = NewNode(inputX, inputY, node.DeepClone(), new JObject());
-            if (path == "root") ((JObject)expression["trees"][tree])["tree"] = above;
-            else
-            {
-                var cut = path.LastIndexOf('/');
-                var parent = Find(expression, tree, path.Substring(0, cut));
-                if (parent == null || !int.TryParse(path.Substring(cut + 1), out var parentRow)) return null;
-                SetRow(parent, parentRow, above);
-            }
-            return path;
+            return PutAt(expression, tree, path, above) ? path : null;
+        }
+
+        // Puts a node where the box at the path is (the top box too).
+        static bool PutAt(JObject expression, string tree, string path, JObject node)
+        {
+            if (path == "root") { ((JObject)expression["trees"][tree])["tree"] = node; return true; }
+            var cut = path.LastIndexOf('/');
+            var parent = Find(expression, tree, path.Substring(0, cut));
+            if (parent == null || !int.TryParse(path.Substring(cut + 1), out var parentRow)) return false;
+            SetRow(parent, parentRow, node);
+            return true;
+        }
+
+        // A switch box at a row: every state gets a copy of the row's face movements. Returns the new box's path.
+        public static string SplitSwitch(JObject expression, string tree, string path, int row, string reference)
+        {
+            if (!CanSplit(expression, tree, path, row)) return null;
+            var node = Find(expression, tree, path);
+            var box = SwitchEdit.Box(expression, reference, Children(node)[row].child, keepFirst: false);
+            if (box == null) return null;
+            SetRow(node, row, box);
+            return path + "/" + row;
+        }
+
+        // A switch box above a box: the box goes to the first (default) state, the other states are neutral.
+        public static string InsertSwitchAbove(JObject expression, string tree, string path, string reference)
+        {
+            var node = Find(expression, tree, path);
+            if (node == null) return null;
+            var box = SwitchEdit.Box(expression, reference, node.DeepClone(), keepFirst: true);
+            return box != null && PutAt(expression, tree, path, box) ? path : null;
+        }
+
+        // A new expression whose first box is a switch with neutral states.
+        public static string NewTreeSwitch(JObject expression, string name, string reference, bool sided = false)
+        {
+            if (!CanCreateTree(expression, name, sided)) return null;
+            var box = SwitchEdit.Box(expression, reference, new JObject(), keepFirst: false);
+            if (box == null) return null;
+            if (!(expression["trees"] is JObject trees)) expression["trees"] = trees = new JObject();
+            var key = name.Trim() + (sided ? "{side}" : "");
+            var entry = new JObject();
+            if (sided) entry["sides"] = new JObject { ["Left"] = new JObject { ["s"] = "L" }, ["Right"] = new JObject { ["s"] = "R" } };
+            entry["tree"] = box;
+            trees.Add(key, entry);
+            return key;
         }
 
         // The names a new expression would take (a left/right one: "<name>{side}", "<name>Left", "<name>Right") must not

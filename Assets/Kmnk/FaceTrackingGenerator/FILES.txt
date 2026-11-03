@@ -27,6 +27,7 @@ Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/InputChoices.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/JsonTableWriter.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/NewPartPopup.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/ParameterHelp.cs
+Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/SwitchEdit.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/SwitchTracker.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableDocument.cs
 Assets/Kmnk/FaceTrackingGenerator/Editor/TableEditor/TableEditorChecks.Capture.cs

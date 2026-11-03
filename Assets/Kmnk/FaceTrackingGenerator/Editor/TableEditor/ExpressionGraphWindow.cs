@@ -159,6 +159,7 @@ namespace Kmnk.FaceTrackingGenerator
             provider.NewName = newName;
             provider.NewSided = newSided;
             provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, mode == ListMode.NewTree ? null : tree, mode == ListMode.NewTree && newSided);
+            provider.Switches = SwitchEdit.Choices(editor.ExpressionJson, mode == ListMode.NewTree ? null : tree, mode == ListMode.NewTree && newSided);
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
         }
 
@@ -167,6 +168,28 @@ namespace Kmnk.FaceTrackingGenerator
             var editor = TableEditorWindow.Current;
             var made = editor?.InsertBoxAbove(tree, path, inputX, inputY);
             if (made == null) return;
+            selectedPath = made;
+            Refresh();
+            var box = ExpressionGraph.Build(editor.ExpressionJson, tree).FirstOrDefault(b => b.Path == made);
+            if (box != null) editor.RevealInTuning(tree, box.TuningKey, box.Path);
+        }
+
+        // A switch box: an existing switch (reference), or a new one (null) made on the first input of the list.
+        internal void ChooseSwitch(ListMode mode, string path, int row, string newName, bool newSided, string reference, string firstInput)
+        {
+            var editor = TableEditorWindow.Current;
+            if (editor == null) return;
+            var sided = mode == ListMode.NewTree ? newSided : editor.ExpressionJson?["trees"]?[tree]?["sides"] != null;
+            var made = editor.EditExpression(mode == ListMode.NewTree ? "New FT expression" : mode == ListMode.InsertAbove ? "Insert FT box" : "Split FT position", e =>
+            {
+                var r = reference ?? SwitchEdit.NewSwitch(e, sided, firstInput);
+                if (r == null) return null;
+                return mode == ListMode.NewTree ? ExpressionGraph.NewTreeSwitch(e, newName, r, newSided)
+                    : mode == ListMode.InsertAbove ? ExpressionGraph.InsertSwitchAbove(e, tree, path, r)
+                    : ExpressionGraph.SplitSwitch(e, tree, path, row, r);
+            });
+            if (made == null) return;
+            if (mode == ListMode.NewTree) { SelectTree(made); return; }
             selectedPath = made;
             Refresh();
             var box = ExpressionGraph.Build(editor.ExpressionJson, tree).FirstOrDefault(b => b.Path == made);
@@ -264,6 +287,7 @@ namespace Kmnk.FaceTrackingGenerator
             public bool NewSided;
             public int Row;
             public List<string> Inputs;
+            public List<string> Switches = new List<string>();
 
             // Split > Split with 1D > <input>, and Split > Split with 2D: X > <X> > "<X> × <Y>".
             public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
@@ -275,6 +299,7 @@ namespace Kmnk.FaceTrackingGenerator
                 };
                 foreach (var name in Inputs)
                     list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(name))) { level = 2, userData = new[] { name } });
+                var switchGroup = new SearchTreeGroupEntry(new GUIContent(Mode == ListMode.InsertAbove ? "Insert Switch" : Mode == ListMode.NewTree ? "Switch" : "Split with Switch"), 1);
                 list.Add(new SearchTreeGroupEntry(new GUIContent("Split with 2D: X"), 1));
                 foreach (var x in Inputs)
                 {
@@ -282,12 +307,17 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var y in Inputs.Where(y => y != x))
                         list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(x) + " × " + ExpressionGraph.InputText(y))) { level = 3, userData = new[] { x, y } });
                 }
+                list.Add(switchGroup);
+                foreach (var sw in Switches)
+                    list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(sw))) { level = 2, userData = new[] { "\u0001switch", sw } });
+                list.Add(new SearchTreeEntry(new GUIContent("+ New Switch")) { level = 2, userData = new[] { "\u0001switch", null } });
                 return list;
             }
 
             public bool OnSelectEntry(SearchTreeEntry entry, SearchWindowContext context)
             {
                 var names = (string[])entry.userData;
+                if (names[0] == "\u0001switch") { Window.ChooseSwitch(Mode, Path, Row, NewName, NewSided, names[1], Inputs.FirstOrDefault()); return true; }
                 var y = names.Length > 1 ? names[1] : null;
                 if (Mode == ListMode.InsertAbove) Window.InsertAbove(Path, names[0], y);
                 else if (Mode == ListMode.NewTree) Window.CreateTree(NewName, names[0], y, NewSided);
