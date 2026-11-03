@@ -44,10 +44,11 @@ namespace Kmnk.FaceTrackingGenerator
             graph.style.flexGrow = 1;
             rootVisualElement.Add(graph);
             TableEditorWindow.Changed += Refresh;
+            EditorText.Changed += Refresh;
             Refresh();
         }
 
-        void OnDisable() => TableEditorWindow.Changed -= Refresh;
+        void OnDisable() { TableEditorWindow.Changed -= Refresh; EditorText.Changed -= Refresh; }
 
         void OnFocus() => Refresh();
 

@@ -128,6 +128,12 @@ namespace Kmnk.FaceTrackingGenerator
                 if (box != null) { g.View.ClearSelection(); g.View.AddToSelection(box); }
                 Debug.Log($"[FTG] capture: graph boxes={g.View.Boxes.Count} edges={g.View.edges.ToList().Count} selected={(box != null ? box.Box.Path : "-")} scale={g.View.viewTransform.scale.x:0.##}");
             }
+            if (frame == 30)
+            {
+                // "-ftHelpAfter en|ja|off": change the language after the window is open, as the settings editor's Help does.
+                var after = CliArgs.Get("-ftHelpAfter");
+                if (after != null) EditorText.SetForCapture(after == "ja" ? EditorText.Language.Japanese : after == "off" ? EditorText.Language.Off : EditorText.Language.English);
+            }
             if (frame == 35)
             {
                 var split = CliArgs.Get("-ftGraphSplitList");

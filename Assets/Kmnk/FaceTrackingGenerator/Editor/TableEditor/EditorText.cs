@@ -16,6 +16,12 @@ namespace Kmnk.FaceTrackingGenerator
         static readonly string[] PrefValues = { "en", "ja", "off" };
         public static readonly string[] Choices = { "English", "日本語", "Off" };
 
+        // Raised when the language changes, for windows that keep texts (the expression graph).
+        public static event Action Changed;
+
+        // For TableEditorChecks.Capture: changes the language as a user would, without the user's setting.
+        internal static void SetForCapture(Language language) { Override = language; Changed?.Invoke(); }
+
         // Set by TableEditorChecks.Capture so that a check does not change the user's setting.
         internal static Language? Override;
 
@@ -29,7 +35,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (i >= 0) return (Language)i;
                 return EditorIsJapanese() ? Language.Japanese : Language.English;
             }
-            set => EditorPrefs.SetString(PrefKey, PrefValues[(int)value]);
+            set { EditorPrefs.SetString(PrefKey, PrefValues[(int)value]); Changed?.Invoke(); }
         }
 
         // Unity's editor language (internal LocalizationDatabase.currentEditorLanguage). English when unknown.
