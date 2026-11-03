@@ -10,7 +10,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Entries are keyed by the name after "v2/", with "{side}" for a left/right pair.
     public static class ParameterHelp
     {
-        public const string FilePath = "Assets/Kmnk/FaceTrackingGenerator/Templates/parameters.jsonc";
+        public const string FilePath = Paths.Templates + "/parameters.jsonc";
         static Dictionary<string, (string en, string ja)> entries;
 
         static Dictionary<string, (string en, string ja)> Entries
