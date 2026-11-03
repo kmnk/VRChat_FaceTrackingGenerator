@@ -44,6 +44,14 @@ namespace Kmnk.FaceTrackingGenerator
             else parts[part] = shape;
         }
 
+        // Removes a part from the avatar table ("parts" and "missingParts").
+        public static void RemovePart(JObject avatar, string part)
+        {
+            (avatar["parts"] as JObject)?.Remove(part);
+            if (avatar["missingParts"] is JArray list)
+                foreach (var x in list.Where(x => x.Type == JTokenType.String && (string)x == part).ToList()) x.Remove();
+        }
+
         public static bool IsMissing(JObject avatar, string part) =>
             avatar["missingParts"] is JArray a && a.Any(x => x.Type == JTokenType.String && (string)x == part);
 

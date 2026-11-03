@@ -132,6 +132,7 @@ namespace Kmnk.FaceTrackingGenerator
             preview.Stop();
             doc = null; model = null; error = null;
             avatarBits = -1; saveBlocked = null;
+            pendingParts.Clear();
             removedParts.Clear();
             switches.Reset();
             UpdateDirty();
@@ -637,12 +638,13 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             var all = new SortedSet<string>(used, StringComparer.Ordinal);
+            all.UnionWith(pendingParts);
             if (avatar["parts"] is JObject parts) foreach (var p in parts.Properties()) all.Add(p.Name);
             if (avatar["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) all.Add((string)x);
             return all.Select(p => (p, used.Contains(p))).ToList();
         }
 
-        static void CollectParts(Node n, HashSet<string> into)
+        internal static void CollectParts(Node n, HashSet<string> into)
         {
             switch (n)
             {
@@ -663,6 +665,10 @@ namespace Kmnk.FaceTrackingGenerator
 
         // Set by TableEditorChecks.Capture to open a picker on the next repaint.
         internal string openPickerFor, openPickerSearch;
+        // Face movements added in the Avatar tab whose blendshape is not chosen yet: the avatar table has no place for a
+        // movement without a shape, so they live here until a shape is chosen (and go on Reload or Save).
+        readonly HashSet<string> pendingParts = new HashSet<string>(StringComparer.Ordinal);
+        string partScrollTo;
 
         void DrawParts(JObject avatar, GameObject prefab, string defaultMesh)
         {
@@ -684,6 +690,7 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
+                GUILayout.Space(24);
             }
             var shapeCache = new Dictionary<string, List<string>>();
             var partUsage = model != null ? PartUsage.Of(model) : null;
@@ -725,7 +732,8 @@ namespace Kmnk.FaceTrackingGenerator
                             openPickerFor = null;
                             var meshForPart = mesh;
                             selectedPart = p;
-                            PopupWindow.Show(r, new BlendshapePicker(shapes, shape, picked => { Edit("Set FT part", a => TableEdits.SetPart(a, p, picked)); Repaint(); }, search,
+                            var undo = pendingParts.Contains(p) ? "Add FT face movement" : "Set FT part";
+                            PopupWindow.Show(r, new BlendshapePicker(shapes, shape, picked => { Edit(undo, a => TableEdits.SetPart(a, p, picked)); if (picked != null) pendingParts.Remove(p); Repaint(); }, search,
                                 hover: name => ShowCandidate(p, meshForPart, name),
                                 closed: () => { if (!preview.Running) ShowSelected(); Repaint(); }));
                         }
@@ -735,8 +743,18 @@ namespace Kmnk.FaceTrackingGenerator
                     EditorGUI.BeginChangeCheck();
                     var m = GUILayout.Toggle(isMissing, new GUIContent("", EditorText.Get("tip.missing")), GUILayout.Width(missW));
                     if (EditorGUI.EndChangeCheck()) { var p = part; Edit("Set FT missing part", a => TableEdits.SetMissing(a, p, m, removedParts)); }
+                    if (TrashButton(used, EditorText.Get("part.cannotRemove")))
+                        {
+                            var p = part;
+                            if (pendingParts.Remove(p) && TableEdits.PartShape(avatar, p) == null && !TableEdits.IsMissing(avatar, p)) Repaint();
+                            else Edit("Remove FT face movement", a => TableEdits.RemovePart(a, p));
+                            GUIUtility.ExitGUI();
+                        }
                 }
                 var rowRect = GUILayoutUtility.GetLastRect();
+                if (pendingParts.Contains(part) && part != selectedPart && Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(new Rect(0, rowRect.y, rowRect.width + rowRect.x * 2, rowRect.height), new Color(0.17f, 0.36f, 0.53f, 0.35f));
+                if (partScrollTo == part && Event.current.type == EventType.Repaint) { scroll.y = Math.Max(0, rowRect.y - 60); partScrollTo = null; Repaint(); }
                 if (Event.current.type == EventType.MouseDown && rowRect.Contains(Event.current.mousePosition))
                 {
                     selectedPart = part;
@@ -748,6 +766,7 @@ namespace Kmnk.FaceTrackingGenerator
                 RowBackground(i);
                 // What moves it, on the full width under the row.
                 var how = partUsage != null && partUsage.TryGetValue(part, out var pu) ? PartUsage.Text(pu) : null;
+                if (how == null && pendingParts.Contains(part)) how = EditorText.Get("part.new");
                 if (how != null)
                 {
                     PartsLine("    " + how);
@@ -755,6 +774,27 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 i++;
             }
+
+            // + Add Face Movement: a name (and left/right) as in Tuning, then the row opens its blendshape list.
+            var addRect = GUILayoutUtility.GetRect(new GUIContent("+ Add Face Movement"), EditorStyles.miniButton, GUILayout.ExpandWidth(false));
+            if (GUI.Button(addRect, "+ Add Face Movement", EditorStyles.miniButton))
+            {
+                var names = Tuning.AllPartNames(avatar, doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
+                PopupWindow.Show(addRect, new NewPartPopup(names, "s", AddPendingPart));
+            }
+        }
+
+        // Adds "name" (or "name_L" and "name_R" for "name_{s}") as rows waiting for a blendshape, and opens the first.
+        internal void AddPendingPart(string written)
+        {
+            var parts = written.EndsWith("_{s}") ? new[] { written.Replace("_{s}", "_L"), written.Replace("_{s}", "_R") } : new[] { written };
+            foreach (var p in parts) pendingParts.Add(p);
+            partFilter = "";
+            openPickerFor = parts[0];
+            openPickerSearch = "";
+            partScrollTo = parts[0];
+            selectedPart = parts[0];
+            Repaint();
         }
 
         void DrawLayers(JObject avatar, GameObject prefab)
@@ -1173,8 +1213,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (open) switchOpen.Add(name); else switchOpen.Remove(name);
                     GUILayout.Label(users.Count > 0 ? string.Format(EditorText.Get("inputs.usedBy"), string.Join(ja ? "・" : ", ", users)) : EditorText.Get("switch.unused"), PartsStyle, GUILayout.ExpandWidth(false));
                     GUILayout.FlexibleSpace();
-                    using (new EditorGUI.DisabledScope(users.Count > 0))
-                        if (GUILayout.Button(new GUIContent(TrashContent().image, users.Count > 0 ? EditorText.Get("switch.cannotRemove") : null), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
+                    if (TrashButton(users.Count > 0, EditorText.Get("switch.cannotRemove")))
                         {
                             var n = name;
                             EditExpression("Set FT switch", e => SwitchEdit.Remove(e, n));
@@ -1391,6 +1430,16 @@ namespace Kmnk.FaceTrackingGenerator
                     }
             }
             EditorGUILayout.Space(4);
+        }
+
+        // A trash button; a locked one is drawn faint, does nothing, and says why in its tooltip.
+        static bool TrashButton(bool locked, string why)
+        {
+            var old = GUI.color;
+            if (locked) GUI.color = new Color(old.r, old.g, old.b, 0.35f);
+            var clicked = GUILayout.Button(new GUIContent(TrashContent().image, locked ? why : null), TrashStyle, GUILayout.Width(20), GUILayout.Height(18));
+            GUI.color = old;
+            return clicked && !locked;
         }
 
         static GUIStyle trashStyle;
@@ -1747,6 +1796,8 @@ namespace Kmnk.FaceTrackingGenerator
             captureDevice = CliArgs.Get("-ftDevice");
             var openSw = CliArgs.Get("-ftSwitchOpen");  // "<switch>;..." open rows of Switches
             if (openSw != null) foreach (var n in openSw.Split(';').Where(x => x != "")) switchOpen.Add(n);
+            var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>" or "<name>_{s}": as + Add Face Movement
+            if (addPart != null && doc != null) AddPendingPart(addPart);
             var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
             if (showArg != null) captureShowSelected = showArg == "selected";
             // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")
