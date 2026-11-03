@@ -11,7 +11,7 @@ namespace Kmnk.FaceTrackingGenerator
     // pair stays one tree. A box is found by its path: the row indices from the top box ("root", "root/0", "root/0/1").
     public static class ExpressionGraph
     {
-        public const float ColumnWidth = 290, BoxWidth = 240, TitleHeight = 44, RowHeight = 24, Gap = 20;
+        public const float ColumnWidth = 370, BoxWidth = 320, TitleHeight = 44, RowHeight = 24, Gap = 20;
         const int PoseTextLength = 26;
 
         public sealed class Row
