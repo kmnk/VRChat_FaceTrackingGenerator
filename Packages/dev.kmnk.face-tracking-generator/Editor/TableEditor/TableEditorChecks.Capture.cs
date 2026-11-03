@@ -134,6 +134,14 @@ namespace Kmnk.FaceTrackingGenerator
                 var after = CliArgs.Get("-ftHelpAfter");
                 if (after != null) EditorText.SetForCapture(after == "ja" ? EditorText.Language.Japanese : after == "off" ? EditorText.Language.Off : EditorText.Language.English);
             }
+            // "-ftBuildBegin 1" / "-ftBuildEnd 1": the VRChat SDK's build callbacks, called through the SDK's own dispatcher
+            if (frame == 25 && CliArgs.Get("-ftBuildBegin") == "1") SdkCallback("OnVRCSDKBuildRequested", true);
+            if (frame == 45 && CliArgs.Get("-ftBuildEnd") == "1") SdkCallback("OnPostprocessAvatar", false);
+            if (frame == 55 && (CliArgs.Get("-ftBuildBegin") == "1"))
+            {
+                var te = TableEditorWindow.Current;
+                Debug.Log($"[FTG] capture: building={BuildGuard.Building.ToString().ToLower()} preview-running={(te != null && te.PreviewRunning).ToString().ToLower()}");
+            }
             if (frame == 33 && CliArgs.Get("-ftGraphNew") != null)
             {
                 // "-ftGraphNew <name>": opens the "+ New Expression" panel with the name typed in.
@@ -154,6 +162,19 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                 }
             }
+        }
+
+        static void SdkCallback(string name, bool withType)
+        {
+            var t = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("VRC.SDKBase.Editor.BuildPipeline.VRCBuildPipelineCallbacks")).FirstOrDefault(x => x != null);
+            var methods = t?.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).Where(m => m.Name == name).ToList();
+            Debug.Log($"[FTG] capture: sdk {name}: {(methods == null ? "no dispatcher" : string.Join(", ", methods.Select(m => m.ToString())))}");
+            var m0 = methods?.FirstOrDefault();
+            if (m0 == null) return;
+            var ps = m0.GetParameters();
+            var args = ps.Select(p => p.ParameterType.IsEnum ? Enum.GetValues(p.ParameterType).GetValue(0) : p.ParameterType == typeof(GameObject) ? null : (object)null).ToArray();
+            var result = m0.Invoke(null, args);
+            Debug.Log($"[FTG] capture: sdk {name} returned {result}");
         }
 
         // Copies the pixels of the window's own view (internal GUIView.GrabPixels) to a PNG. Only the window is

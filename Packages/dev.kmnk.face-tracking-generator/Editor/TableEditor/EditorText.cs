@@ -123,6 +123,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["inputs.over"] = ("Over 256 bits: this cannot be saved. Uncheck values or make them Local.", "256 bit を超えているので保存できません。印を外すか Local にしてください。"),
             ["graph.help"] = ("Select a box to show its node in the Tuning tab of the settings editor. Drag from the circle right of a position and release on empty space to split it with 1D or 2D. Right-click a box to insert a box above it or to remove it.", "箱を選ぶと、設定エディタの Tuning にその節が出ます。位置の右の丸から線を引いて空いた所で離すと、その位置を 1D・2D で分けられます。箱を右クリックすると、上に箱を挟んだり消したりできます。"),
             ["tune.selectBox"] = ("Select a box in the expression graph.", "図のウィンドウで箱を選んでください。"),
+            ["build.paused"] = ("Paused while the VRChat SDK builds the avatar. It resumes when the build is done; press Resume if it does not.", "VRChat SDK がアバターをビルドしている間は止めています。ビルドが終わると戻ります。戻らないときは Resume を押してください。"),
             ["part.renameNote"] = (". Uses in the expression table change too.", "。表情の表で使っている所もまとめて変えます。"),
             ["part.needsSide"] = ("To rename both sides, end the name with _L or _R.", "左右を一緒に変えるときは、名前を _L か _R で終えてください。"),
             ["part.pairWritten"] = ("A left/right expression uses it, so one side alone cannot be renamed.", "左右の組の表情が使っているので、片方だけは変えられません。"),

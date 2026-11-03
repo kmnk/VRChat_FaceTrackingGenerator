@@ -50,10 +50,11 @@ namespace Kmnk.FaceTrackingGenerator
             rootVisualElement.Add(graph);
             TableEditorWindow.Changed += Refresh;
             EditorText.Changed += Refresh;
+            BuildGuard.Changed += Refresh;
             Refresh();
         }
 
-        void OnDisable() { TableEditorWindow.Changed -= Refresh; EditorText.Changed -= Refresh; }
+        void OnDisable() { TableEditorWindow.Changed -= Refresh; EditorText.Changed -= Refresh; BuildGuard.Changed -= Refresh; }
 
         void OnFocus() => Refresh();
 
@@ -72,6 +73,14 @@ namespace Kmnk.FaceTrackingGenerator
         internal void Refresh()
         {
             if (graph == null) return;
+            if (BuildGuard.Building)
+            {
+                help.text = EditorText.Get("build.paused");
+                help.style.display = DisplayStyle.Flex;
+                graph.style.display = DisplayStyle.None;
+                return;
+            }
+            graph.style.display = DisplayStyle.Flex;
             var editor = TableEditorWindow.Current;
             var expression = editor?.ExpressionJson;
             var names = ExpressionGraph.TreeNames(expression);

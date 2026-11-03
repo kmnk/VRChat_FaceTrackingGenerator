@@ -90,6 +90,7 @@ namespace Kmnk.FaceTrackingGenerator
             state.hideFlags = HideFlags.HideAndDontSave;
             Undo.undoRedoPerformed += OnUndoRedo;
             EditorApplication.playModeStateChanged += OnPlayMode;
+            BuildGuard.Changed += Repaint;
             var path = EditorPrefs.GetString(TablePrefKey, "");
             if (path != "") table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Load();
@@ -102,6 +103,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (Current == this) { Current = null; Changed?.Invoke(); }
             Undo.undoRedoPerformed -= OnUndoRedo;
             EditorApplication.playModeStateChanged -= OnPlayMode;
+            BuildGuard.Changed -= Repaint;
             if (state != null) { Undo.ClearUndo(state); DestroyImmediate(state); }
         }
 
@@ -272,6 +274,14 @@ namespace Kmnk.FaceTrackingGenerator
             }
             if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
             EditorGUILayout.EndVertical();
+        }
+
+        internal bool PreviewRunning => preview.Running;
+
+        internal void StopPreviewForBuild()
+        {
+            preview.Stop();
+            Repaint();
         }
 
         // ---- the expression graph
@@ -449,6 +459,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnGUI()
         {
+            if (BuildGuard.Building) { BuildGuard.DrawPaused(); return; }
             DrawTop();
             if (doc == null)
             {

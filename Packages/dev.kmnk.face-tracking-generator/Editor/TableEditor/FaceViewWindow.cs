@@ -55,11 +55,13 @@ namespace Kmnk.FaceTrackingGenerator
         {
             titleContent = new GUIContent("FT Face View");
             FaceView.Changed += OnChanged;
+            BuildGuard.Changed += Repaint;
         }
 
         void OnDisable()
         {
             FaceView.Changed -= OnChanged;
+            BuildGuard.Changed -= Repaint;
             DisposeRenderer();
         }
 
@@ -79,6 +81,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnGUI()
         {
+            if (BuildGuard.Building) { BuildGuard.DrawPaused(); return; }  // no prefab instance in a preview scene during a build
             var c = FaceView.Current;
             var caption = c?.Caption ?? "Neutral";
             if (c != null && c.Weights.Any(kv => kv.Value > 0 && renderer != null && !renderer.HasShape(kv.Key))) caption += " (not in mesh)";
