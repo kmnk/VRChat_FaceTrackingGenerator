@@ -10,7 +10,8 @@
 # 4. Zips exactly the staged files of the package folder, with package.json at the root of the zip,
 #    to build/. Attach the zip to the GitHub release v<version>; the VPM listing picks it up from there.
 #
-# The dev project must be on a work branch and closed in the editor (see scripts/unity-batch.sh).
+# The dev project must be on a work branch (or have .ftg-dev-project) and be closed in the editor
+# (see scripts/unity-batch.sh).
 # The user's tables stay in the dev project's Assets/Kmnk/FaceTrackingGenerator/Settings/ and are not copied.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)

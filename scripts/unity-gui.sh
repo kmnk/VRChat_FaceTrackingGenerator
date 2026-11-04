@@ -11,7 +11,8 @@
 # The editor opens on the screen while the method runs, and closes when it calls Exit.
 #
 # Safety (the same stops as scripts/unity-batch.sh):
-#   - Stops without starting Unity when the project's current git branch is main or master.
+#   - Stops without starting Unity when the project's current git branch is main or master,
+#     unless the project has .ftg-dev-project at its root (a project used only for development).
 #   - Stops when a process holds Temp/UnityLockfile (the project is open in Unity).
 #   - Stops Unity after UNITY_GUI_TIMEOUT seconds (default 300) if the method never exits.
 #   - Never uploads. It only runs Editor methods.
@@ -41,8 +42,9 @@ if [ ! -d "$project/ProjectSettings" ]; then
 fi
 
 branch=$(git -C "$project" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+if { [ "$branch" = "main" ] || [ "$branch" = "master" ]; } && [ ! -e "$project/.ftg-dev-project" ]; then
   echo "unity-gui: stopped. $project is on branch '$branch'." >&2
+  echo "unity-gui: switch to a work branch, or commit an empty .ftg-dev-project at the root of a project used only for developing the generator." >&2
   exit 3
 fi
 

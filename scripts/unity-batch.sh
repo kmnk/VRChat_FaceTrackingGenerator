@@ -10,8 +10,10 @@
 #                    EditorApplication.Exit themselves (ScenarioRunner).
 #
 # Safety:
-#   - Stops without starting Unity when the project's current git branch is main.
+#   - Stops without starting Unity when the project's current git branch is main or master.
 #     The avatar projects are uploaded from main on Windows, so checks run on a work branch.
+#     A project used only for developing the generator (never uploaded as the user's avatar)
+#     may use main: it has an empty file .ftg-dev-project at its root.
 #   - Stops when a process holds Temp/UnityLockfile (the project is open in the editor).
 #     A lock file that no process holds is left over from a crash and is removed.
 #   - Never uploads. It only runs Editor methods.
@@ -50,9 +52,10 @@ if [ ! -d "$project/ProjectSettings" ]; then
 fi
 
 branch=$(git -C "$project" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+if { [ "$branch" = "main" ] || [ "$branch" = "master" ]; } && [ ! -e "$project/.ftg-dev-project" ]; then
   echo "unity-batch: stopped. $project is on branch '$branch'." >&2
-  echo "unity-batch: switch to a work branch first (e.g. git -C $project switch ft-generator)." >&2
+  echo "unity-batch: switch to a work branch first (e.g. git -C $project switch ft-generator)," >&2
+  echo "unity-batch: or, if the project is used only for developing the generator, commit an empty .ftg-dev-project at its root." >&2
   exit 3
 fi
 

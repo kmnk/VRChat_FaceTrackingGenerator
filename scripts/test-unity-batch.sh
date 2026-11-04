@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Checks that unity-batch.sh stops before starting Unity on main and while the editor is open.
+# Checks that unity-batch.sh and unity-gui.sh stop before starting Unity on main or master
+# (unless the project has .ftg-dev-project) and that unity-batch.sh stops while the editor is open.
 # Does not start Unity: UNITY points to a stub that records whether it was called.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -31,6 +32,25 @@ check() { # name expected_exit actual_exit expect_called
 UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-batch.sh" "$proj" >/dev/null 2>&1
 check "stops on main" 3 $? no
 
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-gui.sh" "$proj" Some.Method >/dev/null 2>&1
+check "gui: stops on main" 3 $? no
+
+# A project used only for developing the generator marks itself with .ftg-dev-project
+# and may use main.
+touch "$proj/.ftg-dev-project"
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-batch.sh" "$proj" >/dev/null 2>&1
+check "runs on main with .ftg-dev-project" 0 $? yes
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-gui.sh" "$proj" Some.Method >/dev/null 2>&1
+check "gui: runs on main with .ftg-dev-project" 0 $? yes
+rm "$proj/.ftg-dev-project"
+
+git -C "$proj" branch -q -m main master
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-batch.sh" "$proj" >/dev/null 2>&1
+check "stops on master" 3 $? no
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-gui.sh" "$proj" Some.Method >/dev/null 2>&1
+check "gui: stops on master" 3 $? no
+git -C "$proj" branch -q -m master main
+
 git -C "$proj" switch -q -c work
 mkdir -p "$proj/Temp" && touch "$proj/Temp/UnityLockfile"
 # A process holds the lock file, like the editor does.
@@ -47,5 +67,8 @@ check "removes a stale lock file and runs" 0 $? yes
 
 UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-batch.sh" "$proj" >/dev/null 2>&1
 check "runs on work branch" 0 $? yes
+
+UNITY=$stub UNITY_BATCH_LOG_DIR=$tmp "$here/unity-gui.sh" "$proj" Some.Method >/dev/null 2>&1
+check "gui: runs on work branch" 0 $? yes
 
 exit $fail

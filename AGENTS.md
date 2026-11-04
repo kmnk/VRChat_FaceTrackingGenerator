@@ -39,7 +39,7 @@ Rules:
 
 ## Development flow
 
-The working copy of the code is an avatar project used for development (`<dev project>/Packages/dev.kmnk.face-tracking-generator/`, an embedded package, on a work branch; its tables are in `<dev project>/Assets/Kmnk/FaceTrackingGenerator/Settings/`). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository.
+The working copy of the code is an avatar project used for development (`<dev project>/Packages/dev.kmnk.face-tracking-generator/`, an embedded package, on a work branch or in a project marked with `.ftg-dev-project`; its tables are in `<dev project>/Assets/Kmnk/FaceTrackingGenerator/Settings/`). Edit and check there, then copy to this repository with `scripts/build-package.sh`. Give the project path as an argument or in the environment variable `FTG_DEV_PROJECT`; do not write it in this repository. If the development project has its own `AGENTS.md`, read it too: steps that depend on the local machines are kept there, not here.
 
 ## Verification
 
@@ -49,7 +49,7 @@ Use these commands to check changes to the generator by running it the same way 
 
 - Unity must run outside the Claude Code sandbox (license files under `~/Library/Unity`; inside the sandbox it stops after 60 s with exit 199)
 - Close the project in the Unity editor. `scripts/unity-batch.sh` stops when `Temp/UnityLockfile` exists
-- The avatar project must be on a work branch. `scripts/unity-batch.sh` stops on `main` / `master`, because those branches are uploaded from Windows
+- The avatar project must be on a work branch. `scripts/unity-batch.sh` and `scripts/unity-gui.sh` stop on `main` / `master`, because those branches are uploaded from Windows. A project used only for developing the generator (never uploaded as the user's avatar) may use `main`: commit an empty `.ftg-dev-project` at its root, and the scripts run there. `scripts/test-unity-batch.sh` checks these stops
 - Nothing here uploads to VRChat. The Mac has no VRChat client
 - When Unity started from the command line stops with `No valid Unity Editor license found`, Unity Hub's licensing client is listening only on its own channel. Pass it as `-licensingIpc LicenseClient-<id>` after the method (the `<id>` is in the name of `/tmp/Unity-LicenseClient-<id>.sock`, not the `-notifications` one), as the Hub does when it opens a project
 
