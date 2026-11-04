@@ -117,6 +117,18 @@ namespace Kmnk.FaceTrackingGenerator
             catch (Exception e) { Debug.LogException(e); Debug.Log("[FTG] error: " + e.Message); EditorApplication.Exit(2); }
         }
 
+        // The avatars the VRChat SDK panel offers to build: active descriptors found by the SDK's own search
+        // (VRC.Tools.FindSceneObjectsOfTypeAll, as VRCSdkControlPanelAvatarBuilder.FindAvatars). -1 when not found.
+        static int SdkAvatars()
+        {
+            var tools = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("VRC.Tools", false)).FirstOrDefault(t => t != null);
+            var find = tools?.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .FirstOrDefault(m => m.Name == "FindSceneObjectsOfTypeAll" && m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+            if (find == null) return -1;
+            var found = (System.Collections.IEnumerable)find.MakeGenericMethod(typeof(VRC.SDKBase.VRC_AvatarDescriptor)).Invoke(null, null);
+            return found.Cast<VRC.SDKBase.VRC_AvatarDescriptor>().Count(d => d != null && d.gameObject.activeInHierarchy);
+        }
+
         // Selects a box and opens the split list on the graph at set frames, as a user would.
         static void GraphTick(ExpressionGraphWindow g, int frame)
         {
@@ -137,10 +149,13 @@ namespace Kmnk.FaceTrackingGenerator
             // "-ftBuildBegin 1" / "-ftBuildEnd 1": the VRChat SDK's build callbacks, called through the SDK's own dispatcher
             if (frame == 25 && CliArgs.Get("-ftBuildBegin") == "1") SdkCallback("OnVRCSDKBuildRequested", true);
             if (frame == 45 && CliArgs.Get("-ftBuildEnd") == "1") SdkCallback("OnPostprocessAvatar", false);
-            if (frame == 55 && (CliArgs.Get("-ftBuildBegin") == "1"))
+            if ((frame == 20 || frame == 35 || frame == 55) && CliArgs.Get("-ftBuildBegin") == "1")
             {
+                // Avatar copies in preview scenes (Face View's): before the build, during it, and after it.
+                var copies = Resources.FindObjectsOfTypeAll<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>()
+                    .Count(d => d.gameObject.scene.IsValid() && UnityEditor.SceneManagement.EditorSceneManager.IsPreviewScene(d.gameObject.scene));
                 var te = TableEditorWindow.Current;
-                Debug.Log($"[FTG] capture: building={BuildGuard.Building.ToString().ToLower()} preview-running={(te != null && te.PreviewRunning).ToString().ToLower()}");
+                Debug.Log($"[FTG] capture: frame={frame} building={BuildGuard.Building.ToString().ToLower()} preview-running={(te != null && te.PreviewRunning).ToString().ToLower()} preview-scene-avatars={copies} sdk-avatars={SdkAvatars()}");
             }
             if (frame == 33 && CliArgs.Get("-ftGraphNew") != null)
             {

@@ -28,6 +28,9 @@ namespace Kmnk.FaceTrackingGenerator
         {
             Prefab = prefab;
             instance = pru.InstantiatePrefabInScene(prefab);
+            // The VRChat SDK panel lists every active avatar descriptor in loaded scenes, preview scenes included, and
+            // may pick this copy to build. Without the descriptor the copy is not an avatar to the SDK.
+            foreach (var d in instance.GetComponentsInChildren<VRC.SDKBase.VRC_AvatarDescriptor>(true)) UnityEngine.Object.DestroyImmediate(d);
             foreach (var r in instance.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
             foreach (var path in meshPaths.Where(p => !string.IsNullOrEmpty(p)).Distinct())
             {

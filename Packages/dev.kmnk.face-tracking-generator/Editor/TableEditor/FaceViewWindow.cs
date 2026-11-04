@@ -71,6 +71,14 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
+        // Removes the avatar copy from the preview scene when a build starts; OnGUI makes it again after the build.
+        internal void ReleaseForBuild()
+        {
+            DisposeRenderer();
+            stale = true;
+            Repaint();
+        }
+
         void DisposeRenderer()
         {
             if (image != null) DestroyImmediate(image);
