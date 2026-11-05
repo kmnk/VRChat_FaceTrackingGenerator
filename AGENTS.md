@@ -14,7 +14,7 @@ Unity Editor tool that generates face tracking (FT) layers for VRChat avatars fr
 ## Rules for this public repository
 
 - Do not commit blendshape names, mesh names or asset names of purchased avatars. Not in code, comments, templates or commit messages. Avatar-specific values go to `Settings/` in the avatar project
-- Do not bundle other people's code. Users install Modular Avatar from VPM; the code itself uses only NDMF, which comes with it
+- Do not bundle other people's code. The tool depends only on NDMF, declared in `vpmDependencies` in `package.json`, so VPM installs it. Modular Avatar is not required
 - Keep the `.meta` GUID of every file (the settings component on avatars refers to `FtGeneratorSettings.cs` by GUID). Move files inside Unity, or move each file together with its `.meta` while the project is closed
 
 ## Versioning
