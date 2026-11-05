@@ -12,8 +12,6 @@ namespace Kmnk.FaceTrackingGenerator
     // Tools/Kmnk/Face Tracking Generator. Every button calls the same functions as the command line (Cli).
     public sealed class GeneratorWindow : EditorWindow
     {
-        const string PrefKey = "Kmnk.FaceTrackingGenerator.AvatarTable";
-
         DefaultAsset table;
         TableModel model;
         string message = "";
@@ -31,12 +29,13 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnEnable()
         {
-            var path = EditorPrefs.GetString(PrefKey, "");
-            if (path != "") table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
+            var path = ProjectSelection.TablePath;
+            if (path != null) table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Reload();
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
+        internal string ShownTablePath => TablePath;  // for TableEditorChecks.Capture
 
         void Reload()
         {
@@ -96,7 +95,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUI.BeginChangeCheck();
                 table = (DefaultAsset)EditorGUILayout.ObjectField("Settings file", table, typeof(DefaultAsset), false);
-                if (EditorGUI.EndChangeCheck()) { EditorPrefs.SetString(PrefKey, TablePath ?? ""); Reload(); }
+                if (EditorGUI.EndChangeCheck()) { ProjectSelection.SetTable(TablePath); Reload(); }
                 if (GUILayout.Button("Reload", GUILayout.Width(70))) Reload();
             }
             using (new EditorGUILayout.HorizontalScope())
@@ -118,7 +117,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var dest = TableWriter.CreateFromTemplates(newName);
                     table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
-                    EditorPrefs.SetString(PrefKey, dest);
+                    ProjectSelection.SetTable(dest);
                     Reload();
                     return "Created " + dest;
                 });

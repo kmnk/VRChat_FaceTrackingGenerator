@@ -17,7 +17,6 @@ namespace Kmnk.FaceTrackingGenerator
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
     public sealed class TableEditorWindow : EditorWindow
     {
-        const string TablePrefKey = "Kmnk.FaceTrackingGenerator.AvatarTable";  // shared with GeneratorWindow
         static readonly string[] Tabs = { "Avatar", "Preview", "Tuning", "Inputs" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
@@ -38,6 +37,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // preview
         GameObject sceneAvatar;
+        string avatarSource = "none";  // how sceneAvatar was filled: saved, prefab, selected, chosen or none (for the checks)
         readonly FacePreview preview = new FacePreview();
         readonly SwitchTracker switches = new SwitchTracker();
         readonly Dictionary<string, float> inputs = new Dictionary<string, float>();
@@ -74,8 +74,9 @@ namespace Kmnk.FaceTrackingGenerator
             if (!string.IsNullOrEmpty(avatarTablePath) && w.TablePath != avatarTablePath && w.ConfirmDiscard())
             {
                 w.table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(avatarTablePath);
-                EditorPrefs.SetString(TablePrefKey, avatarTablePath);
+                ProjectSelection.SetTable(avatarTablePath);
                 w.Load();
+                w.RestoreAvatar();
             }
             return w;
         }
@@ -91,10 +92,11 @@ namespace Kmnk.FaceTrackingGenerator
             Undo.undoRedoPerformed += OnUndoRedo;
             EditorApplication.playModeStateChanged += OnPlayMode;
             BuildGuard.Changed += Repaint;
-            var path = EditorPrefs.GetString(TablePrefKey, "");
-            if (path != "") table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
+            EditorSceneManager.sceneOpened += OnSceneOpened;
+            var path = ProjectSelection.TablePath;
+            if (path != null) table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Load();
-            PickSelectedAvatar();
+            RestoreAvatar();
         }
 
         void OnDisable()
@@ -104,6 +106,7 @@ namespace Kmnk.FaceTrackingGenerator
             Undo.undoRedoPerformed -= OnUndoRedo;
             EditorApplication.playModeStateChanged -= OnPlayMode;
             BuildGuard.Changed -= Repaint;
+            EditorSceneManager.sceneOpened -= OnSceneOpened;
             if (state != null) { Undo.ClearUndo(state); DestroyImmediate(state); }
         }
 
@@ -122,7 +125,54 @@ namespace Kmnk.FaceTrackingGenerator
         void PickSelectedAvatar()
         {
             var sel = Selection.activeGameObject;
-            if (sel != null && sel.scene.IsValid() && sel.GetComponent<VRCAvatarDescriptor>() != null) sceneAvatar = sel;
+            if (sel == null || !sel.scene.IsValid() || sel.GetComponent<VRCAvatarDescriptor>() == null) return;
+            sceneAvatar = sel;
+            avatarSource = "selected";
+            ProjectSelection.SetAvatar(TablePath, sel);
+        }
+
+        // Fills the avatar field from what this project chose before for the settings file in the open scenes, else
+        // from the only avatar made from the settings file's prefab, else from the selection. Does not start the preview.
+        void RestoreAvatar()
+        {
+            var found = ProjectSelection.FindAvatar(TablePath, Prefab(), out var source);
+            sceneAvatar = found;
+            avatarSource = source;
+            if (found != null) { if (source == "prefab") ProjectSelection.SetAvatar(TablePath, found); }
+            else PickSelectedAvatar();
+        }
+
+        void OnSceneOpened(UnityEngine.SceneManagement.Scene scene, OpenSceneMode mode)
+        {
+            if (sceneAvatar != null) return;
+            RestoreAvatar();
+            Repaint();
+        }
+
+        // The settings file field: opens the file and records the choice for this project.
+        void ChooseTable(DefaultAsset picked)
+        {
+            table = picked;
+            ProjectSelection.SetTable(TablePath);
+            Load();
+            RestoreAvatar();
+        }
+
+        // The "Avatar in scene" field: records the choice for the settings file in the avatar's scene (none forgets it).
+        void ChooseAvatar(GameObject avatar)
+        {
+            preview.Stop();
+            sceneAvatar = avatar;
+            avatarSource = avatar != null ? "chosen" : "none";
+            ProjectSelection.SetAvatar(TablePath, avatar);
+        }
+
+        // For TableEditorChecks.Capture: the settings file and the avatar the window shows.
+        internal string SelectionState()
+        {
+            string HierarchyPath(Transform t) => t.parent == null ? t.name : HierarchyPath(t.parent) + "/" + t.name;
+            var avatar = sceneAvatar != null ? HierarchyPath(sceneAvatar.transform) : "none";
+            return $"table={TablePath ?? "none"} avatar={avatar} source={avatarSource} preview={preview.Running.ToString().ToLower()}";
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
@@ -497,12 +547,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             EditorGUI.BeginChangeCheck();
             var picked = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("Settings file", "tip.table"), table, typeof(DefaultAsset), false);
-            if (EditorGUI.EndChangeCheck() && picked != table && ConfirmDiscard())
-            {
-                table = picked;
-                EditorPrefs.SetString(TablePrefKey, TablePath ?? "");
-                Load();
-            }
+            if (EditorGUI.EndChangeCheck() && picked != table && ConfirmDiscard()) ChooseTable(picked);
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(table == null))
@@ -938,7 +983,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUI.BeginChangeCheck();
                 var a = (GameObject)EditorGUILayout.ObjectField("Avatar in scene", sceneAvatar, typeof(GameObject), true);
-                if (EditorGUI.EndChangeCheck()) { preview.Stop(); sceneAvatar = a; }
+                if (EditorGUI.EndChangeCheck()) ChooseAvatar(a);
                 var valid = sceneAvatar != null && sceneAvatar.scene.IsValid() && sceneAvatar.GetComponent<VRCAvatarDescriptor>() != null;
                 var blocked = !valid || model == null || EditorApplication.isPlayingOrWillChangePlaymode || (!preview.Running && FacePreview.Busy);
                 using (new EditorGUI.DisabledScope(blocked && !preview.Running))
@@ -1810,6 +1855,11 @@ namespace Kmnk.FaceTrackingGenerator
                 catch (Exception e) { doc = null; error = e.Message; }
                 UpdateDirty();
             }
+            // -ftChooseTable / -ftChooseAvatar: choose as the fields do ("none" clears; the avatar is a Hierarchy path)
+            var chooseTable = CliArgs.Get("-ftChooseTable");
+            if (chooseTable != null) ChooseTable(chooseTable == "none" ? null : AssetDatabase.LoadAssetAtPath<DefaultAsset>(chooseTable));
+            var chooseAvatar = CliArgs.Get("-ftChooseAvatar");
+            if (chooseAvatar != null) ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
             var tabArg = CliArgs.Get("-ftTab");
             tab = tabArg == "preview" ? 1 : tabArg == "tuning" ? 2 : tabArg == "inputs" ? 3 : 0;
             var tuneSet = CliArgs.Get("-ftTuneSet");

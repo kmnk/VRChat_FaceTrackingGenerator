@@ -14,6 +14,9 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftWindow generator | table | graph   (default table; graph also opens the table editor and writes it to <out>.tuning.png)
         //   -ftGraphTree <tree>  -ftGraphSelect <box path>  -ftGraphSplitList "<box path>#<row>"  -ftGraphListPage "<group>/<group>"  -ftGraphOpen "<box path>;..."   (graph only)
         //   -ftSize 560x1000               window size in points
+        //   -ftOpenScene <scene path>      opens the scene before the window opens
+        // After drawing it prints "[FTG] capture: selection window=<generator|table> table=... avatar=... source=... preview=..."
+        // (what the window shows of this project's saved choices, ProjectSelection).
         // Other arguments are passed to the window (see TableEditorWindow.ApplyCaptureArgs).
         // Unity exits when done: 0 written, 2 error.
         public static void Capture()
@@ -24,6 +27,8 @@ namespace Kmnk.FaceTrackingGenerator
                 var size = (CliArgs.Get("-ftSize") ?? "560x1000").Split('x');
                 var w = float.Parse(size[0]); var h = float.Parse(size[1]);
                 var which = CliArgs.Get("-ftWindow") ?? "table";
+                var openScene = CliArgs.Get("-ftOpenScene");
+                if (openScene != null) UnityEditor.SceneManagement.EditorSceneManager.OpenScene(openScene);
                 EditorWindow window;
                 var help = CliArgs.Get("-ftHelp");
                 if (help != null) EditorText.Override = help == "ja" ? EditorText.Language.Japanese : help == "off" ? EditorText.Language.Off : EditorText.Language.English;
@@ -75,6 +80,9 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         Grab(window, outPath);
                         Debug.Log($"[FTG] capture: wrote {outPath} ({window.position.width}x{window.position.height})");
+                        if (window is GeneratorWindow gen) Debug.Log($"[FTG] capture: selection window=generator table={gen.ShownTablePath ?? "none"}");
+                        var shown = window as TableEditorWindow ?? TableEditorWindow.Current;
+                        if (shown != null) Debug.Log($"[FTG] capture: selection window=table {shown.SelectionState()}");
                         var face = FaceViewWindow.Find();
                         if (face != null)
                         {
