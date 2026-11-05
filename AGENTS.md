@@ -99,7 +99,8 @@ All take `-ftTable <avatar table>` (a path relative to the project root works) a
 | `Cli.Check` | Static checks of the tables and the generated FX (`-ftFx` to check another controller) | `[FTG] check: findings=0` |
 | `Cli.InstallMenu` | Adds the FT toggle and the AFK flag to the avatar's own menu and Expression Parameters (changes original assets) | `[FTG] menu: ...` per parameter |
 | `Cli.Curve` | Response curves without Unity's Animator (`-ftInput <name>` or `-ftQueries <jsonl>`, `-ftOut <jsonl>`) | `[FTG] curve: wrote ...` |
-| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.FillFromAvatar` | The window's AFK clip saving, settings from templates (`-ftName <name>`), and filling prefab/mesh/menu from an avatar prefab (`-ftAvatar <prefab path>`) | `[FTG] ...` |
+| `Cli.SetAfkClips`, `Cli.CreateSettings`, `Cli.FillFromAvatar` | The window's AFK clip saving, settings from templates (`-ftName <name>`), and filling prefab/mesh/menu and the empty AFK clips from an avatar prefab (`-ftAvatar <prefab path>`; AFK clips come from the shape of the avatar's own AFK layer in the descriptor's Action and FX, see `AfkFinder.cs`) | `[FTG] fill: ...`, `[FTG] fill: afk <key>: <clip>\|kept\|none` |
+| `Cli.FindAfk` | Prints the AFK clips `AfkFinder` finds in controllers (`-ftController "<path>;..."`) | `[FTG] afk found <controller>/<layer>: intro=... loop=... outro=...` |
 | `Cli.ExportPackage` | Exports a `.unitypackage` from a list of paths (`-ftList`, `-ftOut`). Not used by the release since 0.5.0 | `[FTG] package: exported ...` |
 
 The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions. It cannot be drawn in batchmode (`-nographics`); check its drawing in the editor.
