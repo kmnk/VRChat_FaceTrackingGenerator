@@ -17,6 +17,9 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftRemove "<tree>|<box path>|<keep row>;..."      remove a box, keeping one row's content
         //   -ftInsert "<tree>|<box path>=<x>[,<y>];..."      insert a 1D or 2D box above (weights compared with the new inputs at 0)
         //   -ftNewTree "<name>=<x>[,<y>];..."  -ftRemoveTree "<name>;..."
+        //   -ftDevice <id>  prints the device's inputs not in the table that each tree's split list offers ("Add from <device>")
+        //   -ftSplitAdd "<tree>|<box path>|<row>=<device input>|<x>[,<y>];..."   adds the device input as the list does, then
+        //                splits with 1D (<x>) or 2D (<x>,<y>); one of x and y is the added input
         // Lines:
         //   [FTG] graph box <tree> <path>: <title> | x=<x> y=<y> | tuning=<key> | <row>; <row>; ...   (rows marked "->" hold a box)
         //   [FTG] graph edge <tree> <path>#<row> -> <child path>
@@ -50,6 +53,38 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] graph split {head[0]} {head[1]}#{row} {input}: can={can.ToString().ToLower()} new={made ?? "-"} node={node} max-weight-diff={F(diff)}");
                     if (made != null) PrintGraph(expression, doc.Json(TableDocument.Input), head[0]);
                 }
+            var deviceId = CliArgs.Get("-ftDevice");
+            var device = deviceId == null ? null : Devices.Load().FirstOrDefault(d => d.Id == deviceId);
+            if (deviceId != null && device == null) throw new System.InvalidOperationException("no device " + deviceId);
+            InputChoices.Result DeviceRows()
+            {
+                var m = doc.Model();
+                return InputChoices.Rows(doc.Json(TableDocument.Input), expression, m, device, doc.SavedJson(TableDocument.Input), StaticChecker.AvatarSyncedBits(m));
+            }
+            if (device != null)
+                foreach (var tree in ExpressionGraph.TreeNames(expression).Where(t => only == null || t == only))
+                {
+                    var rows = DeviceRows();
+                    var sided = expression["trees"]?[tree]?["sides"] != null;
+                    Debug.Log($"[FTG] graph device {tree}: device={device.Name} synced={rows.Total} choices={string.Join(",", InputChoices.SplitChoices(rows, sided).Select(r => r.Name))}");
+                }
+            foreach (var item in (CliArgs.Get("-ftSplitAdd") ?? "").Split(';').Where(x => x.Contains("=")))
+            {
+                var k = item.IndexOf('=');
+                var head = item.Substring(0, k).Split('|');
+                var rest = item.Substring(k + 1).Split('|');
+                var xy = rest[1].Split(',');
+                var row = int.Parse(head[2]);
+                var choice = InputChoices.SplitChoices(DeviceRows(), expression["trees"]?[head[0]]?["sides"] != null).FirstOrDefault(r => r.Name == rest[0]);
+                if (choice == null) { Debug.Log($"[FTG] graph split-add {item}: offered=false"); continue; }
+                var before = doc.Model();
+                InputChoices.Add(doc.Json(TableDocument.Input), choice, device);
+                var made = xy.Length > 1 ? ExpressionGraph.Split2D(expression, head[0], head[1], row, xy[0], xy[1]) : ExpressionGraph.Split(expression, head[0], head[1], row, xy[0]);
+                var after = doc.Model();
+                var written = doc.Json(TableDocument.Input)["inputs"]?[choice.Name]?.ToString(Newtonsoft.Json.Formatting.None) ?? "-";
+                var node = made != null ? ExpressionGraph.Find(expression, head[0], made).ToString(Newtonsoft.Json.Formatting.None) : "-";
+                Debug.Log($"[FTG] graph split-add {head[0]} {head[1]}#{row} {rest[0]} {rest[1]}: offered=true input={written} synced={DeviceRows().Total} new={made ?? "-"} node={node} max-weight-diff={F(MaxWeightDiff(before, after))}");
+            }
             foreach (var item in (CliArgs.Get("-ftSplit2D") ?? "").Split(';').Where(x => x.Contains("=")))
             {
                 var k = item.LastIndexOf('=');

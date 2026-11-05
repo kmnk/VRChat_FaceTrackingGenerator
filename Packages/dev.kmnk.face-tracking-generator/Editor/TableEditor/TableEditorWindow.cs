@@ -289,6 +289,23 @@ namespace Kmnk.FaceTrackingGenerator
         internal JObject ExpressionJson => doc?.Json(TableDocument.Expression);
         internal JObject InputJson => doc?.Json(TableDocument.Input);
 
+        // For the expression graph's lists: the device chosen in Device (null for Settings) and the rows of the Inputs tab.
+        internal (Devices.Device device, InputChoices.Result rows) DeviceInputs()
+        {
+            var device = doc == null ? null : ChosenDevice(Devices.Load());
+            return (device, device == null ? null : InputRows());
+        }
+
+        // Adds a device's input to the input table as the Inputs tab does. Returns the synced bits after it, or -1.
+        internal int AddDeviceInput(string name)
+        {
+            if (doc == null) return -1;
+            var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
+            if (row == null) return -1;
+            Edit(TableDocument.Input, "Add FT input", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
+            return InputRows().Total;
+        }
+
         // Opens the Tuning tab at a node: the tree's fold, the node's fold (1D), and scrolls to it. A null key (a switch)
         // opens the tree only.
         // The box selected in the expression graph (for Show: Selected).

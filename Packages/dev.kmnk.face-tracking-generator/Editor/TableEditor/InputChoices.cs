@@ -131,6 +131,10 @@ namespace Kmnk.FaceTrackingGenerator
             return result;
         }
 
+        // The device's inputs not in the table that a box can be split on (the expression graph's "Add from <device>"):
+        // in a tree with sides every row, in a tree without sides only the rows without sides (as ExpressionGraph.SplitInputs).
+        public static List<Row> SplitChoices(Result r, bool sided) => r.NotInTable.Where(x => sided || !x.Sided).ToList();
+
         // ---- edits (on the input table's JSON)
 
         // Adds the row's input where it falls in the device's order of keys, so that the order of the table does not

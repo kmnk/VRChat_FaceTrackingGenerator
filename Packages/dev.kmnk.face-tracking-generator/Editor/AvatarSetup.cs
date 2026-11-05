@@ -18,7 +18,8 @@ namespace Kmnk.FaceTrackingGenerator
             return src != null ? src.transform.root.gameObject : null;
         }
 
-        // Writes prefab, mesh and menu of the avatar table from an avatar (scene object or prefab asset).
+        // Writes prefab, mesh and menu of the avatar table from an avatar (scene object or prefab asset), and the empty
+        // AFK clips from the avatar's own AFK (AfkFinder).
         public static List<string> FillTable(string avatarTable, GameObject avatar)
         {
             var log = new List<string>();
@@ -41,6 +42,7 @@ namespace Kmnk.FaceTrackingGenerator
                 TableWriter.SetTopLevel(avatarTable, "menu", TableWriter.AssetRefJson(desc.expressionsMenu));
                 log.Add("menu: " + AssetDatabase.GetAssetPath(desc.expressionsMenu));
             }
+            log.AddRange(AfkFinder.FillTable(avatarTable, desc));
             return log;
         }
 

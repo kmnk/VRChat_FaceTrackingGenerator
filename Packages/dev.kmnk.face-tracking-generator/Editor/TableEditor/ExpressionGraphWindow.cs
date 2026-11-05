@@ -179,6 +179,14 @@ namespace Kmnk.FaceTrackingGenerator
             provider.NewSided = newSided;
             provider.Inputs = ExpressionGraph.SplitInputs(editor.InputJson, editor.ExpressionJson, mode == ListMode.NewTree ? null : tree, mode == ListMode.NewTree && newSided);
             provider.Switches = SwitchEdit.Choices(editor.ExpressionJson, mode == ListMode.NewTree ? null : tree, mode == ListMode.NewTree && newSided);
+            var (device, rows) = editor.DeviceInputs();
+            if (device != null)
+            {
+                var sided = mode == ListMode.NewTree ? newSided : editor.ExpressionJson?["trees"]?[tree]?["sides"] != null;
+                provider.DeviceName = device.Name;
+                provider.DeviceInputs = InputChoices.SplitChoices(rows, sided).Select(r => (r.Name, r.Display)).ToList();
+                provider.SyncedNow = rows.Total;
+            }
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
         }
 
@@ -213,6 +221,26 @@ namespace Kmnk.FaceTrackingGenerator
             Refresh();
             var box = ExpressionGraph.Build(editor.ExpressionJson, tree).FirstOrDefault(b => b.Path == made);
             if (box != null) editor.RevealInTuning(tree, box.TuningKey, box.Path);
+        }
+
+        // A choice from "Add from <device>": adds the device's input to the input table, then splits, inserts or makes the
+        // tree with it as the other choices do, as one Undo step; a notification says the synced bits.
+        internal void ChooseWithAdd(ListMode mode, string path, int row, string newName, bool newSided, string add, string display, string x, string y)
+        {
+            var editor = TableEditorWindow.Current;
+            if (editor == null) return;
+            Undo.IncrementCurrentGroup();
+            var group = Undo.GetCurrentGroup();
+            var total = editor.AddDeviceInput(add);
+            if (total < 0) return;
+            if (mode == ListMode.InsertAbove) InsertAbove(path, x, y);
+            else if (mode == ListMode.NewTree) CreateTree(newName, x, y, newSided);
+            else Split(path, row, x, y);
+            Undo.CollapseUndoOperations(group);
+            var text = $"Added {display}: {total} / {StaticChecker.MaxSyncedBits} bits";
+            if (total > StaticChecker.MaxSyncedBits) text += ". Over the limit: Save is blocked";
+            ShowNotification(new GUIContent(text), 4);
+            Debug.Log("[FTG] graph add-from-device: " + text);
         }
 
         internal void CreateTree(string name, string inputX, string inputY, bool sided = false)
@@ -307,6 +335,38 @@ namespace Kmnk.FaceTrackingGenerator
             public int Row;
             public List<string> Inputs;
             public List<string> Switches = new List<string>();
+            public string DeviceName;                                       // null: no "Add from <device>"
+            public List<(string name, string display)> DeviceInputs = new List<(string, string)>();
+            public int SyncedNow;
+            const string Add = "\u0002add", Info = "\u0003info";
+
+            // A clear 1x1 icon for the rows: Unity's search list leaves room for an icon only when a row has one, so rows
+            // without it start further left than the groups ("AC ComponentButton" and "AC GroupButton").
+            static Texture2D indent;
+            static Texture2D Indent
+            {
+                get
+                {
+                    if (indent != null) return indent;
+                    indent = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+                    indent.SetPixel(0, 0, Color.clear);
+                    indent.Apply();
+                    return indent;
+                }
+            }
+            static SearchTreeEntry Leaf(string text, int level, string[] data) => new SearchTreeEntry(new GUIContent(text, Indent)) { level = level, userData = data };
+
+            bool HasDevice => DeviceName != null && DeviceInputs.Count > 0;
+            string AddTitle => "Add from " + DeviceName;
+
+            // "Add from <device>" at level: the synced bits, then one entry (or group, for an X of 2D) per device input.
+            void AddFromDevice(List<SearchTreeEntry> list, int level, Func<(string name, string display), SearchTreeEntry> entry)
+            {
+                if (!HasDevice) return;
+                list.Add(new SearchTreeGroupEntry(new GUIContent(AddTitle), level));
+                list.Add(Leaf($"Synced now: {SyncedNow} / {StaticChecker.MaxSyncedBits} bits", level + 1, new[] { Info }));
+                foreach (var d in DeviceInputs) { var e = entry(d); if (e != null) list.Add(e); }
+            }
 
             // Split > Split with 1D > <input>, and Split > Split with 2D: X > <X> > "<X> × <Y>".
             public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
@@ -317,25 +377,42 @@ namespace Kmnk.FaceTrackingGenerator
                     new SearchTreeGroupEntry(new GUIContent("Split with 1D"), 1),
                 };
                 foreach (var name in Inputs)
-                    list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(name))) { level = 2, userData = new[] { name } });
+                    list.Add(Leaf(ExpressionGraph.InputText(name), 2, new[] { name }));
+                AddFromDevice(list, 2, d => Leaf(d.display, 3, new[] { Add, d.name, d.display, d.name, null }));
                 var switchGroup = new SearchTreeGroupEntry(new GUIContent(Mode == ListMode.InsertAbove ? "Insert Switch" : Mode == ListMode.NewTree ? "Switch" : "Split with Switch"), 1);
                 list.Add(new SearchTreeGroupEntry(new GUIContent("Split with 2D: X"), 1));
                 foreach (var x in Inputs)
                 {
                     list.Add(new SearchTreeGroupEntry(new GUIContent(ExpressionGraph.InputText(x)), 2));
                     foreach (var y in Inputs.Where(y => y != x))
-                        list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(x) + " × " + ExpressionGraph.InputText(y))) { level = 3, userData = new[] { x, y } });
+                        list.Add(Leaf(ExpressionGraph.InputText(x) + " × " + ExpressionGraph.InputText(y), 3, new[] { x, y }));
+                    // Y from the device
+                    AddFromDevice(list, 3, d => Leaf(ExpressionGraph.InputText(x) + " × " + d.display, 4, new[] { Add, d.name, d.display, x, d.name }));
+                }
+                // X from the device, Y from the table: a group per device input, as for the table's X
+                if (HasDevice && Inputs.Count > 0)
+                {
+                    list.Add(new SearchTreeGroupEntry(new GUIContent(AddTitle), 2));
+                    list.Add(Leaf($"Synced now: {SyncedNow} / {StaticChecker.MaxSyncedBits} bits", 3, new[] { Info }));
+                    foreach (var d in DeviceInputs)
+                    {
+                        list.Add(new SearchTreeGroupEntry(new GUIContent(d.display), 3));
+                        foreach (var y in Inputs)
+                            list.Add(Leaf(d.display + " × " + ExpressionGraph.InputText(y), 4, new[] { Add, d.name, d.display, d.name, y }));
+                    }
                 }
                 list.Add(switchGroup);
                 foreach (var sw in Switches)
-                    list.Add(new SearchTreeEntry(new GUIContent(ExpressionGraph.InputText(sw))) { level = 2, userData = new[] { "\u0001switch", sw } });
-                list.Add(new SearchTreeEntry(new GUIContent("+ New Switch")) { level = 2, userData = new[] { "\u0001switch", null } });
+                    list.Add(Leaf(ExpressionGraph.InputText(sw), 2, new[] { "\u0001switch", sw }));
+                list.Add(Leaf("+ New Switch", 2, new[] { "\u0001switch", null }));
                 return list;
             }
 
             public bool OnSelectEntry(SearchTreeEntry entry, SearchWindowContext context)
             {
                 var names = (string[])entry.userData;
+                if (names[0] == Info) return false;
+                if (names[0] == Add) { Window.ChooseWithAdd(Mode, Path, Row, NewName, NewSided, names[1], names[2], names[3], names[4]); return true; }
                 if (names[0] == "\u0001switch") { Window.ChooseSwitch(Mode, Path, Row, NewName, NewSided, names[1], Inputs.FirstOrDefault()); return true; }
                 var y = names.Length > 1 ? names[1] : null;
                 if (Mode == ListMode.InsertAbove) Window.InsertAbove(Path, names[0], y);

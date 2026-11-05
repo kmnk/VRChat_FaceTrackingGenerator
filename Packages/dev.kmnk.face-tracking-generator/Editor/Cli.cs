@@ -147,6 +147,23 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
+        // What AfkFinder finds in a controller (-ftController "<path>;..."), as Fill from avatar uses it.
+        public static void FindAfk() => Run(() =>
+        {
+            foreach (var path in CliArgs.Require("-ftController").Split(';').Where(x => x != ""))
+            {
+                var c = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(path);
+                if (c == null) throw new ArgumentException("not a controller: " + path);
+                var found = AfkFinder.Find(c);
+                foreach (var f in found)
+                    Debug.Log($"[FTG] afk found {c.name}/{f.Layer}: intro={P(f.Intro)} loop={P(f.Loop)} outro={P(f.Outro)}");
+                Debug.Log($"[FTG] afk {c.name}: layers={found.Count}");
+            }
+            return 0;
+        });
+
+        static string P(UnityEngine.Object o) => o == null ? "-" : AssetDatabase.GetAssetPath(o);
+
         internal static void Run(Func<int> body)
         {
             int code;

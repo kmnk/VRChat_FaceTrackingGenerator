@@ -79,7 +79,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.step1"] = ("1. Create the FT settings", "1. FT の設定を作る"),
             ["gen.help1"] = ("Type the avatar's name and press the button to make the FT settings in Settings/<name>/ from the templates. Skip this when you have them.", "アバターの名前を入れて押すと、テンプレートから FT の設定を Settings/<名前>/ に作ります。設定がもうあれば、この手順は要りません。"),
             ["gen.step2"] = ("2. Choose your avatar", "2. アバターを指定する"),
-            ["gen.help2"] = ("Select your avatar in the Hierarchy and press the button to write its prefab, face mesh and menu to the settings.", "Hierarchy でアバターを選んで押すと、設定に prefab・顔のメッシュ・メニューを書きます。"),
+            ["gen.help2"] = ("Select your avatar in the Hierarchy and press the button to write its prefab, face mesh, menu and AFK clips (only empty ones) to the settings.", "Hierarchy でアバターを選んで押すと、設定に prefab・顔のメッシュ・メニューと、空いている AFK の clip を書きます。"),
             ["gen.step3"] = ("3. Assign blendshapes to the face movements", "3. 顔の動きにシェイプキーを割り当てる"),
             ["gen.help3"] = ("In the settings editor, choose the blendshape for each face movement and check the face.", "設定エディタで、顔の動きごとに使うシェイプキーを選び、顔を見て確かめます。"),
             ["gen.step4"] = ("4. Check the settings", "4. 設定を確かめる"),
