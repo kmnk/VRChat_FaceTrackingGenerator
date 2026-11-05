@@ -1,7 +1,7 @@
 {
   "name": "dev.kmnk.face-tracking-generator",
   "displayName": "Face Tracking Generator",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "unity": "2022.3",
   "description": "Generates face tracking layers for VRChat avatars from text tables, with a table editor and preview.",
   "author": {

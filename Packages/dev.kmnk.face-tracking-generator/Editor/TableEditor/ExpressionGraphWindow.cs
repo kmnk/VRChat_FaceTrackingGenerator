@@ -21,6 +21,8 @@ namespace Kmnk.FaceTrackingGenerator
         ToolbarMenu treeMenu;
         ToolbarButton newButton, removeTreeButton;
         Label help;
+        Toolbar toolbar;
+        Button resumeButton;
         Graph graph;
 
         [MenuItem("Tools/Kmnk/Face Tracking Expression Graph")]
@@ -29,7 +31,7 @@ namespace Kmnk.FaceTrackingGenerator
         void OnEnable()
         {
             titleContent = new GUIContent("FT Expression Graph");
-            var toolbar = new Toolbar();
+            toolbar = new Toolbar();
             treeMenu = new ToolbarMenu { text = "" };
             treeMenu.style.minWidth = 120;
             toolbar.Add(treeMenu);
@@ -45,6 +47,10 @@ namespace Kmnk.FaceTrackingGenerator
             help.style.paddingLeft = 6; help.style.paddingTop = 3; help.style.paddingBottom = 3;
             help.style.whiteSpace = WhiteSpace.Normal;
             rootVisualElement.Add(help);
+            resumeButton = new Button(BuildGuard.End) { text = "Resume" };
+            resumeButton.style.alignSelf = Align.FlexStart;
+            resumeButton.style.marginLeft = 6;
+            rootVisualElement.Add(resumeButton);
             graph = new Graph(this);
             graph.style.flexGrow = 1;
             rootVisualElement.Add(graph);
@@ -73,7 +79,11 @@ namespace Kmnk.FaceTrackingGenerator
         internal void Refresh()
         {
             if (graph == null) return;
-            if (BuildGuard.Building)
+            // During a build: the note and the Resume button, as in the other windows, and no toolbar.
+            var building = BuildGuard.Building;
+            toolbar.SetEnabled(!building);
+            resumeButton.style.display = building ? DisplayStyle.Flex : DisplayStyle.None;
+            if (building)
             {
                 help.text = EditorText.Get("build.paused");
                 help.style.display = DisplayStyle.Flex;

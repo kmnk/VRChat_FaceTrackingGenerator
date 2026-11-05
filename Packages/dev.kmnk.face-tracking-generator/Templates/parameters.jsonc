@@ -3,11 +3,15 @@
 //   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/parameters
 //   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/unified-blendshapes
 //   https://github.com/benaclejames/VRCFaceTracking/blob/e3f40dd1fdd5e03a645a32691cbf54b4a99afbdd/VRCFaceTracking.Core/Params/Expressions/UnifiedExpressionsParameters.cs
-// The sign of the eye values (Eye*X, Eye*Y) is not stated here: not checked yet.
+// The sign of the eye values (Eye*X, Eye*Y): VRCFaceTracking sends Gaze.x and Gaze.y as they are, and turns a positive
+// right-eye x into EyeLookOutRight and a positive left-eye x into EyeLookInLeft, and a positive y into EyeLookUp*:
+//   https://github.com/benaclejames/VRCFaceTracking/blob/357201dd9552bab75d0552723062893b5087547a/VRCFaceTracking.Core/Params/Data/UnifiedData.cs
+//   https://github.com/vrchat-community/creator-docs/blob/af01805db07a0a95013601988e04f4b743a3bcd2/Docs/docs/avatars/face-tracking/osc.md (key order)
+// So 1 is the avatar's own right, and up.
 {
   "parameters": {
-    "Eye{side}X": {"en": "Where the {side} eye looks, sideways (-1 to 1).", "ja": "{side}目の視線の左右の向き（-1〜1）"},
-    "Eye{side}Y": {"en": "Where the {side} eye looks, up and down (-1 to 1).", "ja": "{side}目の視線の上下の向き（-1〜1）"},
+    "Eye{side}X": {"en": "Where the {side} eye looks, sideways: -1 left, 1 right (the avatar's own left and right).", "ja": "{side}目の視線の左右の向き。-1 で左、1 で右（アバター自身から見た左右）"},
+    "Eye{side}Y": {"en": "Where the {side} eye looks, up and down: -1 down, 1 up.", "ja": "{side}目の視線の上下の向き。-1 で下、1 で上"},
     "EyeLid{side}": {"en": "How open the {side} eyelid is: 0 closed, about 0.75 relaxed, 1 wide open.", "ja": "{side}まぶたの開き具合。0 で閉じ、0.75 ほどがふつう、1 で見開く"},
     "EyeClosed{side}": {"en": "How far the {side} eyelid closes (0 open, 1 closed).", "ja": "{side}まぶたを閉じる量（0 で開き、1 で閉じる）"},
     "EyeWide{side}": {"en": "How far the {side} eyelid opens wider than relaxed.", "ja": "{side}まぶたをふつうより大きく開く量"},
