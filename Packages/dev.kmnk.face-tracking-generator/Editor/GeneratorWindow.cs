@@ -38,6 +38,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (path != null) table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Reload();
             RestoreAvatar();
+            var savedName = ProjectSelection.AvatarName;
+            if (savedName != "") newName = savedName;
             EditorSceneManager.sceneOpened += OnSceneOpened;
         }
 
@@ -98,13 +100,20 @@ namespace Kmnk.FaceTrackingGenerator
             ProjectSelection.SetAvatar(TablePath, go);
         }
 
-        // For TableEditorChecks.Capture: what steps 2 and 7 show.
+        // The "Avatar name" field: remembered for this project.
+        internal void SetAvatarName(string typed)
+        {
+            newName = typed;
+            ProjectSelection.AvatarName = typed;
+        }
+
+        // For TableEditorChecks.Capture: what steps 1, 2 and 7 show.
         internal string SelectionState()
         {
             string HierarchyPath(Transform t) => t.parent == null ? t.name : HierarchyPath(t.parent) + "/" + t.name;
             var a = avatar != null ? HierarchyPath(avatar.transform) : "none";
             var can = (model != null && avatar != null).ToString().ToLower();
-            return $"table={TablePath ?? "none"} avatar={a} source={avatarSource} fill={can} attach={can}";
+            return $"table={TablePath ?? "none"} avatar={a} source={avatarSource} fill={can} attach={can} name={newName}";
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
@@ -188,7 +197,9 @@ namespace Kmnk.FaceTrackingGenerator
             Step("gen.step1", "gen.help1");
             using (new EditorGUILayout.HorizontalScope())
             {
-                newName = EditorGUILayout.TextField("Avatar name", newName);
+                EditorGUI.BeginChangeCheck();
+                var typed = EditorGUILayout.TextField("Avatar name", newName);
+                if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
                 if (GUILayout.Button("Create Settings/" + newName)) Do(() =>
                 {
                     var dest = TableWriter.CreateFromTemplates(newName);

@@ -37,6 +37,8 @@ namespace Kmnk.FaceTrackingGenerator
                     var g = EditorWindow.GetWindow<GeneratorWindow>("Face Tracking Generator");
                     var tablePath = CliArgs.Get("-ftTable");
                     if (tablePath != null) g.SetTableForCapture(tablePath);
+                    var avatarName = CliArgs.Get("-ftAvatarName");  // as typing in "Avatar name" does
+                    if (avatarName != null) g.SetAvatarName(avatarName);
                     var chooseAvatar = CliArgs.Get("-ftChooseAvatar");  // as the "Avatar in scene" field does ("none" clears)
                     if (chooseAvatar != null) g.ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
                     if (CliArgs.Get("-ftOpenTableEditor") == "1")

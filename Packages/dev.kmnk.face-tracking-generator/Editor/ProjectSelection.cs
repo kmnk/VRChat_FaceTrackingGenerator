@@ -29,6 +29,20 @@ namespace Kmnk.FaceTrackingGenerator
         [SerializeField] bool tableChosen;
         [SerializeField] string tableGuid = "";
         [SerializeField] List<AvatarChoice> avatars = new List<AvatarChoice>();
+        [SerializeField] string avatarName = "";
+
+        // The name last typed in the generator window's "Avatar name" (for Create Settings), or "" when none.
+        public static string AvatarName
+        {
+            get => instance.avatarName ?? "";
+            set
+            {
+                var s = instance;
+                if (s.avatarName == value) return;
+                s.avatarName = value ?? "";
+                s.Save(true);
+            }
+        }
 
         // The chosen settings file, or null when none is chosen or the file is gone.
         public static string TablePath
