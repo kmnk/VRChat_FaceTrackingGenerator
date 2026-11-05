@@ -30,7 +30,7 @@ Close the project in Unity and add the package as above. VCC / ALCOM / vrc-get r
 The `Tools/Kmnk/Face Tracking Generator` window lists the steps in order. **Help** at the top switches the descriptions between English and Japanese, or hides them.
 
 1. **Create the FT settings**: type the avatar name and press "Create Settings/<name>". `Assets/Kmnk/FaceTrackingGenerator/Settings/<name>/` gets `avatar.jsonc`, `expression.jsonc` and `input.jsonc` copied from the templates.
-2. **Choose your avatar**: select your avatar in the Hierarchy and press "Fill prefab, mesh and menu from it".
+2. **Choose your avatar**: choose your avatar in **Avatar in scene** (selecting it in the Hierarchy also chooses it) and press "Fill prefab, mesh and menu from it". The avatar is remembered with the settings file and the scene, as in the settings editor, and step 7 uses it too.
 3. **Assign blendshapes to the face movements**: press "Open Settings Editor" and choose a blendshape for each face movement (see [Settings editor](#settings-editor)). You can also edit `avatar.jsonc` in a text editor. Edit `expression.jsonc` and `input.jsonc` in a text editor when you want a different look or device; the comments in the templates explain each item.
 4. **Check the settings**: press "Check" and fix the settings until it reports no findings. "Response curves" shows the weights for each input without generating.
 5. **Add the menu toggles**: set the toggle names (and a submenu if the menu is full), press "Save names", then "Add toggles to menu".

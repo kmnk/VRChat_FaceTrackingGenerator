@@ -5,7 +5,9 @@ using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using VRC.SDK3.Avatars.Components;
 
 namespace Kmnk.FaceTrackingGenerator
 {
@@ -23,6 +25,9 @@ namespace Kmnk.FaceTrackingGenerator
         // Unity imports .txt as TextAsset, so the field accepts any asset (a .txt file is expected).
         UnityEngine.Object scenario;
         string menuFace, menuAfk, menuSub;
+        // The avatar of steps 2 and 7, remembered per settings file and scene (ProjectSelection), shared with the settings editor.
+        GameObject avatar;
+        string avatarSource = "none";  // saved, prefab, selected, chosen or none (for the checks)
 
         [MenuItem("Tools/Kmnk/Face Tracking Generator")]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
@@ -32,10 +37,77 @@ namespace Kmnk.FaceTrackingGenerator
             var path = ProjectSelection.TablePath;
             if (path != null) table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Reload();
+            RestoreAvatar();
+            EditorSceneManager.sceneOpened += OnSceneOpened;
+        }
+
+        void OnDisable() => EditorSceneManager.sceneOpened -= OnSceneOpened;
+
+        static bool IsSceneAvatar(GameObject go) =>
+            go != null && go.scene.IsValid() && go.GetComponent<VRCAvatarDescriptor>() != null;
+
+        GameObject Prefab()
+        {
+            var p = model?.Prefab;
+            if (p == null) return null;
+            var path = !string.IsNullOrEmpty(p.Guid) ? AssetDatabase.GUIDToAssetPath(p.Guid) : null;
+            if (string.IsNullOrEmpty(path)) path = p.Path;
+            return string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        // Fills the avatar field from what this project chose before for the settings file in the open scenes, else
+        // from the only avatar made from the settings file's prefab, else from the selection.
+        void RestoreAvatar()
+        {
+            avatar = ProjectSelection.FindAvatar(TablePath, Prefab(), out avatarSource);
+            if (avatar != null) { if (avatarSource == "prefab") ProjectSelection.SetAvatar(TablePath, avatar); }
+            else PickSelectedAvatar();
+        }
+
+        // An avatar selected in the Hierarchy replaces the field, as the window used the selection before.
+        void PickSelectedAvatar()
+        {
+            var sel = Selection.activeGameObject;
+            if (!IsSceneAvatar(sel) || sel == avatar) return;
+            avatar = sel;
+            avatarSource = "selected";
+            ProjectSelection.SetAvatar(TablePath, sel);
+        }
+
+        void OnSceneOpened(UnityEngine.SceneManagement.Scene scene, OpenSceneMode mode)
+        {
+            if (avatar != null) return;
+            RestoreAvatar();
+            Repaint();
+        }
+
+        // The settings file field: opens the file, records the choice for this project and brings back its avatar.
+        void ChooseTable(DefaultAsset picked)
+        {
+            table = picked;
+            ProjectSelection.SetTable(TablePath);
+            Reload();
+            RestoreAvatar();
+        }
+
+        // The "Avatar in scene" field (none forgets the choice for the settings file in the open scenes).
+        internal void ChooseAvatar(GameObject go)
+        {
+            avatar = go;
+            avatarSource = go != null ? "chosen" : "none";
+            ProjectSelection.SetAvatar(TablePath, go);
+        }
+
+        // For TableEditorChecks.Capture: what steps 2 and 7 show.
+        internal string SelectionState()
+        {
+            string HierarchyPath(Transform t) => t.parent == null ? t.name : HierarchyPath(t.parent) + "/" + t.name;
+            var a = avatar != null ? HierarchyPath(avatar.transform) : "none";
+            var can = (model != null && avatar != null).ToString().ToLower();
+            return $"table={TablePath ?? "none"} avatar={a} source={avatarSource} fill={can} attach={can}";
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
-        internal string ShownTablePath => TablePath;  // for TableEditorChecks.Capture
 
         void Reload()
         {
@@ -52,7 +124,11 @@ namespace Kmnk.FaceTrackingGenerator
             catch (Exception e) { message = "Table error: " + e.Message; }
         }
 
-        void OnSelectionChange() => Repaint();
+        void OnSelectionChange()
+        {
+            if (model != null) PickSelectedAvatar();
+            Repaint();
+        }
 
         // For TableEditorChecks.Capture: open a table without changing the saved choice.
         internal void SetTableForCapture(string path)
@@ -95,7 +171,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUI.BeginChangeCheck();
                 table = (DefaultAsset)EditorGUILayout.ObjectField("Settings file", table, typeof(DefaultAsset), false);
-                if (EditorGUI.EndChangeCheck()) { ProjectSelection.SetTable(TablePath); Reload(); }
+                if (EditorGUI.EndChangeCheck()) ChooseTable(table);
                 if (GUILayout.Button("Reload", GUILayout.Width(70))) Reload();
             }
             using (new EditorGUILayout.HorizontalScope())
@@ -119,6 +195,7 @@ namespace Kmnk.FaceTrackingGenerator
                     table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
                     ProjectSelection.SetTable(dest);
                     Reload();
+                    RestoreAvatar();
                     return "Created " + dest;
                 });
             }
@@ -126,10 +203,12 @@ namespace Kmnk.FaceTrackingGenerator
             using (new EditorGUI.DisabledScope(model == null))
             {
                 Step("gen.step2", "gen.help2");
-                var sel = Selection.activeGameObject;
+                var sel = avatar;
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField("Selected", sel != null ? sel.name : "(select the avatar in the Hierarchy)");
+                    EditorGUI.BeginChangeCheck();
+                    var picked = (GameObject)EditorGUILayout.ObjectField("Avatar in scene", avatar, typeof(GameObject), true);
+                    if (EditorGUI.EndChangeCheck() && (picked == null || picked.scene.IsValid())) { ChooseAvatar(picked); sel = picked; }
                     using (new EditorGUI.DisabledScope(sel == null))
                         if (GUILayout.Button("Fill prefab, mesh and menu from it")) Do(() =>
                         {

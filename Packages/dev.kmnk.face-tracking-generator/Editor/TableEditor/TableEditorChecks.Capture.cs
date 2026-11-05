@@ -37,6 +37,8 @@ namespace Kmnk.FaceTrackingGenerator
                     var g = EditorWindow.GetWindow<GeneratorWindow>("Face Tracking Generator");
                     var tablePath = CliArgs.Get("-ftTable");
                     if (tablePath != null) g.SetTableForCapture(tablePath);
+                    var chooseAvatar = CliArgs.Get("-ftChooseAvatar");  // as the "Avatar in scene" field does ("none" clears)
+                    if (chooseAvatar != null) g.ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
                     if (CliArgs.Get("-ftOpenTableEditor") == "1")
                     {
                         var te = TableEditorWindow.OpenTable(tablePath);
@@ -80,7 +82,7 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         Grab(window, outPath);
                         Debug.Log($"[FTG] capture: wrote {outPath} ({window.position.width}x{window.position.height})");
-                        if (window is GeneratorWindow gen) Debug.Log($"[FTG] capture: selection window=generator table={gen.ShownTablePath ?? "none"}");
+                        if (window is GeneratorWindow gen) Debug.Log($"[FTG] capture: selection window=generator {gen.SelectionState()}");
                         var shown = window as TableEditorWindow ?? TableEditorWindow.Current;
                         if (shown != null) Debug.Log($"[FTG] capture: selection window=table {shown.SelectionState()}");
                         var face = FaceViewWindow.Find();
