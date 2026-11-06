@@ -24,6 +24,7 @@ namespace Kmnk.FaceTrackingGenerator
             Debug.Log($"[FTG] load: inputs={model.Inputs.Count} switches={model.Switches.Count} trees={model.Trees.Count} parts={model.Parts.Count} dropped={model.Dropped.Count} warnings={model.Warnings.Count}");
             foreach (var d in model.Dropped) Debug.Log("[FTG] dropped: " + d);
             foreach (var w in model.Warnings) Debug.Log("[FTG] warning: " + w);
+            foreach (var n in model.Notes) Debug.Log("[FTG] note: " + n);
             return 0;
         });
 
@@ -47,6 +48,15 @@ namespace Kmnk.FaceTrackingGenerator
             if (fx == null) Debug.Log("[FTG] check: no generated FX controller at " + fxPath + " (table checks only)");
             if (fx != null) Debug.Log($"[FTG] check: controller {AssetDatabase.GetAssetPath(fx)} ({fx.layers.Length} layers, {AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(fx)).Length} objects)");
             var findings = StaticChecker.Check(model, fx);
+            var variant = model.VariantPath != null ? AssetDatabase.LoadAssetAtPath<GameObject>(model.VariantPath) : null;
+            var desc = variant != null ? variant.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;
+            if (desc == null) Debug.Log("[FTG] check: no generated Prefab Variant at " + model.VariantPath + " (Face Tracking section not checked)");
+            else
+            {
+                var ft = desc.faceTrackingParameterBehaviors;
+                Debug.Log($"[FTG] check: face tracking {model.VariantPath}: enabled={desc.enableFaceTracking} allKeys={desc.useAllTrackingKeys} behaviors={(ft == null ? 0 : ft.Count)}");
+                findings.AddRange(StaticChecker.FaceTracking(model, desc, model.VariantPath));
+            }
             foreach (var x in findings) Debug.Log("[FTG] finding: " + x);
             Debug.Log($"[FTG] check: findings={findings.Count}");
             return findings.Count == 0 ? 0 : 1;
@@ -184,7 +194,7 @@ namespace Kmnk.FaceTrackingGenerator
                 ["prefab"] = m.Prefab?.Path,
                 ["inputs"] = new JArray(m.Inputs.Select(i => i.IsDerived
                     ? new JObject { ["name"] = i.Name, ["average"] = new JArray(i.Average) }
-                    : new JObject { ["name"] = i.Name, ["key"] = i.Key, ["smoothing"] = i.Smoothing, ["sync"] = i.Sync })),
+                    : new JObject { ["name"] = i.Name, ["key"] = i.Key, ["parameter"] = i.Parameter, ["expression"] = i.Expression, ["expressionFrom"] = i.ExpressionFromTable ? "table" : "built-in", ["smoothing"] = i.Smoothing })),
                 ["smoothing"] = new JArray(m.Smoothings.Select(s => new JObject { ["name"] = s.Name, ["localTau"] = s.LocalTau, ["remoteTau"] = s.RemoteTau })),
                 ["switches"] = new JArray(m.Switches.Select(s => new JObject
                 {
@@ -200,6 +210,7 @@ namespace Kmnk.FaceTrackingGenerator
                 ["stopWhileTalking"] = new JArray(m.StopWhileTalking),
                 ["dropped"] = new JArray(m.Dropped),
                 ["warnings"] = new JArray(m.Warnings),
+                ["notes"] = new JArray(m.Notes),
             };
         }
 

@@ -37,10 +37,17 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var d in Devices.Load())
             {
                 var direct = model.Inputs.Where(i => !i.IsDerived).ToList();
-                var sent = direct.Where(i => d.Has(i.Key)).ToList();
-                var notSent = direct.Where(i => !d.Has(i.Key)).Select(i => i.Name).ToList();
-                var unused = d.Keys.Count(k => direct.All(i => i.Key != k.key));
+                var sent = direct.Where(i => d.Sends(i.Key, i.Expression)).ToList();
+                var notSent = direct.Where(i => !d.Sends(i.Key, i.Expression)).Select(i => i.Name).ToList();
+                var unused = d.Keys.Count(k => !Devices.Device.UsedBy(model, k.key));
                 Debug.Log($"[FTG] device {d.Id}: keys={d.Keys.Count} settings-inputs-sent={sent.Count}/{direct.Count} not-sent={string.Join(",", notSent)} unused={unused} tongue-xy={d.Has("v2/TongueX") && d.Has("v2/TongueY")}");
+                string F(float v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                foreach (var i in model.Inputs)
+                {
+                    var t = Devices.ThresholdRange(model, i.Name);
+                    var s = Devices.Slider(model, i, d, t);
+                    Debug.Log($"[FTG] device {d.Id} input {i.Name}: sent={s.sent.ToString().ToLower()}" + (s.sent ? $" range={F(s.device.lo)}..{F(s.device.hi)} slider={F(s.lo)}..{F(s.hi)} clipped={s.clipped.ToString().ToLower()}" : ""));
+                }
             }
             return 0;
         });

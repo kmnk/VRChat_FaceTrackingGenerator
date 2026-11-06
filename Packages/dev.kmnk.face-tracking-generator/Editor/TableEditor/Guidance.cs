@@ -173,7 +173,8 @@ namespace Kmnk.FaceTrackingGenerator
         }
     }
 
-    // Device lists in Templates/Devices/*.jsonc: the values a device is said to send.
+    // Device lists in Templates/Devices/*.jsonc: the values a device is said to send (v2/<name>), or the tracking
+    // keys of the Face Tracking section it fills (a key's name, with or without v2/), with their ranges.
     public static class Devices
     {
         public const string Folder = Paths.Templates + "/Devices";
@@ -182,7 +183,50 @@ namespace Kmnk.FaceTrackingGenerator
         {
             public string Id, Name;
             public List<(string key, float min, float max)> Keys = new List<(string, float, float)>();
-            public bool Has(string key) => Keys.Any(k => k.key == key);
+
+            // The listed entry of a value or key; "v2/EyeLidLeft" and "EyeLidLeft" are the same name.
+            public (float lo, float hi)? Listed(string key)
+            {
+                var n = NameOf(key);
+                foreach (var k in Keys) if (NameOf(k.key) == n) return (k.min, k.max);
+                return null;
+            }
+
+            // The range of an input's value with this device, or null when the device does not send it (design.md
+            // "Preview"). An input with its built-in expression and listed in the table uses the listed range;
+            // otherwise the range comes from the expression with the device's key ranges, other keys at 0.
+            public (float lo, float hi)? Range(string key, string expression = null)
+            {
+                var builtIn = NativeInputs.Expression(key);
+                var e = expression ?? builtIn;
+                if (e == builtIn && Listed(key) is (float, float) listed) return listed;
+                if (e == null) return null;
+                FtExpression.Expr x;
+                try { x = FtExpression.Parse(e); }
+                catch (FtExpression.ParseException) { return null; }
+                (float lo, float hi)? Of(string n) => FtExpression.IsKey(n) ? Listed(n) : null;
+                if (!x.Names.Any(n => Of(n) != null)) return null;
+                return x.Range(Of);
+            }
+
+            public bool Sends(string key, string expression = null) => Range(key, expression) != null;
+            public bool Has(string key) => Sends(key);
+
+            // Names of the values to offer as inputs: the listed ones, then the built-in values the device
+            // sends through its keys (for a list of keys only).
+            public List<string> Values()
+            {
+                var names = Keys.Select(k => NameOf(k.key)).Distinct().ToList();
+                names.AddRange(NativeInputs.FormulaNames.Where(n => !names.Contains(n) && Sends("v2/" + n)));
+                return names;
+            }
+
+            // Whether an input of the model uses the listed value or key: by its key, or in its expression.
+            public static bool UsedBy(TableModel m, string key)
+            {
+                var n = NameOf(key);
+                return m.Inputs.Any(i => !i.IsDerived && (NameOf(i.Key) == n || NativeInputs.NamesIn(i.Expression).Contains(n)));
+            }
         }
 
         public static List<Device> Load()
@@ -198,6 +242,47 @@ namespace Kmnk.FaceTrackingGenerator
                 list.Add(d);
             }
             return list;
+        }
+
+        // The range of an input's value with a device (a derived input: the average of its sources' ranges), or null
+        // when the device does not send it.
+        public static (float lo, float hi)? InputRange(TableModel m, InputDef i, Device d)
+        {
+            if (!i.IsDerived) return d.Range(i.Key, i.Expression);
+            var rs = i.Average.Select(s => m.Input(s)).Select(x => x == null ? null : InputRange(m, x, d)).ToList();
+            if (rs.Any(r => r == null)) return null;
+            return (rs.Average(r => r.Value.lo), rs.Average(r => r.Value.hi));
+        }
+
+        // The range of the thresholds and positions that use an input, also through averages of it.
+        public static (float lo, float hi) ThresholdRange(TableModel m, string input)
+        {
+            var names = new List<string> { input };
+            names.AddRange(m.Inputs.Where(d => d.IsDerived && d.Average.Contains(input)).Select(d => d.Name));
+            var d0 = m.Inputs.FirstOrDefault(d => d.Name == input && d.IsDerived);
+            if (d0 != null) names.AddRange(d0.Average);
+            float lo = float.MaxValue, hi = float.MinValue;
+            foreach (var n in names)
+            {
+                var (a, b) = CurveEval.Range(m, n);
+                lo = Math.Min(lo, a); hi = Math.Max(hi, b);
+            }
+            return (lo, hi);
+        }
+
+        // A preview slider with a device: the thresholds' range within the device's range. clipped: some thresholds are
+        // outside what the device sends, so they cannot be reached with it.
+        public static (bool sent, float lo, float hi, bool clipped, (float lo, float hi) device) Slider(TableModel m, InputDef i, Device d, (float lo, float hi) thresholds)
+        {
+            var r = InputRange(m, i, d);
+            if (r == null) return (false, thresholds.lo, thresholds.hi, false, (0, 0));
+            var dr = r.Value;
+            var lo = Math.Max(thresholds.lo, dr.lo);
+            var hi = Math.Min(thresholds.hi, dr.hi);
+            var clipped = thresholds.lo < dr.lo - 1e-4f || thresholds.hi > dr.hi + 1e-4f;
+            if (lo >= hi) { lo = dr.lo; hi = dr.hi; }
+            if (lo >= hi) hi = lo + 0.01f;
+            return (true, lo, hi, clipped, dr);
         }
 
         // The slider name of a device key: "v2/BrowInnerUpLeft" -> "BrowInnerUpLeft".

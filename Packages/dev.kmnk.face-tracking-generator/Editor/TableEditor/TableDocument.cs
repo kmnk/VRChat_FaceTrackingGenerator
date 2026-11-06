@@ -64,8 +64,6 @@ namespace Kmnk.FaceTrackingGenerator
         // Writes the changed tables (all three with all = true). Returns the paths written.
         public List<string> Save(bool all = false)
         {
-            var blocked = SaveBlocked();
-            if (blocked != null) throw new TableLoader.TableException(blocked);
             var written = new List<string>();
             foreach (var kind in Kinds)
             {
@@ -76,16 +74,6 @@ namespace Kmnk.FaceTrackingGenerator
                 written.Add(e.Path);
             }
             return written;
-        }
-
-        // Why the tables cannot be saved now, or null: tables over the synced bits cannot be used on the avatar. When
-        // the avatar's parameters cannot be read, only the FT inputs count. Tables that do not load are not checked here.
-        public string SaveBlocked()
-        {
-            TableModel m;
-            try { m = Model(); } catch (Exception) { return null; }
-            var bits = Math.Max(0, StaticChecker.AvatarSyncedBits(m)) + StaticChecker.FtSyncedBits(m);
-            return bits > StaticChecker.MaxSyncedBits ? string.Format(EditorText.Get("inputs.over"), bits, StaticChecker.MaxSyncedBits) : null;
         }
 
         // The table as last read or saved.

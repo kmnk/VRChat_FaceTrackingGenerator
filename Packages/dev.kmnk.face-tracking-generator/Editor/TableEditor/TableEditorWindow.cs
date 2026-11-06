@@ -55,10 +55,8 @@ namespace Kmnk.FaceTrackingGenerator
         string tuneShown;
         string tuneScrollTo;  // a fold key to scroll to on the next repaint (from the expression graph)
 
-        // inputs tab: the search text, and what Rebuild counted (the avatar's own synced bits, why saving is blocked)
+        // inputs tab: the search text
         string inputSearch = "";
-        int avatarBits = -1;
-        string saveBlocked;
 
         // The open settings editor, for the expression graph. Changed is raised after the tables change.
         internal static TableEditorWindow Current { get; private set; }
@@ -183,7 +181,6 @@ namespace Kmnk.FaceTrackingGenerator
         {
             preview.Stop();
             doc = null; model = null; error = null;
-            avatarBits = -1; saveBlocked = null;
             pendingParts.Clear();
             removedParts.Clear();
             switches.Reset();
@@ -204,8 +201,6 @@ namespace Kmnk.FaceTrackingGenerator
         {
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
-            avatarBits = model != null ? StaticChecker.AvatarSyncedBits(model) : -1;
-            saveBlocked = doc.SaveBlocked();
             if (preview.Running) ApplyPreview();
             else if (tab == 2 && tuneShown != null) ShowTuning(tuneShown);
             else ShowSelected();
@@ -225,9 +220,7 @@ namespace Kmnk.FaceTrackingGenerator
             devices.FirstOrDefault(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, "")));
 
         InputChoices.Result InputRows() => InputChoices.Rows(doc.Json(TableDocument.Input), doc.Json(TableDocument.Expression), model,
-            ChosenDevice(Devices.Load()), doc.SavedJson(TableDocument.Input), avatarBits);
-
-        static readonly Color OverColor = new Color(0.75f, 0.22f, 0.17f);
+            ChosenDevice(Devices.Load()), doc.SavedJson(TableDocument.Input));
 
         static GUIStyle lockedNameStyle;
         static GUIStyle LockedNameStyle
@@ -257,26 +250,6 @@ namespace Kmnk.FaceTrackingGenerator
 
             var r = InputRows();
             EditorGUILayout.Space(4);
-            var old = GUI.contentColor;
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Label("Synced", EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
-                if (r.Over) GUI.contentColor = new Color(1f, 0.45f, 0.4f);  // lighter than the bar, to read on the dark skin
-                GUILayout.Label($"{r.Total} / {StaticChecker.MaxSyncedBits} bits", EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
-                GUI.contentColor = old;
-            }
-            var bar = GUILayoutUtility.GetRect(100, 8, GUILayout.ExpandWidth(true));
-            if (Event.current.type == EventType.Repaint)
-            {
-                EditorGUI.DrawRect(bar, new Color(0.165f, 0.165f, 0.165f));
-                var fill = bar;
-                fill.width = bar.width * Mathf.Clamp01(r.Total / (float)StaticChecker.MaxSyncedBits);
-                EditorGUI.DrawRect(fill, r.Over ? OverColor : new Color(0.227f, 0.475f, 0.733f));
-            }
-            PartsLine(r.AvatarBits >= 0 ? string.Format(EditorText.Get("inputs.breakdown"), r.SavedBits, r.AddedBits, r.AvatarBits)
-                : string.Format(EditorText.Get("inputs.breakdownNoAvatar"), r.SavedBits, r.AddedBits));
-            if (r.Over) EditorGUILayout.HelpBox(EditorText.Get("inputs.over"), MessageType.Error);
-            EditorGUILayout.Space(2);
             inputSearch = EditorGUILayout.TextField(inputSearch, EditorStyles.toolbarSearchField);
             bool Shown(InputChoices.Row row) => string.IsNullOrEmpty(inputSearch) || row.Display.IndexOf(inputSearch, StringComparison.OrdinalIgnoreCase) >= 0;
 
@@ -314,13 +287,6 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 var nameStyle = locked ? LockedNameStyle : EditorStyles.label;
                 GUILayout.Label(new GUIContent(row.Display, InputChoices.Tooltip(row)), nameStyle, GUILayout.ExpandWidth(true));
-                if (row.InTable)
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var synced = EditorGUILayout.Popup(row.Sync == "float8" ? 0 : 1, new[] { "Synced", "Local" }, GUILayout.Width(80)) == 0;
-                    if (EditorGUI.EndChangeCheck()) Edit(TableDocument.Input, "Set FT input", j => InputChoices.SetSync(j, row.Name, synced));
-                }
-                GUILayout.Label($"{row.Bits} bits", new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight }, GUILayout.Width(50));
             }
             if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
             EditorGUILayout.EndVertical();
@@ -346,14 +312,14 @@ namespace Kmnk.FaceTrackingGenerator
             return (device, device == null ? null : InputRows());
         }
 
-        // Adds a device's input to the input table as the Inputs tab does. Returns the synced bits after it, or -1.
-        internal int AddDeviceInput(string name)
+        // Adds a device's input to the input table as the Inputs tab does. Returns whether it was added.
+        internal bool AddDeviceInput(string name)
         {
-            if (doc == null) return -1;
+            if (doc == null) return false;
             var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
-            if (row == null) return -1;
+            if (row == null) return false;
             Edit(TableDocument.Input, "Add FT input", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
-            return InputRows().Total;
+            return true;
         }
 
         // Opens the Tuning tab at a node: the tree's fold, the node's fold (1D), and scrolls to it. A null key (a switch)
@@ -552,8 +518,8 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 using (new EditorGUI.DisabledScope(table == null))
                     if (GUILayout.Button("Reload", GUILayout.Width(70)) && ConfirmDiscard()) Load();
-                using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty() || saveBlocked != null))
-                    if (GUILayout.Button(new GUIContent("Save", saveBlocked), GUILayout.Width(70))) Save();
+                using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty()))
+                    if (GUILayout.Button("Save", GUILayout.Width(70))) Save();
                 if (GUILayout.Button("Face view", GUILayout.Width(80)))
                 {
                     FaceViewWindow.Open();
@@ -693,7 +659,7 @@ namespace Kmnk.FaceTrackingGenerator
 
             EditorGUILayout.Space(6);
             EditorGUI.BeginChangeCheck();
-            var stop = EditorGUILayout.ToggleLeft(EditorText.Label("Stop VRChat auto blink and eye look while FT is on", "tip.stopAutoEyes"), avatar["stopAutoEyes"]?.Type == JTokenType.Boolean && (bool)avatar["stopAutoEyes"]);
+            var stop = EditorGUILayout.ToggleLeft(EditorText.Label("Turn off Eye Look eyelids (FT blinks while it is off)", "tip.stopAutoEyes"), avatar["stopAutoEyes"]?.Type == JTokenType.Boolean && (bool)avatar["stopAutoEyes"]);
             if (EditorGUI.EndChangeCheck()) Edit("Set FT stopAutoEyes", a => TableEdits.SetBool(a, "stopAutoEyes", stop));
         }
 
@@ -1062,13 +1028,12 @@ namespace Kmnk.FaceTrackingGenerator
             var partsOf = InputParts.Of(model);
             foreach (var input in model.Inputs.Where(x => !x.IsDerived))
             {
-                var (lo, hi) = SliderRange(input.Name);
+                var (lo, hi, label, sent) = PreviewSlider(input, device);
                 var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
-                var sent = device == null || device.Has(input.Key);
                 using (new EditorGUI.DisabledScope(!sent))
                 {
                     EditorGUI.BeginChangeCheck();
-                    v = EditorGUILayout.Slider(new GUIContent(sent ? input.Name : input.Name + EditorText.Get("device.notSent"), ParameterHelp.Tooltip(model, input)), v, lo, hi);
+                    v = EditorGUILayout.Slider(new GUIContent(label, ParameterHelp.Tooltip(model, input)), v, lo, hi);
                     if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
                 }
                 if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
@@ -1076,12 +1041,12 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var input in model.Inputs.Where(x => x.IsDerived))
             {
                 var v = input.Average.Average(s => inputs.TryGetValue(s, out var x) ? x : 0f);
-                var (lo, hi) = SliderRange(input.Name);
-                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(new GUIContent(input.Name + " (average)", ParameterHelp.Tooltip(model, input)), v, lo, hi);
+                var (lo, hi, label, _) = PreviewSlider(input, device);
+                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(new GUIContent(label + " (average)", ParameterHelp.Tooltip(model, input)), v, lo, hi);
             }
             if (device != null)
             {
-                var unused = device.Keys.Where(k => model.Inputs.All(i => i.Key != k.key)).ToList();
+                var unused = device.Keys.Where(k => !Devices.Device.UsedBy(model, k.key)).ToList();
                 showUnusedInputs = EditorGUILayout.Foldout(showUnusedInputs, string.Format(EditorText.Get("device.unused"), unused.Count), true);
                 if (showUnusedInputs)
                     foreach (var k in unused)
@@ -1187,19 +1152,17 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // The slider range: thresholds and positions that use the input, also through averages of it.
-        (float, float) SliderRange(string input)
+        (float, float) SliderRange(string input) => Devices.ThresholdRange(model, input);
+
+        // A slider of the preview: the thresholds' range fitted to what the device sends (design.md "Preview").
+        (float lo, float hi, string label, bool sent) PreviewSlider(InputDef input, Devices.Device device)
         {
-            var names = new List<string> { input };
-            names.AddRange(model.Inputs.Where(d => d.IsDerived && d.Average.Contains(input)).Select(d => d.Name));
-            var d0 = model.Inputs.FirstOrDefault(d => d.Name == input && d.IsDerived);
-            if (d0 != null) names.AddRange(d0.Average);
-            float lo = float.MaxValue, hi = float.MinValue;
-            foreach (var n in names)
-            {
-                var (a, b) = CurveEval.Range(model, n);
-                lo = Math.Min(lo, a); hi = Math.Max(hi, b);
-            }
-            return (lo, hi);
+            var (lo, hi) = SliderRange(input.Name);
+            if (device == null) return (lo, hi, input.Name, true);
+            var s = Devices.Slider(model, input, device, (lo, hi));
+            if (!s.sent) return (lo, hi, input.Name + EditorText.Get("device.notSent"), false);
+            var label = s.clipped ? input.Name + string.Format(EditorText.Get("device.range"), s.device.lo.ToString("0.##"), s.device.hi.ToString("0.##")) : input.Name;
+            return (s.lo, s.hi, label, true);
         }
 
         void ApplyPreview(Dictionary<string, string> states = null)

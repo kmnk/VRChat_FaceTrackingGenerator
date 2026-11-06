@@ -1,0 +1,73 @@
+// Face tracking keys that VRChat's Selfie Expression (webcam on desktop, camera on Android) is expected to fill,
+// with the Unified Expressions key names of the avatar's Face Tracking section (no v2/ prefix).
+// VRChat does not document which keys Selfie Expression fills (checked 2026-11-07). This list is inferred:
+//   - A write-up says Selfie Expression reads MediaPipe's 52 face values (ARKit names, no tongue):
+//     https://note.com/petoriko_ru_/n/n73c5d960ba09
+//     https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker
+//   - Each ARKit value is turned into the Unified Expressions keys of VRCFaceTracking's ARKit table (a "blended"
+//     value fills both keys or both sides): https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/compatibility/arkit
+//   - EyeLook* are left out: on desktop they stayed 0 in the Debug UI; the eyes move through the avatar's Eye Look.
+//     Tongue keys are left out: MediaPipe has no tongue value, and they stayed 0.
+// Ranges: EyeClosed*, BrowInnerUp*, JawOpen, LipPucker*, MouthUpperUp* and MouthLowerDown* were measured on desktop
+// in VRChat's Debug UI (Face Tracking tab) while making large expressions (2026-11-06, one person, one webcam);
+// the others are 0 to 1 and not measured. Used by the settings editor preview only.
+{
+  "name": "Selfie Expression",
+  "keys": [
+    {"key": "EyeClosedLeft", "min": 0, "max": 1},
+    {"key": "EyeClosedRight", "min": 0, "max": 1},
+    {"key": "EyeSquintLeft", "min": 0, "max": 1},
+    {"key": "EyeSquintRight", "min": 0, "max": 1},
+    {"key": "EyeWideLeft", "min": 0, "max": 1},
+    {"key": "EyeWideRight", "min": 0, "max": 1},
+    {"key": "BrowInnerUpLeft", "min": 0, "max": 0.8},
+    {"key": "BrowInnerUpRight", "min": 0, "max": 0.8},
+    {"key": "BrowOuterUpLeft", "min": 0, "max": 1},
+    {"key": "BrowOuterUpRight", "min": 0, "max": 1},
+    {"key": "BrowLowererLeft", "min": 0, "max": 1},
+    {"key": "BrowLowererRight", "min": 0, "max": 1},
+    {"key": "BrowPinchLeft", "min": 0, "max": 1},
+    {"key": "BrowPinchRight", "min": 0, "max": 1},
+    {"key": "NoseSneerLeft", "min": 0, "max": 1},
+    {"key": "NoseSneerRight", "min": 0, "max": 1},
+    {"key": "CheekSquintLeft", "min": 0, "max": 1},
+    {"key": "CheekSquintRight", "min": 0, "max": 1},
+    {"key": "CheekPuffLeft", "min": 0, "max": 1},
+    {"key": "CheekPuffRight", "min": 0, "max": 1},
+    {"key": "JawOpen", "min": 0, "max": 0.75},
+    {"key": "JawLeft", "min": 0, "max": 1},
+    {"key": "JawRight", "min": 0, "max": 1},
+    {"key": "JawForward", "min": 0, "max": 1},
+    {"key": "MouthClosed", "min": 0, "max": 1},
+    {"key": "LipSuckUpperLeft", "min": 0, "max": 1},
+    {"key": "LipSuckUpperRight", "min": 0, "max": 1},
+    {"key": "LipSuckLowerLeft", "min": 0, "max": 1},
+    {"key": "LipSuckLowerRight", "min": 0, "max": 1},
+    {"key": "LipFunnelUpperLeft", "min": 0, "max": 1},
+    {"key": "LipFunnelUpperRight", "min": 0, "max": 1},
+    {"key": "LipFunnelLowerLeft", "min": 0, "max": 1},
+    {"key": "LipFunnelLowerRight", "min": 0, "max": 1},
+    {"key": "LipPuckerUpperLeft", "min": 0, "max": 1},
+    {"key": "LipPuckerUpperRight", "min": 0, "max": 1},
+    {"key": "LipPuckerLowerLeft", "min": 0, "max": 1},
+    {"key": "LipPuckerLowerRight", "min": 0, "max": 1},
+    {"key": "MouthUpperUpLeft", "min": 0, "max": 0.005},
+    {"key": "MouthUpperUpRight", "min": 0, "max": 0.005},
+    {"key": "MouthLowerDownLeft", "min": 0, "max": 0.6},
+    {"key": "MouthLowerDownRight", "min": 0, "max": 0.6},
+    {"key": "MouthCornerPullLeft", "min": 0, "max": 1},
+    {"key": "MouthCornerPullRight", "min": 0, "max": 1},
+    {"key": "MouthCornerSlantLeft", "min": 0, "max": 1},
+    {"key": "MouthCornerSlantRight", "min": 0, "max": 1},
+    {"key": "MouthFrownLeft", "min": 0, "max": 1},
+    {"key": "MouthFrownRight", "min": 0, "max": 1},
+    {"key": "MouthStretchLeft", "min": 0, "max": 1},
+    {"key": "MouthStretchRight", "min": 0, "max": 1},
+    {"key": "MouthDimpleLeft", "min": 0, "max": 1},
+    {"key": "MouthDimpleRight", "min": 0, "max": 1},
+    {"key": "MouthRaiserUpper", "min": 0, "max": 1},
+    {"key": "MouthRaiserLower", "min": 0, "max": 1},
+    {"key": "MouthPressLeft", "min": 0, "max": 1},
+    {"key": "MouthPressRight", "min": 0, "max": 1}
+  ]
+}

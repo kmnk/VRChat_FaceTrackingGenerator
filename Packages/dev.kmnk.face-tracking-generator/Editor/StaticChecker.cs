@@ -14,8 +14,6 @@ namespace Kmnk.FaceTrackingGenerator
     // Static checks of the tables and the generated controller (spec R24).
     public static class StaticChecker
     {
-        public const int MaxSyncedBits = 256;
-
         public static List<string> Check(TableModel m, AnimatorController fx)
         {
             var f = new List<string>();
@@ -24,12 +22,30 @@ namespace Kmnk.FaceTrackingGenerator
             MissingShapes(m, f);
             Unused(m, f);
             Sums(m, f);
-            SyncedBits(m, f);
             if (fx != null)
             {
                 WriteDefaults(fx, f);
                 UnusedClips(fx, f);
             }
+            return f;
+        }
+
+        // ---- the Face Tracking section of a generated avatar (R2): one Forward to Animator behavior per input with
+        // its expression, and no warnings from the SDK's check. `what` names the avatar in the findings.
+        public static List<string> FaceTracking(TableModel m, VRCAvatarDescriptor d, string what)
+        {
+            var f = new List<string>();
+            if (!d.enableFaceTracking || !d.useAllTrackingKeys)
+                f.Add($"face tracking: {what}: Face Tracking or Use All Tracking Keys is off (generate again)");
+            var behaviors = d.faceTrackingParameterBehaviors ?? new List<VRCAvatarDescriptor.FaceTrackingParameterBehavior>();
+            foreach (var i in m.Inputs.Where(x => !x.IsDerived))
+            {
+                var b = behaviors.Where(x => x != null && x.outputParameterName == i.Parameter).ToList();
+                if (b.Count != 1 || b[0].targetMode != VRCAvatarDescriptor.ParameterBehaviorTargetMode.ForwardToAnimator
+                    || b[0].combineMode != VRCAvatarDescriptor.ParameterBehaviorCombineMode.Custom || b[0].customExpression != i.Expression)
+                    f.Add($"face tracking: {what}: no Forward to Animator behavior for {i.Parameter} with \"{i.Expression}\" (generate again)");
+            }
+            foreach (var w in NativeFtWriter.Check(d)) f.Add($"face tracking: {what}: SDK: " + w.Replace("\n", " "));
             return f;
         }
 
@@ -61,7 +77,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             Pairs(m.Switches, s => s.Name, SwitchJson, "switch");
             Pairs(m.Trees, t => t.Name, t => TreeJson(t.Root), "tree");
-            Pairs(m.Inputs.Where(i => !i.IsDerived), i => i.Name, i => new JObject { ["key"] = i.Key, ["smoothing"] = i.Smoothing, ["sync"] = i.Sync }, "input");
+            Pairs(m.Inputs.Where(i => !i.IsDerived), i => i.Name, i => new JObject { ["key"] = i.Key, ["smoothing"] = i.Smoothing }, "input");
         }
 
         static string FirstDiff(string a, string b)
@@ -194,31 +210,6 @@ namespace Kmnk.FaceTrackingGenerator
                 case SwitchNode s: foreach (var c in s.Cases) { var d = new Dictionary<string, float>(); MaxValues(c.node, d); Merge(d); } break;
             }
         }
-
-        // ---- 5. synced bits of the whole avatar
-
-        static void SyncedBits(TableModel m, List<string> f)
-        {
-            var avatar = AvatarSyncedBits(m);
-            if (avatar < 0) return;
-            var bits = avatar + FtSyncedBits(m);
-            if (bits > MaxSyncedBits) f.Add($"sync: synced parameters use {bits} bits (limit {MaxSyncedBits})");
-        }
-
-        // The synced bits of the avatar's own Expression Parameters, without the FT inputs' keys and v2/ parameters;
-        // -1 when the prefab or its Expression Parameters cannot be read.
-        public static int AvatarSyncedBits(TableModel m)
-        {
-            var path = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
-            var prefab = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            var expr = prefab != null ? prefab.GetComponent<VRCAvatarDescriptor>()?.expressionParameters : null;
-            if (expr == null) return -1;
-            var ftKeys = new HashSet<string>(m.Inputs.Where(i => !i.IsDerived).Select(i => i.Key));
-            return expr.parameters.Where(p => p.networkSynced && !string.IsNullOrEmpty(p.name) && !ftKeys.Contains(p.name) && !p.name.StartsWith("v2/"))
-                .Sum(p => VRCExpressionParameters.TypeCost(p.valueType));
-        }
-
-        public static int FtSyncedBits(TableModel m) => m.Inputs.Count(i => !i.IsDerived && i.Sync == "float8") * 8;
 
         // ---- 4. Write Defaults mixed in FX
 

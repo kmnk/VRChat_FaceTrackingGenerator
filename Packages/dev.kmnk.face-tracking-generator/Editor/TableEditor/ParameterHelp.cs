@@ -59,7 +59,13 @@ namespace Kmnk.FaceTrackingGenerator
         public static string Tooltip(TableModel m, InputDef input)
         {
             if (input == null) return null;
-            if (!input.IsDerived) return Tooltip(new[] { input.Key });
+            if (!input.IsDerived)
+            {
+                var t = Tooltip(new[] { input.Key });
+                if (input.Expression == null) return t;
+                var e = string.Format(EditorText.Get(input.ExpressionFromTable ? "inputs.expressionTable" : "inputs.expression"), input.Expression);
+                return t == null ? e : t + "\n" + e;
+            }
             var ja = EditorText.Current == EditorText.Language.Japanese;
             var head = ja ? string.Join("・", input.Average) + " の平均。" : "The average of " + string.Join(" and ", input.Average) + ". ";
             var first = m.Input(input.Average.FirstOrDefault());

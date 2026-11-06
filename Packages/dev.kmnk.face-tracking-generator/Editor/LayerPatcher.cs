@@ -42,14 +42,16 @@ namespace Kmnk.FaceTrackingGenerator
 
             if (adj.StopWhileFaceTrack.Count > 0)
             {
-                if (!c.parameters.Any(p => p.name == faceTrackParameter))
-                    c.AddParameter(faceTrackParameter, UnityEngine.AnimatorControllerParameterType.Bool);
+                // Stopped while FT/Gate says FT is on (FT/Active), so that the layers come back both when FaceTrack is
+                // off and when there is no face tracking source (UserFaceTracking), and during AFK.
+                if (!c.parameters.Any(p => p.name == FtBuilder.Active))
+                    c.AddParameter(FtBuilder.Active, UnityEngine.AnimatorControllerParameterType.Float);
                 foreach (var name in adj.StopWhileFaceTrack)
                 {
                     var layer = c.layers.FirstOrDefault(l => l.name == name)
                         ?? throw new TableLoader.TableException($"layer '{name}' to stop while FT is on is not in {c.name}");
-                    var n = StopWhile(layer.stateMachine, faceTrackParameter);
-                    log.Add($"layer {name}: added '{faceTrackParameter} is false' to {n} transitions");
+                    var n = StopWhile(layer.stateMachine, FtBuilder.Active);
+                    log.Add($"layer {name}: added '{FtBuilder.Active} < 0.5' to {n} transitions");
                 }
             }
             return log;
@@ -64,14 +66,14 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var t in sm.anyStateTransitions)
             {
                 if (t.destinationState == def || HasCondition(t, param)) continue;
-                t.AddCondition(AnimatorConditionMode.IfNot, 0, param);
+                t.AddCondition(AnimatorConditionMode.Less, 0.5f, param);
                 count++;
             }
             if (def != null)
                 foreach (var t in def.transitions)
                 {
                     if (t.destinationState == def || HasCondition(t, param)) continue;
-                    t.AddCondition(AnimatorConditionMode.IfNot, 0, param);
+                    t.AddCondition(AnimatorConditionMode.Less, 0.5f, param);
                     count++;
                 }
             return count;
@@ -91,7 +93,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         static bool HasCondition(AnimatorStateTransition t, string param) =>
-            t.conditions.Any(c => c.parameter == param && c.mode == AnimatorConditionMode.IfNot);
+            t.conditions.Any(c => c.parameter == param && c.mode == AnimatorConditionMode.Less);
     }
 
     // Parameter names a state machine reads or writes: conditions, BlendTree parameters, state parameters,

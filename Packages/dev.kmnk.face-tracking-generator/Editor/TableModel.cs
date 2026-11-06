@@ -14,9 +14,12 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class InputDef
     {
         public string Name;
-        public string Key;              // Animator parameter sent by the device (e.g. a v2/* key). Null for derived inputs
+        public string Key;              // Which value it is (e.g. v2/EyeLidLeft), to find its built-in expression. Null for derived inputs
+        public string Parameter;        // Animator parameter the generated layers read: FT/In/<Name> (Forward to Animator writes it)
+        public string Expression;       // Custom expression from the tracking keys. Null for derived inputs
+        public bool ExpressionFromTable;  // true: the table's "expression"; false: built in (NativeInputs)
         public string Smoothing;        // SmoothingDef name, or null for no smoothing
-        public string Sync;             // "none" or "float8"
+        public string Sync;             // "none" or "float8" as written in the table. Not used: inputs come from the Face Tracking section and are not synced
         public List<string> Average;    // derived input: average of these inputs
         public bool IsDerived => Average != null;
     }
@@ -142,6 +145,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         // What the loader dropped and why (R23), for reports
         public List<string> Dropped = new List<string>();
+        // Notes for the generation log that are not problems (e.g. a table key that is no longer used)
+        public List<string> Notes = new List<string>();
         // Problems found while loading that do not stop loading
         public List<string> Warnings = new List<string>();
 

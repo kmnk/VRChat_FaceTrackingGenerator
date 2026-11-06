@@ -59,14 +59,14 @@ namespace Kmnk.FaceTrackingGenerator
             InputChoices.Result DeviceRows()
             {
                 var m = doc.Model();
-                return InputChoices.Rows(doc.Json(TableDocument.Input), expression, m, device, doc.SavedJson(TableDocument.Input), StaticChecker.AvatarSyncedBits(m));
+                return InputChoices.Rows(doc.Json(TableDocument.Input), expression, m, device, doc.SavedJson(TableDocument.Input));
             }
             if (device != null)
                 foreach (var tree in ExpressionGraph.TreeNames(expression).Where(t => only == null || t == only))
                 {
                     var rows = DeviceRows();
                     var sided = expression["trees"]?[tree]?["sides"] != null;
-                    Debug.Log($"[FTG] graph device {tree}: device={device.Name} synced={rows.Total} choices={string.Join(",", InputChoices.SplitChoices(rows, sided).Select(r => r.Name))}");
+                    Debug.Log($"[FTG] graph device {tree}: device={device.Name} choices={string.Join(",", InputChoices.SplitChoices(rows, sided).Select(r => r.Name))}");
                 }
             foreach (var item in (CliArgs.Get("-ftSplitAdd") ?? "").Split(';').Where(x => x.Contains("=")))
             {
@@ -83,7 +83,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var after = doc.Model();
                 var written = doc.Json(TableDocument.Input)["inputs"]?[choice.Name]?.ToString(Newtonsoft.Json.Formatting.None) ?? "-";
                 var node = made != null ? ExpressionGraph.Find(expression, head[0], made).ToString(Newtonsoft.Json.Formatting.None) : "-";
-                Debug.Log($"[FTG] graph split-add {head[0]} {head[1]}#{row} {rest[0]} {rest[1]}: offered=true input={written} synced={DeviceRows().Total} new={made ?? "-"} node={node} max-weight-diff={F(MaxWeightDiff(before, after))}");
+                Debug.Log($"[FTG] graph split-add {head[0]} {head[1]}#{row} {rest[0]} {rest[1]}: offered=true input={written} new={made ?? "-"} node={node} max-weight-diff={F(MaxWeightDiff(before, after))}");
             }
             foreach (var item in (CliArgs.Get("-ftSplit2D") ?? "").Split(';').Where(x => x.Contains("=")))
             {

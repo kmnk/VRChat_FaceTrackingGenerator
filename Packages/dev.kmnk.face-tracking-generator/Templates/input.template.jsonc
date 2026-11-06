@@ -1,4 +1,10 @@
-// Input layer: the keys a device sends, how they are smoothed, and how they are synced.
+// Input layer: the values FT uses and how they are smoothed.
+// Each input is made in the avatar's Face Tracking section (Forward to Animator) from the face tracking keys, so it moves
+// with the desktop Selfie Expression and with devices through VRCFaceTracking (2026-11-02 or later). Inputs are not
+// synced: every client makes them from the face tracking data.
+// "key" names the value (v2/<name>, as in VRCFaceTracking); the tool knows the expression of the values in
+// Templates/Devices. "expression" writes your own, with the key names of the Face Tracking section, Voice and Viseme_*,
+// numbers, + - * /, abs, min, max and clamp, e.g. "expression": "JawOpen * 1.2". An input without an expression is dropped.
 // Copy this file to Settings/ and edit the copy.
 {
   // Time constants in seconds. "local" is for your own view, "remote" for others.
@@ -11,11 +17,11 @@
 
   "inputs": {
     // A left/right pair written once. "{side}" becomes Left and Right.
-    "EyeLid{side}": { "sides": ["Left", "Right"], "key": "v2/EyeLid{side}", "smoothing": "default", "sync": "float8" },
-    "SmileFrown": { "key": "v2/SmileFrown", "smoothing": "default", "sync": "float8" },
-    "JawOpen": { "key": "v2/JawOpen", "smoothing": "default", "sync": "float8" },
-    "Eye{side}X": { "sides": ["Left", "Right"], "key": "v2/Eye{side}X", "smoothing": "default", "sync": "float8" },
-    "Eye{side}Y": { "sides": ["Left", "Right"], "key": "v2/Eye{side}Y", "smoothing": "default", "sync": "float8" },
+    "EyeLid{side}": { "sides": ["Left", "Right"], "key": "v2/EyeLid{side}", "smoothing": "default" },
+    "SmileFrown": { "key": "v2/SmileFrown", "smoothing": "default" },
+    "JawOpen": { "key": "v2/JawOpen", "smoothing": "default" },
+    "Eye{side}X": { "sides": ["Left", "Right"], "key": "v2/Eye{side}X", "smoothing": "default" },
+    "Eye{side}Y": { "sides": ["Left", "Right"], "key": "v2/Eye{side}Y", "smoothing": "default" },
 
     // A derived input: the average of two inputs (for avatars with one set of gaze blendshapes).
     "EyeX": { "average": ["EyeLeftX", "EyeRightX"] },

@@ -242,6 +242,14 @@ namespace Kmnk.FaceTrackingGenerator
                 else
                 {
                     def.Key = Str(io, "key", file);
+                    var expr = OptStr(io, "expression", null);
+                    if (expr != null)
+                    {
+                        try { FtExpression.Parse(expr); }
+                        catch (FtExpression.ParseException e) { throw new TableException($"{file}: input '{name}': {e.Message}"); }
+                        def.Expression = expr;
+                        def.ExpressionFromTable = true;
+                    }
                     def.Smoothing = OptStr(io, "smoothing", null);
                     def.Sync = OptStr(io, "sync", "none");
                     if (def.Sync != "none" && def.Sync != "float8")
@@ -250,8 +258,14 @@ namespace Kmnk.FaceTrackingGenerator
                         throw new TableException($"{file}: input '{name}': unknown smoothing '{def.Smoothing}'");
                 }
                 if (m.Inputs.Any(i => i.Name == name)) throw new TableException($"{file}: duplicate input '{name}'");
+                def.Parameter = NativeInputs.Parameter(name);
+                if (def.Parameter.Length > NativeInputs.MaxParameterLength)
+                    throw new TableException($"{file}: input '{name}': the name is too long (the parameter {def.Parameter} is over {NativeInputs.MaxParameterLength} characters)");
                 m.Inputs.Add(def);
             }
+            var synced = m.Inputs.Where(i => !i.IsDerived && i.Sync == "float8").Select(i => i.Name).ToList();
+            if (synced.Count > 0)
+                m.Notes.Add($"input table: sync is ignored: inputs come from the Face Tracking section and are not synced ({string.Join(", ", synced)})");
             foreach (var d in m.Inputs.Where(i => i.IsDerived))
                 foreach (var src in d.Average)
                     if (m.Input(src) == null || m.Input(src).IsDerived)
@@ -359,10 +373,14 @@ namespace Kmnk.FaceTrackingGenerator
             var missing = new HashSet<string>(missingKeys);
             foreach (var i in m.Inputs.ToList())
             {
-                var drop = !i.IsDerived ? missing.Contains(i.Key) : i.Average.Any(s => m.Input(s) == null);
-                if (!drop) continue;
+                if (!i.IsDerived && i.Expression == null) i.Expression = NativeInputs.Expression(i.Key);
+                string why = null;
+                if (i.IsDerived) { if (i.Average.Any(s => m.Input(s) == null)) why = "a source input is not sent"; }
+                else if (missing.Contains(i.Key)) why = "the device does not send " + i.Key;
+                else if (i.Expression == null) why = "no expression for " + i.Key + " (write \"expression\" in the input table)";
+                if (why == null) continue;
                 m.Inputs.Remove(i);
-                m.Dropped.Add($"input {i.Name}: {(i.IsDerived ? "a source input is not sent" : "the device does not send " + i.Key)}");
+                m.Dropped.Add($"input {i.Name}: {why}");
             }
 
             foreach (var sw in m.Switches.ToList())

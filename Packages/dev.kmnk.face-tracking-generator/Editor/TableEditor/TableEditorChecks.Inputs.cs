@@ -9,14 +9,13 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftDevice <id>                 a file name in Templates/Devices without .jsonc (default: none, "Settings")
         //   -ftAddInput "<name>;..."       check rows of "Not in the settings" (names as written, "BrowInnerUp{side}")
         //   -ftRemoveInput "<name>;..."    uncheck rows of "In the settings"
-        //   -ftSetSync "<name>=synced|local;..."
         //   -ftTips 1                      prints the tooltips (in the -ftHelp language) and the rows without a description
         // Lines:
-        //   [FTG] inputs total=<bits> saved=<b> added=<b> avatar=<b or -1> over=<bool>
-        //   [FTG] inputs in <name> | <display> | sync=<s> bits=<b> added=<bool> locked=<bool> | <note>
-        //   [FTG] inputs out <name> | <display> | bits=<b>
-        //   [FTG] inputs add|remove|sync <name>: done=<bool>
-        //   [FTG] inputs saved <path>   or   [FTG] inputs save blocked: <reason>  (exit 1)
+        //   [FTG] inputs in=<n> out=<n>
+        //   [FTG] inputs in <name> | <display> | expression=<expression or -> added=<bool> locked=<bool> not-sent=<bool> | <note>
+        //   [FTG] inputs out <name> | <display> | expression=<expression>
+        //   [FTG] inputs add|remove <name>: done=<bool>
+        //   [FTG] inputs saved <path>
         public static void Inputs() => Cli.Run(() =>
         {
             var help = CliArgs.Get("-ftHelp");
@@ -29,15 +28,15 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var m = doc.Model();
                 return InputChoices.Rows(doc.Json(TableDocument.Input), doc.Json(TableDocument.Expression), m, device,
-                    doc.SavedJson(TableDocument.Input), StaticChecker.AvatarSyncedBits(m));
+                    doc.SavedJson(TableDocument.Input));
             }
             void Print(InputChoices.Result r)
             {
-                Debug.Log($"[FTG] inputs total={r.Total} saved={r.SavedBits} added={r.AddedBits} avatar={r.AvatarBits} over={r.Over.ToString().ToLower()}");
+                Debug.Log($"[FTG] inputs in={r.InTable.Count} out={r.NotInTable.Count}");
                 foreach (var row in r.InTable)
-                    Debug.Log($"[FTG] inputs in {row.Name} | {row.Display} | sync={row.Sync} bits={row.Bits} added={row.Added.ToString().ToLower()} locked={row.Locked.ToString().ToLower()} | {InputChoices.Note(row) ?? "-"}");
+                    Debug.Log($"[FTG] inputs in {row.Name} | {row.Display} | expression={InputChoices.ExpressionText(row) ?? "-"} added={row.Added.ToString().ToLower()} locked={row.Locked.ToString().ToLower()} not-sent={row.NotSent.ToString().ToLower()} | {InputChoices.Note(row) ?? "-"}");
                 foreach (var row in r.NotInTable)
-                    Debug.Log($"[FTG] inputs out {row.Name} | {row.Display} | bits={row.Bits}");
+                    Debug.Log($"[FTG] inputs out {row.Name} | {row.Display} | expression={InputChoices.ExpressionText(row) ?? "-"}");
             }
             Print(Rows());
             if (CliArgs.Get("-ftTips") == "1")
@@ -69,22 +68,10 @@ namespace Kmnk.FaceTrackingGenerator
                 Debug.Log($"[FTG] inputs remove {name}: done={done.ToString().ToLower()}" + (row != null && row.Locked ? $" ({InputChoices.Note(row)})" : ""));
                 changed |= done;
             }
-            foreach (var item in (CliArgs.Get("-ftSetSync") ?? "").Split(';').Where(x => x.Contains("=")))
-            {
-                var k = item.IndexOf('=');
-                var name = item.Substring(0, k);
-                var ok = doc.Json(TableDocument.Input)["inputs"]?[name] != null;
-                if (ok) InputChoices.SetSync(doc.Json(TableDocument.Input), name, item.Substring(k + 1) == "synced");
-                Debug.Log($"[FTG] inputs sync {name}: done={ok.ToString().ToLower()}");
-                changed |= ok;
-            }
             if (changed) Print(Rows());
 
             if (CliArgs.Get("-ftSave") == "1")
-            {
-                try { foreach (var p in doc.Save()) Debug.Log($"[FTG] inputs saved {p}"); }
-                catch (TableLoader.TableException e) { Debug.Log($"[FTG] inputs save blocked: {e.Message}"); return 1; }
-            }
+                foreach (var p in doc.Save()) Debug.Log($"[FTG] inputs saved {p}");
             return 0;
         });
     }

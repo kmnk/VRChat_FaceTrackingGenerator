@@ -11,7 +11,8 @@ namespace Kmnk.FaceTrackingGenerator
 {
     // Adds the FT layers to the FX controller (design.md "FT の Animator の組み方"):
     //   FT/Smoothing  smooths inputs that the table smooths (Direct BlendTree feeding back into itself)
-    //   FT/Gate       FT/Active and FT/MouthActive from FaceTrack, AFK and Voice, plus Tracking Control
+    //   FT/Gate       FT/Active and FT/MouthActive from FaceTrack, AFK, Voice and UserFaceTracking
+    //   FT/Blink      with stopAutoEyes: blinks (FT/Blink) while FT is off, in place of Eye Look's eyelids
     //   FT/Switch/*   one layer per switch; each state writes FT/Sw/<switch>/<state>
     //   FT/Face       the only layer that writes blendshapes: one Direct BlendTree
     public sealed class FtBuilder
@@ -19,6 +20,9 @@ namespace Kmnk.FaceTrackingGenerator
         public const string One = "FT/One";
         public const string Active = "FT/Active";
         public const string MouthActive = "FT/MouthActive";
+        public const string Blink = "FT/Blink";
+        const float BlinkInterval = 4f;   // seconds between blinks while FT is off
+        const float BlinkLength = 0.15f;  // seconds the eyes take to close and open again
         public const float TalkThreshold = 0.1f;
         const float ConstantModeFps = 60;
 
@@ -43,10 +47,17 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var i = m.Input(name) ?? throw new InvalidOperationException("unknown input " + name);
             if (i.IsDerived) return DerivedParam(name);
-            return i.Smoothing != null ? SmoothParam(name) : i.Key;
+            return i.Smoothing != null ? SmoothParam(name) : i.Parameter;
         }
 
         public const string DeltaTime = "FT/DeltaTime";
+
+        // VRChat's built-in parameter: true while a face tracking source (Selfie Expression, OSC face tracking) is active.
+        // FT runs only while it is true (R8).
+        public const string SourceParameter = "UserFaceTracking";
+
+        // The condition on the face tracking source, in one place so that it can be changed alone.
+        void WhenSource(AnimatorStateTransition t, bool present) => u.When(t, SourceParameter, present);
 
         public void Build()
         {
@@ -54,6 +65,7 @@ namespace Kmnk.FaceTrackingGenerator
             FrameTime();
             Smoothing();
             Gate();
+            if (Blinks) BlinkLayer();
             foreach (var sw in m.Switches) Switch(sw);
             Face();
         }
@@ -63,15 +75,17 @@ namespace Kmnk.FaceTrackingGenerator
             u.EnsureParameter(One, AnimatorControllerParameterType.Float, 1);
             u.EnsureParameter(Active, AnimatorControllerParameterType.Float);
             u.EnsureParameter(MouthActive, AnimatorControllerParameterType.Float);
+            if (Blinks) u.EnsureParameter(Blink, AnimatorControllerParameterType.Float);
             u.EnsureParameter(m.FaceTrackParameter, AnimatorControllerParameterType.Bool, 1);
             u.EnsureParameter("IsLocal", AnimatorControllerParameterType.Bool);
             u.EnsureParameter("Voice", AnimatorControllerParameterType.Float);
+            u.EnsureParameter(SourceParameter, AnimatorControllerParameterType.Bool);
             foreach (var p in afkGroups.SelectMany(g => g.Parameters))
                 u.EnsureParameter(p, p == AfkBuilder.Playing ? AnimatorControllerParameterType.Float : AnimatorControllerParameterType.Bool);
             foreach (var i in m.Inputs)
             {
                 if (i.IsDerived) { u.EnsureParameter(DerivedParam(i.Name), AnimatorControllerParameterType.Float); continue; }
-                u.EnsureParameter(i.Key, AnimatorControllerParameterType.Float);
+                u.EnsureParameter(i.Parameter, AnimatorControllerParameterType.Float);
                 if (i.Smoothing != null) u.EnsureParameter(SmoothParam(i.Name), AnimatorControllerParameterType.Float);
             }
             foreach (var s in m.Smoothings)
@@ -156,7 +170,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var target = SmoothParam(i.Name);
                 var lo = u.ParamClip($"FT/Smoothing/{mode}/{i.Name}/-1", new[] { (target, -1f) });
                 var hi = u.ParamClip($"FT/Smoothing/{mode}/{i.Name}/1", new[] { (target, 1f) });
-                var fromInput = u.NewTree($"FT/Smoothing/{mode}/{i.Name}/Input", BlendTreeType.Simple1D, i.Key);
+                var fromInput = u.NewTree($"FT/Smoothing/{mode}/{i.Name}/Input", BlendTreeType.Simple1D, i.Parameter);
                 fromInput.AddChild(lo, -1);
                 fromInput.AddChild(hi, 1);
                 var feedback = u.NewTree($"FT/Smoothing/{mode}/{i.Name}/Feedback", BlendTreeType.Simple1D, target);
@@ -201,11 +215,8 @@ namespace Kmnk.FaceTrackingGenerator
             var on = AnimUtil.State(sm, "On", u.ParamClip("FT/Gate/On", new[] { (Active, 1f), (MouthActive, 1f) }), new Vector3(600, 0));
             var talking = AnimUtil.State(sm, "Talking", u.ParamClip("FT/Gate/Talking", new[] { (Active, 1f), (MouthActive, 0f) }), new Vector3(900, 0));
             sm.defaultState = off;
-            if (m.StopAutoEyes)
-            {
-                Tracking(off, VRC_AnimatorTrackingControl.TrackingType.Tracking);
-                Tracking(on, VRC_AnimatorTrackingControl.TrackingType.Animation);
-            }
+            // No Tracking Control on the eyes, whatever stopAutoEyes says: with Eyes & Eyelid on Animation, VRChat
+            // forwards the face tracking eye keys as 0, and the eye inputs stop.
             var mute = m.Layers.TryGetValue("fx", out var fxAdj) ? fxAdj.MuteWhileFaceTrack : new List<string>();
             LayerWeights(on, mute, true);
             LayerWeights(off, mute, false);
@@ -236,20 +247,28 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 if (g.Wait <= 0)
                 {
-                    u.When(Leave(on), ft, true);
+                    var toOn = Leave(on);
+                    u.When(toOn, ft, true);
+                    WhenSource(toOn, true);
                     u.When(Leave(off), ft, false);
+                    WhenSource(Leave(off), false);
                 }
                 else
                 {
                     var wait = AnimUtil.State(sm, "Wait/" + label, u.ParamClip("FT/Gate/Wait/" + label, new[] { (Active, 0f), (MouthActive, 0f) }, g.Wait), new Vector3(600, y));
                     Leave(wait);
-                    foreach (var (to, v) in new[] { (on, true), (off, false) })
+                    AnimatorStateTransition After(AnimatorState to)
                     {
                         var t = AnimUtil.Transition(wait, to);
                         t.hasExitTime = true;
                         t.exitTime = 1;
-                        u.When(t, ft, v);
+                        return t;
                     }
+                    var toOn = After(on);
+                    u.When(toOn, ft, true);
+                    WhenSource(toOn, true);
+                    u.When(After(off), ft, false);
+                    WhenSource(After(off), false);
                 }
                 y += 100;
             }
@@ -258,9 +277,14 @@ namespace Kmnk.FaceTrackingGenerator
             var toOff = AnimUtil.AnyTransition(sm, off);
             u.When(toOff, ft, false);
             foreach (var p in allAfk) u.When(toOff, p, false);
+            // No face tracking source (and no AFK): the same, from anywhere (R8)
+            var noSource = AnimUtil.AnyTransition(sm, off);
+            WhenSource(noSource, false);
+            foreach (var p in allAfk) u.When(noSource, p, false);
 
             var offOn = AnimUtil.Transition(off, on);
             u.When(offOn, ft, true);
+            WhenSource(offOn, true);
             foreach (var p in allAfk) u.When(offOn, p, false);
 
             AnimUtil.Transition(on, talking).AddCondition(AnimatorConditionMode.Greater, TalkThreshold, "Voice");
@@ -285,13 +309,28 @@ namespace Kmnk.FaceTrackingGenerator
 
         static string W(float seconds) => seconds.ToString("0.###", CultureInfo.InvariantCulture);
 
-        static void Tracking(AnimatorState s, VRC_AnimatorTrackingControl.TrackingType eyes)
+        // ---- FT/Blink
+
+        // The generated avatar's Eye Look has no eyelids with stopAutoEyes (Generator.Assign), so the generator blinks by itself
+        // while FT is off. Needs both eye-closing parts.
+        bool Blinks => m.StopAutoEyes && m.Parts.ContainsKey("eye.close_L") && m.Parts.ContainsKey("eye.close_R");
+
+        void BlinkLayer()
         {
-            var tc = s.AddStateMachineBehaviour<VRCAnimatorTrackingControl>();
-            tc.trackingHead = tc.trackingLeftHand = tc.trackingRightHand = tc.trackingHip = VRC_AnimatorTrackingControl.TrackingType.NoChange;
-            tc.trackingLeftFoot = tc.trackingRightFoot = tc.trackingLeftFingers = tc.trackingRightFingers = VRC_AnimatorTrackingControl.TrackingType.NoChange;
-            tc.trackingMouth = VRC_AnimatorTrackingControl.TrackingType.NoChange;
-            tc.trackingEyes = eyes;
+            var layer = u.NewLayer("FT/Blink");
+            Layers.Add(layer);
+            var sm = layer.stateMachine;
+            var open = AnimUtil.State(sm, "Open", u.CurveClip("FT/Blink/Open", Blink, true, (0, 0), (BlinkInterval, 0)), new Vector3(300, 0));
+            var close = AnimUtil.State(sm, "Close", u.CurveClip("FT/Blink/Close", Blink, false, (0, 0), (BlinkLength * 0.4f, 1), (BlinkLength, 0)), new Vector3(600, 0));
+            sm.defaultState = open;
+            // Exit time below 1 on a looping clip: checked again on every loop while FT is on.
+            var toClose = AnimUtil.Transition(open, close);
+            toClose.hasExitTime = true;
+            toClose.exitTime = 0.99f;
+            toClose.AddCondition(AnimatorConditionMode.Less, 0.5f, Active);
+            var back = AnimUtil.Transition(close, open);
+            back.hasExitTime = true;
+            back.exitTime = 1;
         }
 
         // ---- FT/Switch/*
@@ -341,6 +380,12 @@ namespace Kmnk.FaceTrackingGenerator
                     any = true;
                 }
                 if (any) AnimUtil.AddDirectChild(root, groupTree, weight);
+            }
+            if (Blinks)
+            {
+                var l = m.Parts["eye.close_L"];
+                var r = m.Parts["eye.close_R"];
+                AnimUtil.AddDirectChild(root, u.ShapeClip("FT/Face/Blink", new[] { (l.Mesh, l.Shape, 100f), (r.Mesh, r.Shape, 100f) }), Blink);
             }
             AnimUtil.State(layer.stateMachine, "Face", root, new Vector3(300, 0));
         }

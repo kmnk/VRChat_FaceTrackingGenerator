@@ -51,7 +51,8 @@
   // Wait for the avatar's own AFK layer to restore tracking.
   "afkGroups": [ { "parameters": ["AFK"], "wait": 6 } ],
 
-  // Stop VRChat's automatic blink and eye look while FT is on (Tracking Control).
+  // Turn off the eyelids of the avatar's Eye Look (they would close on top of FT's eyelids); FT blinks while it is
+  // not running. Eye Look still moves the eyes.
   "stopAutoEyes": true,
 
   // Changes to the avatar's own layers in the copied controllers.

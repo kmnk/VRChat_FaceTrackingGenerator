@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 namespace Kmnk.FaceTrackingGenerator
 {
     // The Inputs tab without drawing: the inputs of the input table and the values a device sends, as rows to check or
-    // uncheck, with the synced bits. Works on the JSON input table, so a left/right pair stays one row.
+    // uncheck, with the expression each input is made from. Works on the JSON input table, so a left/right pair stays one row.
     public static class InputChoices
     {
         public sealed class Row
@@ -16,8 +16,8 @@ namespace Kmnk.FaceTrackingGenerator
             public bool InTable, Added, Sided, NotSent;
             public List<string> Expanded = new List<string>();  // input names after the sides
             public List<string> Keys = new List<string>();      // v2 keys after the sides
-            public string Sync;                 // "float8" or "none" (rows in the table)
-            public int Bits;
+            public List<string> Expressions = new List<string>();  // per side: the table's or the built-in expression (null: none)
+            public bool ExpressionFromTable;
             public SortedSet<string> UsedBy = new SortedSet<string>(StringComparer.Ordinal);   // expressions
             public SortedSet<string> Through = new SortedSet<string>(StringComparer.Ordinal);  // average inputs on the way
             public bool Locked => UsedBy.Count > 0;
@@ -27,18 +27,14 @@ namespace Kmnk.FaceTrackingGenerator
         {
             public List<Row> InTable = new List<Row>();
             public List<Row> NotInTable = new List<Row>();
-            public int SavedBits, AddedBits;
-            public int AvatarBits = -1;         // -1: not counted
-            public int Total => Math.Max(0, AvatarBits) + SavedBits + AddedBits;
-            public bool Over => Total > StaticChecker.MaxSyncedBits;
         }
 
         static string Sub(string s, Dictionary<string, string> vars) => Tuning.Sub(s, vars);
 
         // Rows for the tables. device is null for "Settings"; saved is the input table as last saved (for "added").
-        public static Result Rows(JObject input, JObject expression, TableModel model, Devices.Device device, JObject saved, int avatarBits)
+        public static Result Rows(JObject input, JObject expression, TableModel model, Devices.Device device, JObject saved)
         {
-            var r = new Result { AvatarBits = avatarBits };
+            var r = new Result();
             var savedNames = new HashSet<string>((saved?["inputs"] as JObject)?.Properties().Select(p => p.Name) ?? Enumerable.Empty<string>());
             var used = Usage(expression, model);
             var tableKeys = new HashSet<string>();
@@ -51,29 +47,28 @@ namespace Kmnk.FaceTrackingGenerator
                     var row = new Row
                     {
                         Name = p.Name, InTable = true, Added = !savedNames.Contains(p.Name), Sided = sides != null,
-                        Sync = (string)o["sync"] ?? "none",
+                        ExpressionFromTable = o["expression"] != null,
                     };
                     row.Display = Tuning.Label(p.Name) + (row.Sided ? " (left and right)" : "");
                     foreach (var v in vars)
                     {
                         row.Expanded.Add(Sub(p.Name, v));
                         if (o["key"] != null) row.Keys.Add(Sub((string)o["key"], v));
+                        row.Expressions.Add(o["expression"] != null ? Sub((string)o["expression"], v) : o["key"] != null ? NativeInputs.Expression(Sub((string)o["key"], v)) : null);
                     }
-                    row.Bits = row.Sync == "float8" ? 8 * row.Expanded.Count : 0;
                     foreach (var n in row.Expanded)
                         if (used.TryGetValue(n, out var u))
                         {
                             row.UsedBy.UnionWith(u.trees);
                             row.Through.UnionWith(u.through);
                         }
-                    row.NotSent = device != null && row.Keys.Count > 0 && row.Keys.Any(k => !device.Has(k));
-                    foreach (var k in row.Keys) tableKeys.Add(k);
+                    row.NotSent = device != null && row.Keys.Count > 0 && row.Keys.Where((k, i) => !device.Sends(k, row.Expressions[i])).Any();
+                    foreach (var k in row.Keys) tableKeys.Add(Devices.NameOf(k));
                     r.InTable.Add(row);
-                    if (row.Added) r.AddedBits += row.Bits; else r.SavedBits += row.Bits;
                 }
             if (device != null)
             {
-                var names = device.Keys.Select(k => k.key).Where(k => !tableKeys.Contains(k)).Select(Devices.NameOf).ToList();
+                var names = device.Values().Where(n => !tableKeys.Contains(n)).ToList();
                 var set = new HashSet<string>(names);
                 var done = new HashSet<string>();
                 foreach (var n in names.OrderBy(x => x, StringComparer.Ordinal))
@@ -84,11 +79,11 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         var name = n.Replace("Left", "{side}");
                         r.NotInTable.Add(new Row { Name = name, Display = Tuning.Label(name) + " (left and right)", Sided = true,
-                            Expanded = { n, right }, Keys = { "v2/" + n, "v2/" + right }, Bits = 16 });
+                            Expanded = { n, right }, Keys = { "v2/" + n, "v2/" + right }, Expressions = { NativeInputs.Expression(n), NativeInputs.Expression(right) } });
                         done.Add(right);
                     }
                     else if (n.Contains("Right") && set.Contains(n.Replace("Right", "Left"))) continue;
-                    else r.NotInTable.Add(new Row { Name = n, Display = n, Expanded = { n }, Keys = { "v2/" + n }, Bits = 8 });
+                    else r.NotInTable.Add(new Row { Name = n, Display = n, Expanded = { n }, Keys = { "v2/" + n }, Expressions = { NativeInputs.Expression(n) } });
                     done.Add(n);
                 }
                 r.NotInTable.Sort((a, b) => string.CompareOrdinal(a.Display, b.Display));
@@ -148,12 +143,11 @@ namespace Kmnk.FaceTrackingGenerator
             if (row.Sided) o["sides"] = new JArray("Left", "Right");
             o["key"] = "v2/" + row.Name;
             if (input["smoothing"]?["default"] != null) o["smoothing"] = "default";
-            o["sync"] = "float8";
 
             int Rank(IEnumerable<string> keys)
             {
                 if (device == null) return -1;
-                var ranks = keys.Select(k => device.Keys.FindIndex(x => x.key == k)).Where(i => i >= 0).ToList();
+                var ranks = keys.Select(k => device.Keys.FindIndex(x => Devices.NameOf(x.key) == Devices.NameOf(k))).Where(i => i >= 0).ToList();
                 return ranks.Count == 0 ? -1 : ranks.Min();
             }
             List<string> KeysOf(JProperty p)
@@ -183,11 +177,6 @@ namespace Kmnk.FaceTrackingGenerator
             return inputs.Remove(row.Name);
         }
 
-        public static void SetSync(JObject input, string name, bool synced)
-        {
-            if (input["inputs"]?[name] is JObject o) o["sync"] = synced ? "float8" : "none";
-        }
-
         // ---- texts
 
         // The tooltip of a row: what the value is, its v2 keys, and why it cannot be unchecked.
@@ -205,6 +194,15 @@ namespace Kmnk.FaceTrackingGenerator
             return tip;
         }
 
+        // The expression of a row, with {side} for a left/right pair; null when there is none.
+        public static string ExpressionText(Row row)
+        {
+            var e = row.Expressions.FirstOrDefault();
+            if (e == null) return null;
+            return row.Sided && row.Expanded.Count == 2 && row.Expressions.Count == 2 && e.Replace("Left", "Right") == row.Expressions[1]
+                ? e.Replace("Left", "{side}") : string.Join(" / ", row.Expressions);
+        }
+
         public static string Note(Row row)
         {
             var ja = EditorText.Current == EditorText.Language.Japanese;
@@ -217,7 +215,10 @@ namespace Kmnk.FaceTrackingGenerator
             }
             else if (row.Added) parts.Add(EditorText.Get("inputs.added"));
             if (row.NotSent) parts.Add(EditorText.Get("inputs.notSent"));
-            return parts.Count == 0 ? null : string.Join(ja ? "　" : " ", parts);
+            var expr = ExpressionText(row);
+            parts.Add(expr == null ? EditorText.Get("inputs.noExpression")
+                : string.Format(EditorText.Get(row.ExpressionFromTable ? "inputs.expressionTable" : "inputs.expression"), expr));
+            return parts.Count == 0 ? null : string.Join(ja ? "　" : "; ", parts);
         }
     }
 }

@@ -21,11 +21,26 @@ namespace Kmnk.FaceTrackingGenerator
             public List<string> Written = new List<string>();
             public Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController> Controllers = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             public VRCExpressionParameters ExpressionParameters;
+            // Forward to Animator behaviors for the Face Tracking section (NativeFtWriter)
+            public List<VRCAvatarDescriptor.FaceTrackingParameterBehavior> FaceTrackingBehaviors = new List<VRCAvatarDescriptor.FaceTrackingParameterBehavior>();
+            // stopAutoEyes: turn off the eyelids of the avatar's Eye Look. They close on top of FT/Face's eyelids, and
+            // cannot be stopped only while FT is on: Tracking Control on the eyes zeroes the face tracking eye keys.
+            // The eye bones stay: Selfie Expression on desktop moves the eyes only through them.
+            public bool TurnOffEyelids;
         }
 
-        // Points an Avatar Descriptor at the generated controllers and Expression Parameters.
+        // Points an Avatar Descriptor at the generated controllers and Expression Parameters, and writes the inputs
+        // into its Face Tracking section. Both the Prefab Variant and the build-time copy go through here.
         public static void Assign(VRCAvatarDescriptor d, Result r)
         {
+            r.Log.AddRange(NativeFtWriter.Apply(d, r.FaceTrackingBehaviors));
+            if (r.TurnOffEyelids && d.enableEyeLook && d.customEyeLookSettings.eyelidType != VRCAvatarDescriptor.EyelidType.None)
+            {
+                var eyes = d.customEyeLookSettings;
+                eyes.eyelidType = VRCAvatarDescriptor.EyelidType.None;
+                d.customEyeLookSettings = eyes;
+                r.Log.Add("eye look: eyelids turned off (stopAutoEyes)");
+            }
             d.customizeAnimationLayers = true;
             var layers = d.baseAnimationLayers;
             for (int i = 0; i < layers.Length; i++)
@@ -43,6 +58,7 @@ namespace Kmnk.FaceTrackingGenerator
         public static Result Generate(TableModel m, bool writeVariant = true)
         {
             var r = new Result();
+            foreach (var n in m.Notes) r.Log.Add("note: " + n);
             var prefabPath = ResolvePath(m.Prefab, "prefab", r);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) ?? throw new TableLoader.TableException("prefab not found: " + prefabPath);
             var desc = prefab.GetComponent<VRCAvatarDescriptor>() ?? throw new TableLoader.TableException("no VRCAvatarDescriptor on " + prefabPath);
@@ -106,6 +122,8 @@ namespace Kmnk.FaceTrackingGenerator
             r.Written.Add(exprPath);
             r.Controllers = outputs;
             r.ExpressionParameters = expr;
+            r.FaceTrackingBehaviors = NativeFtWriter.Behaviors(m);
+            r.TurnOffEyelids = m.StopAutoEyes;
 
             if (writeVariant && m.VariantPath != null)
             {
@@ -128,27 +146,21 @@ namespace Kmnk.FaceTrackingGenerator
             return a.Path ?? throw new TableLoader.TableException(what + " has neither guid nor path");
         }
 
-        // Copies Expression Parameters and makes the FT part match the input layer (R21, R23).
+        // Copies Expression Parameters without the FT inputs (R4).
         static VRCExpressionParameters ExpressionParameters(TableModel m, VRCExpressionParameters src, string dest, Result r)
         {
             if (src == null) throw new TableLoader.TableException("the avatar has no Expression Parameters");
             AssetCopy.CopyKeepingGuid(AssetDatabase.GetAssetPath(src), dest);
             var p = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(dest);
             var list = p.parameters.ToList();
-            var synced = m.Inputs.Where(i => !i.IsDerived && i.Sync == "float8").Select(i => i.Key).ToList();
+            // Inputs come from the Face Tracking section and every client computes them, so none is synced (R4).
+            // The input layer's keys and parameters, and v2/ parameters (VRCFaceTracking's), are taken out.
             var known = new HashSet<string>(m.Inputs.Where(i => !i.IsDerived).Select(i => i.Key));
-            foreach (var key in synced)
-                if (!list.Any(x => x.name == key))
-                {
-                    list.Add(new VRCExpressionParameters.Parameter { name = key, valueType = VRCExpressionParameters.ValueType.Float, defaultValue = 0, saved = false, networkSynced = true });
-                    r.Log.Add("expression parameters: added " + key);
-                }
-            // Keys of the input layer that are not synced, and keys the device does not send (dropped
-            // from the model), are taken out.
+            known.UnionWith(m.Inputs.Select(i => i.Parameter));
             foreach (var x in list.ToList())
             {
                 var isFtKey = x.name != null && x.name.StartsWith("v2/");
-                if ((known.Contains(x.name) && !synced.Contains(x.name)) || (isFtKey && !known.Contains(x.name)))
+                if (known.Contains(x.name) || isFtKey)
                 {
                     list.Remove(x);
                     r.Log.Add("expression parameters: removed " + x.name);

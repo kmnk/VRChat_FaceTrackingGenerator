@@ -268,6 +268,13 @@ namespace Kmnk.FaceTrackingGenerator
                 avatar = UnityEngine.Object.Instantiate(prefab);
                 // Build-time output: run NDMF on the instance, as entering Play Mode does for avatars in the scene.
                 if (ndmf) nadena.dev.ndmf.AvatarProcessor.ProcessAvatar(avatar);
+                if (ndmf)
+                {
+                    var fd = avatar.GetComponent<VRCAvatarDescriptor>();
+                    var bs = fd.faceTrackingParameterBehaviors ?? new List<VRCAvatarDescriptor.FaceTrackingParameterBehavior>();
+                    Debug.Log($"[FTG] scenario: face tracking enabled={fd.enableFaceTracking} allKeys={fd.useAllTrackingKeys} behaviors={bs.Count}");
+                    foreach (var b in bs) Debug.Log($"[FTG] scenario: face tracking {b.targetMode} {b.outputParameterName} = {b.customExpression}");
+                }
 
                 var desc = avatar.GetComponent<VRCAvatarDescriptor>();
                 var animator = avatar.GetComponent<Animator>();

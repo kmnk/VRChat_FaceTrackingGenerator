@@ -185,7 +185,6 @@ namespace Kmnk.FaceTrackingGenerator
                 var sided = mode == ListMode.NewTree ? newSided : editor.ExpressionJson?["trees"]?[tree]?["sides"] != null;
                 provider.DeviceName = device.Name;
                 provider.DeviceInputs = InputChoices.SplitChoices(rows, sided).Select(r => (r.Name, r.Display)).ToList();
-                provider.SyncedNow = rows.Total;
             }
             SearchWindow.Open(new SearchWindowContext(screenPosition, 240, 200), provider);
         }
@@ -224,21 +223,19 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // A choice from "Add from <device>": adds the device's input to the input table, then splits, inserts or makes the
-        // tree with it as the other choices do, as one Undo step; a notification says the synced bits.
+        // tree with it as the other choices do, as one Undo step; a notification says what was added.
         internal void ChooseWithAdd(ListMode mode, string path, int row, string newName, bool newSided, string add, string display, string x, string y)
         {
             var editor = TableEditorWindow.Current;
             if (editor == null) return;
             Undo.IncrementCurrentGroup();
             var group = Undo.GetCurrentGroup();
-            var total = editor.AddDeviceInput(add);
-            if (total < 0) return;
+            if (!editor.AddDeviceInput(add)) return;
             if (mode == ListMode.InsertAbove) InsertAbove(path, x, y);
             else if (mode == ListMode.NewTree) CreateTree(newName, x, y, newSided);
             else Split(path, row, x, y);
             Undo.CollapseUndoOperations(group);
-            var text = $"Added {display}: {total} / {StaticChecker.MaxSyncedBits} bits";
-            if (total > StaticChecker.MaxSyncedBits) text += ". Over the limit: Save is blocked";
+            var text = $"Added {display}";
             ShowNotification(new GUIContent(text), 4);
             Debug.Log("[FTG] graph add-from-device: " + text);
         }
@@ -337,7 +334,6 @@ namespace Kmnk.FaceTrackingGenerator
             public List<string> Switches = new List<string>();
             public string DeviceName;                                       // null: no "Add from <device>"
             public List<(string name, string display)> DeviceInputs = new List<(string, string)>();
-            public int SyncedNow;
             const string Add = "\u0002add", Info = "\u0003info";
 
             // A clear 1x1 icon for the rows: Unity's search list leaves room for an icon only when a row has one, so rows
@@ -359,12 +355,11 @@ namespace Kmnk.FaceTrackingGenerator
             bool HasDevice => DeviceName != null && DeviceInputs.Count > 0;
             string AddTitle => "Add from " + DeviceName;
 
-            // "Add from <device>" at level: the synced bits, then one entry (or group, for an X of 2D) per device input.
+            // "Add from <device>" at level: one entry (or group, for an X of 2D) per device input.
             void AddFromDevice(List<SearchTreeEntry> list, int level, Func<(string name, string display), SearchTreeEntry> entry)
             {
                 if (!HasDevice) return;
                 list.Add(new SearchTreeGroupEntry(new GUIContent(AddTitle), level));
-                list.Add(Leaf($"Synced now: {SyncedNow} / {StaticChecker.MaxSyncedBits} bits", level + 1, new[] { Info }));
                 foreach (var d in DeviceInputs) { var e = entry(d); if (e != null) list.Add(e); }
             }
 
@@ -393,7 +388,6 @@ namespace Kmnk.FaceTrackingGenerator
                 if (HasDevice && Inputs.Count > 0)
                 {
                     list.Add(new SearchTreeGroupEntry(new GUIContent(AddTitle), 2));
-                    list.Add(Leaf($"Synced now: {SyncedNow} / {StaticChecker.MaxSyncedBits} bits", 3, new[] { Info }));
                     foreach (var d in DeviceInputs)
                     {
                         list.Add(new SearchTreeGroupEntry(new GUIContent(d.display), 3));
