@@ -66,7 +66,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var rows = DeviceRows();
                     var sided = expression["trees"]?[tree]?["sides"] != null;
-                    Debug.Log($"[FTG] graph device {tree}: device={device.Name} choices={string.Join(",", InputChoices.SplitChoices(rows, sided).Select(r => r.Name))}");
+                    Debug.Log($"[FTG] graph device {tree}: device={device.Name} choices={string.Join(",", InputChoices.SplitChoices(rows, sided).Select(c => c.Write))}");
                 }
             foreach (var item in (CliArgs.Get("-ftSplitAdd") ?? "").Split(';').Where(x => x.Contains("=")))
             {
@@ -75,13 +75,13 @@ namespace Kmnk.FaceTrackingGenerator
                 var rest = item.Substring(k + 1).Split('|');
                 var xy = rest[1].Split(',');
                 var row = int.Parse(head[2]);
-                var choice = InputChoices.SplitChoices(DeviceRows(), expression["trees"]?[head[0]]?["sides"] != null).FirstOrDefault(r => r.Name == rest[0]);
+                var choice = InputChoices.SplitChoices(DeviceRows(), expression["trees"]?[head[0]]?["sides"] != null).FirstOrDefault(c => c.Write == rest[0]);
                 if (choice == null) { Debug.Log($"[FTG] graph split-add {item}: offered=false"); continue; }
                 var before = doc.Model();
-                InputChoices.Add(doc.Json(TableDocument.Input), choice, device);
+                InputChoices.Add(doc.Json(TableDocument.Input), choice.Row, device);
                 var made = xy.Length > 1 ? ExpressionGraph.Split2D(expression, head[0], head[1], row, xy[0], xy[1]) : ExpressionGraph.Split(expression, head[0], head[1], row, xy[0]);
                 var after = doc.Model();
-                var written = doc.Json(TableDocument.Input)["inputs"]?[choice.Name]?.ToString(Newtonsoft.Json.Formatting.None) ?? "-";
+                var written = doc.Json(TableDocument.Input)["inputs"]?[choice.Row.Name]?.ToString(Newtonsoft.Json.Formatting.None) ?? "-";
                 var node = made != null ? ExpressionGraph.Find(expression, head[0], made).ToString(Newtonsoft.Json.Formatting.None) : "-";
                 Debug.Log($"[FTG] graph split-add {head[0]} {head[1]}#{row} {rest[0]} {rest[1]}: offered=true input={written} new={made ?? "-"} node={node} max-weight-diff={F(MaxWeightDiff(before, after))}");
             }

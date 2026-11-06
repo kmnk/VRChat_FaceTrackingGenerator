@@ -167,18 +167,30 @@ namespace Kmnk.FaceTrackingGenerator
             return IsBranch(node) ? (JObject)node : null;
         }
 
-        // The inputs a position of the tree can be split with: the input table's names as written, sorted. A tree
-        // without sides cannot use a name with a side mark ("EyeLid{side}").
+        // The inputs a position of the tree can be split with, sorted.
         // For a left/right tree (sided, or a tree written with "sides"): the inputs written with "{side}", the pairs of
         // inputs written per side ("EyeLidLeft" and "EyeLidRight" give "EyeLid{side}"), and the inputs without sides.
-        // One side alone is left out (both sides would move with it). For other trees: the inputs without "{".
+        // One side alone is left out (both sides would move with it).
+        // For other trees: the inputs without "{", and each side of the inputs written with "sides", by the names the
+        // table loader gives them ("MouthCornerPull{side}" gives "MouthCornerPullLeft" and "MouthCornerPullRight").
         public static List<string> SplitInputs(JObject input, JObject expression, string tree, bool sided = false)
         {
             var hasSides = sided || (tree != null && expression?["trees"]?[tree]?["sides"] != null);
-            var names = (input?["inputs"] is JObject o ? o.Properties().Select(p => p.Name)
-                : input?["inputs"] is JArray a ? a.OfType<JObject>().Select(x => (string)x["name"]).Where(x => x != null) : Enumerable.Empty<string>()).ToList();
+            var entries = (input?["inputs"] is JObject o ? o.Properties().Select(p => (name: p.Name, value: p.Value as JObject))
+                : input?["inputs"] is JArray a ? a.OfType<JObject>().Select(x => (name: (string)x["name"], value: x)).Where(x => x.name != null)
+                : Enumerable.Empty<(string name, JObject value)>()).ToList();
+            var names = entries.Select(e => e.name).ToList();
             List<string> result;
-            if (!hasSides) result = names.Where(n => !n.Contains("{")).ToList();
+            if (!hasSides)
+            {
+                result = new List<string>();
+                foreach (var (name, value) in entries)
+                {
+                    var sides = Tuning.SidesOf(value?["sides"]);
+                    if (sides != null) result.AddRange(sides.Select(v => Tuning.Sub(name, v)).Where(n => !n.Contains("{")));
+                    else if (!name.Contains("{")) result.Add(name);
+                }
+            }
             else
             {
                 var set = new HashSet<string>(names);

@@ -126,9 +126,28 @@ namespace Kmnk.FaceTrackingGenerator
             return result;
         }
 
-        // The device's inputs not in the table that a box can be split on (the expression graph's "Add from <device>"):
-        // in a tree with sides every row, in a tree without sides only the rows without sides (as ExpressionGraph.SplitInputs).
-        public static List<Row> SplitChoices(Result r, bool sided) => r.NotInTable.Where(x => sided || !x.Sided).ToList();
+        // A device input offered by the expression graph's "Add from <device>": the row to add to the input table, the
+        // name to write in the tree, and the name shown in the list.
+        public sealed class SplitChoice
+        {
+            public Row Row;
+            public string Write, Display;
+        }
+
+        // The device's inputs not in the table that a box can be split on, sorted by what the list shows. In a tree with
+        // sides every row as it is; in a tree without sides, a left/right row gives one choice per side
+        // ("BrowLowererLeft"), which adds the pair and writes that side (as ExpressionGraph.SplitInputs).
+        public static List<SplitChoice> SplitChoices(Result r, bool sided)
+        {
+            var list = new List<SplitChoice>();
+            foreach (var row in r.NotInTable)
+            {
+                if (sided || !row.Sided) list.Add(new SplitChoice { Row = row, Write = row.Name, Display = row.Display });
+                else foreach (var n in row.Expanded) list.Add(new SplitChoice { Row = row, Write = n, Display = n });
+            }
+            list.Sort((a, b) => string.CompareOrdinal(a.Display, b.Display));
+            return list;
+        }
 
         // ---- edits (on the input table's JSON)
 
