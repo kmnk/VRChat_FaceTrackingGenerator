@@ -156,7 +156,7 @@ namespace Kmnk.FaceTrackingGenerator
             // "-ftSwitchEdit "<op>|<switch>|<args...>;..."": rename|<sw>|<name>, state|<sw>|<old>|<new>, add-state|<sw>,
             // remove-state|<sw>|<state>, add-tr|<sw>|<input>, remove-tr|<sw>|<i>, set-tr|<sw>|<i>|<from>|<to>|<duration>,
             // add-cond|<sw>|<i>|<input>, remove-cond|<sw>|<i>|<j>, set-cond|<sw>|<i>|<j>|<input>|<op>|<value>,
-            // new|-, remove|<sw> (only when unused)
+            // new|-, remove|<sw> (only when unused), add-stop|<sw>|<state>|<tree>, remove-stop|<sw>|<state>|<tree>
             foreach (var item in (CliArgs.Get("-ftSwitchEdit") ?? "").Split(';').Where(x => x.Contains("|")))
             {
                 var f = item.Split('|');
@@ -175,6 +175,8 @@ namespace Kmnk.FaceTrackingGenerator
                     "set-cond" => Do(() => SwitchEdit.SetCondition(expression, f[1], int.Parse(f[2]), int.Parse(f[3]), f[4], f[5], D(f[6]))),
                     "new" => SwitchEdit.NewSwitch(expression, false, ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, null).FirstOrDefault()),
                     "remove" => SwitchEdit.Remove(expression, f[1]),
+                    "add-stop" => SwitchEdit.AddStop(expression, f[1], f[2], f[3]),
+                    "remove-stop" => SwitchEdit.RemoveStop(expression, f[1], f[2], f[3]),
                     _ => "unknown op",
                 };
                 Debug.Log($"[FTG] graph switch-edit {item}: {result}");
@@ -188,6 +190,10 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var b in ExpressionGraph.Build(expression, t).Where(b => b.Kind == "switch"))
                         Debug.Log($"[FTG] graph switch-box-now {t} {b.Path}: {b.Title} | {string.Join("; ", b.Rows.Select(r => r.Label))}");
             }
+            // The stops of each switch state as the switch panel lists them (also with no edit, to check a saved table).
+            foreach (var sw in SwitchEdit.Written(expression))
+                foreach (var (state, trees) in SwitchEdit.Stops(expression, sw))
+                    Debug.Log($"[FTG] graph switch-stops {sw} {state}: {string.Join(",", trees)}");
             if (CliArgs.Get("-ftSave") == "1")
                 foreach (var p in doc.Save()) Debug.Log($"[FTG] graph saved {p}");
             return 0;

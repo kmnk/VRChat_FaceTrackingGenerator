@@ -145,9 +145,10 @@ namespace Kmnk.FaceTrackingGenerator
             return Switches(expression)?.Remove(name) ?? false;
         }
 
-        // The expressions that use the switch (names without side marks).
+        // The expressions that use the switch (names without side marks): in a box, then in its stops.
         public static List<string> Users(JObject expression, string reference) =>
-            Boxes(expression, reference).Select(b => Tuning.Label(b.tree)).Distinct().ToList();
+            Boxes(expression, reference).Select(b => Tuning.Label(b.tree))
+                .Concat(Stops(expression, reference).SelectMany(x => x.trees).Select(Tuning.Label)).Distinct().ToList();
 
         // ---- edits
 
@@ -193,6 +194,12 @@ namespace Kmnk.FaceTrackingGenerator
                     p.AddBeforeSelf(new JProperty(to, p.Value));
                     p.Remove();
                 }
+            foreach (var (def, _) in Defs(expression, reference))
+                if (def["stops"] is JObject stops && stops.Property(from) is JProperty sp)
+                {
+                    sp.AddBeforeSelf(new JProperty(to, sp.Value));
+                    sp.Remove();
+                }
             return true;
         }
 
@@ -221,6 +228,8 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var t in ts.OfType<JObject>().Where(t => (string)t["from"] == state || (string)t["to"] == state).ToList()) t.Remove();
             }
             foreach (var (_, node) in Boxes(expression, reference).ToList()) (node["cases"] as JObject)?.Remove(state);
+            foreach (var (def, _) in Defs(expression, reference))
+                if (def["stops"] is JObject stops) { stops.Remove(state); if (!stops.HasValues) def.Remove("stops"); }
             return true;
         }
 
@@ -288,6 +297,113 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var (ts, side) in Transitions(expression, reference).ToList())
                 if (index >= 0 && index < ts.Count && ts[index]["when"] is JArray w && condition >= 0 && condition < w.Count)
                     w[condition] = new JArray(For(input, side), op == "<" ? "<" : ">", Tuning.Num(value));
+        }
+
+        // ---- stops: the expressions that add nothing while the switch is in a state ("stops": { state: [tree, ...] })
+
+        // Per state (in state order), the expressions it stops as the first definition writes them, in the reference's
+        // form: "Eyelid{side}" for "EyelidLeft" in the definition for the left side.
+        public static List<(string state, List<string> trees)> Stops(JObject expression, string reference)
+        {
+            var (def, side) = Defs(expression, reference).FirstOrDefault();
+            var result = new List<(string, List<string>)>();
+            if (def == null) return result;
+            foreach (var st in States(expression, reference))
+            {
+                var names = (def["stops"]?[st] as JArray ?? new JArray()).Select(x => (string)x).Where(x => x != null)
+                    .Select(x => side != null ? x.Replace(side, "{side}") : x).ToList();
+                result.Add((st, names));
+            }
+            return result;
+        }
+
+        public static bool AddStop(JObject expression, string reference, string state, string tree)
+        {
+            if (string.IsNullOrEmpty(tree) || !States(expression, reference).Contains(state)) return false;
+            var done = false;
+            foreach (var (def, side) in Defs(expression, reference))
+            {
+                if (!(def["stops"] is JObject stops)) def["stops"] = stops = new JObject();
+                if (!(stops[state] is JArray list)) stops[state] = list = new JArray();
+                var name = For(tree, side);
+                if (list.Any(x => (string)x == name)) continue;
+                list.Add(name);
+                done = true;
+            }
+            return done;
+        }
+
+        public static bool RemoveStop(JObject expression, string reference, string state, string tree)
+        {
+            var done = false;
+            foreach (var (def, side) in Defs(expression, reference))
+                done |= RemoveFrom(def, state, For(tree, side));
+            return done;
+        }
+
+        // Removes a name from a definition's stops of a state (all states when state is null); drops empty lists so a
+        // table without stops is written as before.
+        static bool RemoveFrom(JObject def, string state, string name)
+        {
+            if (!(def["stops"] is JObject stops)) return false;
+            var done = false;
+            foreach (var p in stops.Properties().Where(p => state == null || p.Name == state).ToList())
+            {
+                if (!(p.Value is JArray list)) continue;
+                foreach (var x in list.Where(x => (string)x == name).ToList()) { x.Remove(); done = true; }
+                if (!list.HasValues) p.Remove();
+            }
+            if (!stops.HasValues) def.Remove("stops");
+            return done;
+        }
+
+        // The tree names of the expression table and, for a left/right tree ("Y{side}" with "sides"), each side's name.
+        static List<(string name, List<string> sides)> TreeSides(JObject expression)
+        {
+            var result = new List<(string, List<string>)>();
+            if (!(expression["trees"] is JObject trees)) return result;
+            foreach (var p in trees.Properties())
+            {
+                var sides = p.Value?["sides"] is JObject s && p.Name.Contains("{side}")
+                    ? s.Properties().Select(x => p.Name.Replace("{side}", x.Name)).ToList() : null;
+                result.Add((p.Name, sides));
+            }
+            return result;
+        }
+
+        // Expressions the state can stop, not yet in its list. A left/right switch offers "Y{side}" (each side's switch
+        // stops its own side), "YLeft" and "YRight"; a switch without sides offers "YLeft" and "YRight".
+        public static List<string> StopChoices(JObject expression, string reference, string state)
+        {
+            var have = new HashSet<string>(Stops(expression, reference).FirstOrDefault(x => x.state == state).trees ?? new List<string>());
+            var sided = reference != null && reference.Contains("{side}");
+            var result = new List<string>();
+            foreach (var (name, sides) in TreeSides(expression))
+            {
+                if (sides == null) { result.Add(name); continue; }
+                if (sided) result.Add(name);
+                result.AddRange(sides);
+            }
+            return result.Where(n => !have.Contains(n)).Distinct().ToList();
+        }
+
+        // How a stopped expression shows: "Eyelid (same side)" for "Eyelid{side}", other names as written.
+        public static string StopLabel(string tree) =>
+            tree != null && tree.Contains("{side}") ? Tuning.Label(tree) + " (same side)" : tree;
+
+        // Removes an expression (and its sides' names) from every switch's stops, when the expression is removed.
+        public static void ForgetTree(JObject expression, string tree)
+        {
+            var names = new HashSet<string> { tree };
+            var sides = TreeSides(expression).FirstOrDefault(x => x.name == tree).sides;
+            if (sides != null) names.UnionWith(sides);
+            if (!(Switches(expression) is JObject sws)) return;
+            foreach (var p in sws.Properties())
+                if (p.Value is JObject def)
+                {
+                    // A definition with "sides" writes "Y{side}" for its own side; per-side names are written as is.
+                    foreach (var n in names) RemoveFrom(def, null, n);
+                }
         }
 
         // The transitions as the first definition writes them, with inputs in the reference's form ("EyeLid{side}").

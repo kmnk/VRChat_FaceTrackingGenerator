@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
@@ -46,18 +47,35 @@ namespace Kmnk.FaceTrackingGenerator
         public List<TransitionDef> Transitions = new List<TransitionDef>();
     }
 
-    public abstract class Node { }
+    public abstract class Node
+    {
+        // The nodes directly under this one, in table order.
+        public abstract IEnumerable<Node> ChildNodes { get; }
+
+        // This node and every node under it, parents before children.
+        public IEnumerable<Node> SelfAndDescendants()
+        {
+            yield return this;
+            foreach (var c in ChildNodes)
+                foreach (var d in c.SelfAndDescendants()) yield return d;
+        }
+
+        // Part names of every pose under this node.
+        public IEnumerable<string> PartNames() => SelfAndDescendants().OfType<PoseNode>().SelectMany(p => p.Parts.Keys);
+    }
 
     // Leaf: part name -> value (0-100). An empty pose writes nothing.
     public sealed class PoseNode : Node
     {
         public SortedDictionary<string, float> Parts = new SortedDictionary<string, float>(System.StringComparer.Ordinal);
+        public override IEnumerable<Node> ChildNodes => Enumerable.Empty<Node>();
     }
 
     public sealed class Blend1DNode : Node
     {
         public string Input;
         public List<(float threshold, Node node)> Children = new List<(float, Node)>();
+        public override IEnumerable<Node> ChildNodes => Children.Select(c => c.node);
     }
 
     // 2D Freeform Cartesian
@@ -65,18 +83,28 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string InputX, InputY;
         public List<(float x, float y, Node node)> Children = new List<(float, float, Node)>();
+        public override IEnumerable<Node> ChildNodes => Children.Select(c => c.node);
     }
 
     public sealed class SwitchNode : Node
     {
         public string Switch;
         public List<(string state, Node node)> Cases = new List<(string, Node)>();
+        public override IEnumerable<Node> ChildNodes => Cases.Select(c => c.node);
     }
 
     public sealed class TreeDef
     {
         public string Name;
         public Node Root;
+        public Node BaseRoot;  // the root before StopWrap wrapped it (the same node when no switch stops the tree)
+    }
+
+    // A tree that adds nothing to the face while a switch is in a state ("stops" of the switch). Names are after the
+    // left/right expansion.
+    public sealed class StopDef
+    {
+        public string Switch, State, Tree;
     }
 
     public sealed class AssetRef
@@ -142,6 +170,7 @@ namespace Kmnk.FaceTrackingGenerator
         public List<string> StopWhileTalking = new List<string>();
         public List<SwitchDef> Switches = new List<SwitchDef>();
         public List<TreeDef> Trees = new List<TreeDef>();
+        public List<StopDef> Stops = new List<StopDef>();  // in table order
 
         // What the loader dropped and why (R23), for reports
         public List<string> Dropped = new List<string>();

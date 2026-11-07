@@ -41,6 +41,10 @@ namespace Kmnk.FaceTrackingGenerator
         public static string SmoothParam(string input) => "FT/Smooth/" + input;
         public static string DerivedParam(string input) => "FT/In/" + input;
         public static string SwitchParam(string sw, string state) => "FT/Sw/" + sw + "/" + state;
+        // Names in the FT/Face Direct BlendTree: a region group ("Active" or "Mouth"), and a tree's motion in that group.
+        public static readonly string[] FaceGroups = { "Active", "Mouth" };  // regions that keep moving while talking, and the others
+        public static string FaceMotion(string group) => "FT/Face/" + group;
+        public static string FaceMotion(string group, string tree) => FaceMotion(group) + "/" + tree;
 
         // The parameter that BlendTrees and conditions read for an input.
         public string InputParam(string name)
@@ -366,15 +370,15 @@ namespace Kmnk.FaceTrackingGenerator
             var root = u.NewTree("FT/Face", BlendTreeType.Direct);
             foreach (var (group, weight, inGroup) in new (string, string, Func<string, bool>)[]
                      {
-                         ("Active", Active, r => !talkRegions.Contains(r)),
-                         ("Mouth", MouthActive, r => talkRegions.Contains(r)),
+                         (FaceGroups[0], Active, r => !talkRegions.Contains(r)),
+                         (FaceGroups[1], MouthActive, r => talkRegions.Contains(r)),
                      })
             {
-                var groupTree = u.NewTree("FT/Face/" + group, BlendTreeType.Direct);
+                var groupTree = u.NewTree(FaceMotion(group), BlendTreeType.Direct);
                 var any = false;
                 foreach (var tree in m.Trees)
                 {
-                    var motion = Convert(tree.Root, $"FT/Face/{group}/{tree.Name}", inGroup);
+                    var motion = Convert(tree.Root, FaceMotion(group, tree.Name), inGroup);
                     if (motion == null) continue;
                     AnimUtil.AddDirectChild(groupTree, motion, One);
                     any = true;
@@ -392,17 +396,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         static string Region(string part) => part.Substring(0, part.IndexOf('.'));
 
-        static bool HasParts(Node n, Func<string, bool> inGroup)
-        {
-            switch (n)
-            {
-                case PoseNode p: return p.Parts.Keys.Any(k => inGroup(Region(k)));
-                case Blend1DNode b: return b.Children.Any(c => HasParts(c.node, inGroup));
-                case Blend2DNode b: return b.Children.Any(c => HasParts(c.node, inGroup));
-                case SwitchNode s: return s.Cases.Any(c => HasParts(c.node, inGroup));
-            }
-            return false;
-        }
+        static bool HasParts(Node n, Func<string, bool> inGroup) => n.PartNames().Any(k => inGroup(Region(k)));
 
         // Converts a node to a motion with only the parts of the region group. Null when nothing is left.
         Motion Convert(Node n, string path, Func<string, bool> inGroup)

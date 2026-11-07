@@ -109,20 +109,20 @@ namespace Kmnk.FaceTrackingGenerator
                 var def = m.Input(input);
                 if (def != null && def.IsDerived) foreach (var a in def.Average) Add(a, tree, input);
             }
-            void Walk(Node node, string tree)
+            foreach (var t in m.Trees)
             {
-                switch (node)
-                {
-                    case Blend1DNode b: Add(b.Input, tree, null); foreach (var c in b.Children) Walk(c.node, tree); break;
-                    case Blend2DNode b: Add(b.InputX, tree, null); Add(b.InputY, tree, null); foreach (var c in b.Children) Walk(c.node, tree); break;
-                    case SwitchNode s:
-                        var sw = m.Switch(s.Switch);
-                        if (sw != null) foreach (var c in sw.Transitions.SelectMany(x => x.When)) Add(c.Input, tree, null);
-                        foreach (var c in s.Cases) Walk(c.node, tree);
-                        break;
-                }
+                var tree = labels.TryGetValue(t.Name, out var l) ? l : Tuning.Label(t.Name);
+                foreach (var node in t.Root.SelfAndDescendants())
+                    switch (node)
+                    {
+                        case Blend1DNode b: Add(b.Input, tree, null); break;
+                        case Blend2DNode b: Add(b.InputX, tree, null); Add(b.InputY, tree, null); break;
+                        case SwitchNode s:
+                            var sw = m.Switch(s.Switch);
+                            if (sw != null) foreach (var c in sw.Transitions.SelectMany(x => x.When)) Add(c.Input, tree, null);
+                            break;
+                    }
             }
-            foreach (var t in m.Trees) Walk(t.Root, labels.TryGetValue(t.Name, out var l) ? l : Tuning.Label(t.Name));
             return result;
         }
 

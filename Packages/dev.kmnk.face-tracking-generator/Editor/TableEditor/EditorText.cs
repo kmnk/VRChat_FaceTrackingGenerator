@@ -131,6 +131,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["part.new"] = ("No expression uses it yet.", "まだどの表情も使っていません"),
             ["part.cannotRemove"] = ("An expression uses it, so it cannot be removed.", "使っている表情があるので消せません"),
             ["tune.switchNote"] = ("Used by {0}. States are in order; the first is the state to start in.", "{0} が使う。状態は上から順に、最初が始めの状態です。"),
+            ["tune.switchStops"] = ("Expressions chosen for a state add nothing to the face while the switch is in that state.", "状態ごとに選んだ表情は、スイッチがその状態の間、顔に何も足しません。"),
             ["help.switches"] = ("Switches change expressions by values. Open one to edit its states and transitions. Unused ones can be removed.", "値で表情を切り替える仕組みです。開くと状態と移り方を直せます。使っていないものは消せます。"),
             ["switch.unused"] = ("Not used", "使っていません"),
             ["switch.cannotRemove"] = ("An expression uses it, so it cannot be removed.", "使っている表情があるので消せません"),

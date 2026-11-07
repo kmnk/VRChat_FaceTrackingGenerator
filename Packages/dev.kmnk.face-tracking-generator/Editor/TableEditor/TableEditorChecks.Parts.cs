@@ -16,7 +16,7 @@ namespace Kmnk.FaceTrackingGenerator
             HashSet<string> Used()
             {
                 var used = new HashSet<string>();
-                foreach (var t in doc.Model().Trees) TableEditorWindow.CollectParts(t.Root, used);
+                foreach (var t in doc.Model().Trees) used.UnionWith(t.Root.PartNames());
                 return used;
             }
             foreach (var item in (CliArgs.Get("-ftAddPart") ?? "").Split(';').Where(x => x.Contains("=")))

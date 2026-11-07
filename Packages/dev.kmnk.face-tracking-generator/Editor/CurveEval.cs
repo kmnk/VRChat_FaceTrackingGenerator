@@ -134,20 +134,15 @@ namespace Kmnk.FaceTrackingGenerator
         public static (float min, float max) Range(TableModel m, string input)
         {
             var vals = new List<float>();
-            void Walk(Node n)
+            foreach (var n in m.Trees.SelectMany(t => t.Root.SelfAndDescendants()))
             {
-                switch (n)
+                if (n is Blend1DNode b1 && b1.Input == input) vals.AddRange(b1.Children.Select(c => c.threshold));
+                if (n is Blend2DNode b2)
                 {
-                    case Blend1DNode b: if (b.Input == input) vals.AddRange(b.Children.Select(c => c.threshold)); foreach (var c in b.Children) Walk(c.node); break;
-                    case Blend2DNode b:
-                        if (b.InputX == input) vals.AddRange(b.Children.Select(c => c.x));
-                        if (b.InputY == input) vals.AddRange(b.Children.Select(c => c.y));
-                        foreach (var c in b.Children) Walk(c.node);
-                        break;
-                    case SwitchNode s: foreach (var c in s.Cases) Walk(c.node); break;
+                    if (b2.InputX == input) vals.AddRange(b2.Children.Select(c => c.x));
+                    if (b2.InputY == input) vals.AddRange(b2.Children.Select(c => c.y));
                 }
             }
-            foreach (var t in m.Trees) Walk(t.Root);
             if (vals.Count == 0) return (0, 1);
             float lo = vals.Min(), hi = vals.Max();
             return lo == hi ? (lo - 1, hi + 1) : (lo, hi);

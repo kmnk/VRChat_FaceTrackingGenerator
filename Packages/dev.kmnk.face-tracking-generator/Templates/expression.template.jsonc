@@ -6,6 +6,9 @@
 
   // Switches with states. A transition goes when all of its "when" conditions hold.
   // Different values for entering and leaving keep the state from flickering.
+  // "stops" (optional) lists, per state, expressions that add nothing to the face while the switch is in that state:
+  //   "stops": { "smile": ["Gaze"] }
+  // In a left/right switch, "Eyelid{side}" stops the expression of the same side.
   "switches": {
     "EyelidSmile{side}": {
       "sides": ["Left", "Right"],

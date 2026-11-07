@@ -669,7 +669,7 @@ namespace Kmnk.FaceTrackingGenerator
             var used = new HashSet<string>(StringComparer.Ordinal);
             if (model != null)
             {
-                foreach (var t in model.Trees) CollectParts(t.Root, used);
+                foreach (var t in model.Trees) used.UnionWith(t.Root.PartNames());
                 foreach (var m in model.Dropped.Concat(model.Warnings))
                 {
                     var mm = NotInAvatar.Match(m);
@@ -681,17 +681,6 @@ namespace Kmnk.FaceTrackingGenerator
             if (avatar["parts"] is JObject parts) foreach (var p in parts.Properties()) all.Add(p.Name);
             if (avatar["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) all.Add((string)x);
             return all.Select(p => (p, used.Contains(p))).ToList();
-        }
-
-        internal static void CollectParts(Node n, HashSet<string> into)
-        {
-            switch (n)
-            {
-                case PoseNode p: foreach (var k in p.Parts.Keys) into.Add(k); break;
-                case Blend1DNode b: foreach (var c in b.Children) CollectParts(c.node, into); break;
-                case Blend2DNode b: foreach (var c in b.Children) CollectParts(c.node, into); break;
-                case SwitchNode s: foreach (var c in s.Cases) CollectParts(c.node, into); break;
-            }
         }
 
         static List<string> ShapesOf(GameObject prefab, string mesh)
@@ -1388,6 +1377,43 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             if (GUILayout.Button("+ Add State", GUILayout.ExpandWidth(false))) { EditExpression(undo, e => SwitchEdit.AddState(e, reference)); GUIUtility.ExitGUI(); }
+
+            // Stopped Expressions: per state, the expressions that add nothing while the switch is in it (SwitchEdit.Stops).
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Stopped Expressions", EditorStyles.miniBoldLabel);
+            var stopsNote = EditorText.Help("tune.switchStops");
+            if (stopsNote != null) PartsLine(stopsNote);
+            foreach (var (st, stopped) in SwitchEdit.Stops(expression, reference))
+            {
+                var state = st;
+                for (int k = 0; k <= stopped.Count; k++)
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(EditorGUI.indentLevel * 15);
+                        GUILayout.Label(k == 0 ? state : "", PartsStyle, GUILayout.Width(100));
+                        if (k < stopped.Count)
+                        {
+                            var tr = stopped[k];
+                            GUILayout.Label(SwitchEdit.StopLabel(tr), GUILayout.MinWidth(0), GUILayout.ExpandWidth(true));
+                            if (GUILayout.Button("\u00D7", EditorStyles.miniButton, GUILayout.Width(20)))
+                            { EditExpression(undo, e => SwitchEdit.RemoveStop(e, reference, state, tr)); GUIUtility.ExitGUI(); }
+                            continue;
+                        }
+                        var choices = SwitchEdit.StopChoices(expression, reference, state);
+                        using (new EditorGUI.DisabledScope(choices.Count == 0))
+                            if (EditorGUILayout.DropdownButton(new GUIContent("+ Add Expression"), FocusType.Passive, GUILayout.ExpandWidth(false)))
+                            {
+                                var menu = new GenericMenu();
+                                foreach (var c in choices)
+                                {
+                                    var pick = c;
+                                    menu.AddItem(new GUIContent(SwitchEdit.StopLabel(pick)), false, () => EditExpression(undo, e => SwitchEdit.AddStop(e, reference, state, pick)));
+                                }
+                                menu.DropDown(GUILayoutUtility.GetLastRect());
+                            }
+                        GUILayout.FlexibleSpace();
+                    }
+            }
 
             var inputs = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, tree, reference.Contains("{side}"));
             var inputTexts = inputs.Select(ExpressionGraph.InputText).ToArray();

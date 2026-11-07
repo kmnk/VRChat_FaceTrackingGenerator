@@ -26,6 +26,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 WriteDefaults(fx, f);
                 UnusedClips(fx, f);
+                Stops(m, fx, f);
             }
             return f;
         }
@@ -75,8 +76,9 @@ namespace Kmnk.FaceTrackingGenerator
                     if (ja != jb) f.Add($"left/right: {what} {an} and {name(b)} differ ({FirstDiff(ja, jb)})");
                 }
             }
-            Pairs(m.Switches, s => s.Name, SwitchJson, "switch");
-            Pairs(m.Trees, t => t.Name, t => TreeJson(t.Root), "tree");
+            // Trees are compared as written (before StopWrap); the stops are compared with their switch.
+            Pairs(m.Switches, s => s.Name, s => SwitchJson(s, m), "switch");
+            Pairs(m.Trees, t => t.Name, t => TreeJson(t.BaseRoot ?? t.Root), "tree");
             Pairs(m.Inputs.Where(i => !i.IsDerived), i => i.Name, i => new JObject { ["key"] = i.Key, ["smoothing"] = i.Smoothing }, "input");
         }
 
@@ -88,11 +90,12 @@ namespace Kmnk.FaceTrackingGenerator
             return "different length";
         }
 
-        static JToken SwitchJson(SwitchDef s) => new JObject
+        static JToken SwitchJson(SwitchDef s, TableModel m) => new JObject
         {
             ["states"] = new JArray(s.States),
             ["transitions"] = new JArray(s.Transitions.Select(t => new JArray(t.From, t.To, t.Duration,
                 new JArray(t.When.Select(c => new JArray(c.Input, c.Op, c.Value)))))),
+            ["stops"] = new JArray(m.Stops.Where(x => x.Switch == s.Name).Select(x => new JArray(x.State, x.Tree))),
         };
 
         static JToken TreeJson(Node n)
@@ -117,7 +120,7 @@ namespace Kmnk.FaceTrackingGenerator
             var prefab = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null) { f.Add("asset: prefab not found: " + path); return; }
             var used = new HashSet<string>();
-            foreach (var t in m.Trees) CollectParts(t.Root, used);
+            foreach (var t in m.Trees) used.UnionWith(t.Root.PartNames());
             foreach (var part in used.OrderBy(x => x, StringComparer.Ordinal))
             {
                 var target = m.Parts[part];
@@ -129,49 +132,23 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        static void CollectParts(Node n, HashSet<string> parts)
-        {
-            switch (n)
-            {
-                case PoseNode p: foreach (var k in p.Parts.Keys) parts.Add(k); break;
-                case Blend1DNode b: foreach (var c in b.Children) CollectParts(c.node, parts); break;
-                case Blend2DNode b: foreach (var c in b.Children) CollectParts(c.node, parts); break;
-                case SwitchNode s: foreach (var c in s.Cases) CollectParts(c.node, parts); break;
-            }
-        }
-
         // ---- 3. smoothing and inputs that nothing uses (D1)
 
         static void Unused(TableModel m, List<string> f)
         {
             var usedInputs = new HashSet<string>();
-            void Walk(Node n)
+            foreach (var n in m.Trees.SelectMany(t => t.Root.SelfAndDescendants()))
             {
-                switch (n)
-                {
-                    case Blend1DNode b: usedInputs.Add(b.Input); foreach (var c in b.Children) Walk(c.node); break;
-                    case Blend2DNode b: usedInputs.Add(b.InputX); usedInputs.Add(b.InputY); foreach (var c in b.Children) Walk(c.node); break;
-                    case SwitchNode s: foreach (var c in s.Cases) Walk(c.node); break;
-                }
+                if (n is Blend1DNode b1) usedInputs.Add(b1.Input);
+                else if (n is Blend2DNode b2) { usedInputs.Add(b2.InputX); usedInputs.Add(b2.InputY); }
             }
-            foreach (var t in m.Trees) Walk(t.Root);
             foreach (var s in m.Switches) foreach (var t in s.Transitions) foreach (var c in t.When) usedInputs.Add(c.Input);
             foreach (var d in m.Inputs.Where(i => i.IsDerived && usedInputs.Contains(i.Name))) foreach (var src in d.Average) usedInputs.Add(src);
             foreach (var i in m.Inputs.Where(i => i.Smoothing != null && !usedInputs.Contains(i.Name)))
                 f.Add($"unused: input {i.Name} is smoothed but no tree or switch uses it");
             foreach (var s in m.Smoothings.Where(s => m.Inputs.All(i => i.Smoothing != s.Name)))
                 f.Add($"unused: smoothing {s.Name} is not used by any input");
-            var usedSwitches = new HashSet<string>();
-            void WalkSw(Node n)
-            {
-                switch (n)
-                {
-                    case Blend1DNode b: foreach (var c in b.Children) WalkSw(c.node); break;
-                    case Blend2DNode b: foreach (var c in b.Children) WalkSw(c.node); break;
-                    case SwitchNode s: usedSwitches.Add(s.Switch); foreach (var c in s.Cases) WalkSw(c.node); break;
-                }
-            }
-            foreach (var t in m.Trees) WalkSw(t.Root);
+            var usedSwitches = new HashSet<string>(m.Trees.SelectMany(t => t.Root.SelfAndDescendants()).OfType<SwitchNode>().Select(s => s.Switch));
             foreach (var s in m.Switches.Where(s => !usedSwitches.Contains(s.Name)))
                 f.Add($"unused: switch {s.Name} is not used by any tree");
         }
@@ -198,17 +175,12 @@ namespace Kmnk.FaceTrackingGenerator
                 f.Add($"sum: blendshape {kv.Key} can reach {kv.Value:0.#} (trees: {string.Join(", ", from[kv.Key])})");
         }
 
-        // In 1D and 2D BlendTrees the weights add up to 1, so the largest value is the largest leaf value.
+        // In 1D and 2D BlendTrees the weights add up to 1 and a switch is in one state, so the largest value is the
+        // largest leaf value.
         static void MaxValues(Node n, Dictionary<string, float> max)
         {
-            void Merge(Dictionary<string, float> d) { foreach (var kv in d) max[kv.Key] = Math.Max(max.TryGetValue(kv.Key, out var v) ? v : 0, kv.Value); }
-            switch (n)
-            {
-                case PoseNode p: Merge(p.Parts.ToDictionary(kv => kv.Key, kv => kv.Value)); break;
-                case Blend1DNode b: foreach (var c in b.Children) { var d = new Dictionary<string, float>(); MaxValues(c.node, d); Merge(d); } break;
-                case Blend2DNode b: foreach (var c in b.Children) { var d = new Dictionary<string, float>(); MaxValues(c.node, d); Merge(d); } break;
-                case SwitchNode s: foreach (var c in s.Cases) { var d = new Dictionary<string, float>(); MaxValues(c.node, d); Merge(d); } break;
-            }
+            foreach (var p in n.SelfAndDescendants().OfType<PoseNode>())
+                foreach (var kv in p.Parts) max[kv.Key] = Math.Max(max.TryGetValue(kv.Key, out var v) ? v : 0, kv.Value);
         }
 
         // ---- 4. Write Defaults mixed in FX
@@ -224,6 +196,50 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var l in c.layers) Walk(l.stateMachine, l.name);
             if (on.Count > 0 && off.Count > 0)
                 f.Add($"wd: {c.name} mixes Write Defaults: {on.Count} states on, {off.Count} off (off: {string.Join(", ", off.Take(5))}{(off.Count > 5 ? ", ..." : "")})");
+        }
+
+        // ---- 7. stops (the "stops" of a switch): in the FX, no clip of the tree's motion is reached while the switch
+        // is in the stopping state. A child weighted by another state of that switch blocks the way; other weights do not.
+
+        static void Stops(TableModel m, AnimatorController fx, List<string> f)
+        {
+            var live = m.Stops.Where(s => m.Switch(s.Switch)?.States.Contains(s.State) == true && m.Trees.Any(t => t.Name == s.Tree)).ToList();
+            if (live.Count == 0) return;
+            var face = fx.layers.FirstOrDefault(l => l.name == "FT/Face");
+            var motions = new Dictionary<string, Motion>();
+            void Collect(Motion mo)
+            {
+                if (mo == null) return;
+                motions[mo.name] = mo;
+                if (mo is BlendTree bt) foreach (var ch in bt.children) Collect(ch.motion);
+            }
+            if (face != null) foreach (var cs in face.stateMachine.states) Collect(cs.state.motion);
+            bool Leaks(Motion mo, string sw, string state)
+            {
+                if (mo is BlendTree bt)
+                {
+                    var prefix = FtBuilder.SwitchParam(sw, "");
+                    foreach (var ch in bt.children)
+                    {
+                        var p = bt.blendType == BlendTreeType.Direct ? ch.directBlendParameter : null;
+                        if (p != null && p.StartsWith(prefix, StringComparison.Ordinal) && p != FtBuilder.SwitchParam(sw, state)) continue;
+                        if (Leaks(ch.motion, sw, state)) return true;
+                    }
+                    return false;
+                }
+                return mo is AnimationClip clip && AnimationUtility.GetCurveBindings(clip).Length > 0;
+            }
+            foreach (var s in live)
+            {
+                var found = false;
+                foreach (var group in FtBuilder.FaceGroups)
+                {
+                    if (!motions.TryGetValue(FtBuilder.FaceMotion(group, s.Tree), out var mo)) continue;
+                    found = true;
+                    if (Leaks(mo, s.Switch, s.State)) f.Add($"stops: {s.Tree} is not stopped by {s.Switch}/{s.State} in the FX");
+                }
+                if (!found) f.Add($"stops: {s.Tree} has no motion in the FX ({FtBuilder.FaceMotion("<group>", s.Tree)})");
+            }
         }
 
         // ---- 3. clips stored in the generated controller that nothing reaches

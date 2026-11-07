@@ -44,6 +44,7 @@ namespace Kmnk.FaceTrackingGenerator
             ParseExpressions(expr, m, exprPath);
 
             Resolve(m, missingKeys, missingParts);
+            StopWrap.Apply(m);
             return m;
         }
 
@@ -301,6 +302,17 @@ namespace Kmnk.FaceTrackingGenerator
                         if (td.When.Count == 0) throw new TableException($"{file}: '{t.Path}' needs a 'when' condition");
                         sw.Transitions.Add(td);
                     }
+                    if (so["stops"] != null)
+                    {
+                        if (!(so["stops"] is JObject stops)) throw new TableException($"{file}: '{so.Path}.stops' must be an object of state -> expression names");
+                        foreach (var p in stops.Properties())
+                        {
+                            if (!sw.States.Contains(p.Name)) throw new TableException($"{file}: switch '{name}': unknown state '{p.Name}' in stops");
+                            if (!(p.Value is JArray)) throw new TableException($"{file}: '{p.Value.Path}' must be an array of expression names");
+                            foreach (var tree in StrList(p.Value))
+                                m.Stops.Add(new StopDef { Switch = name, State = p.Name, Tree = tree });
+                        }
+                    }
                     m.Switches.Add(sw);
                 }
 
@@ -310,6 +322,10 @@ namespace Kmnk.FaceTrackingGenerator
                 if (to["tree"] == null) throw new TableException($"{file}: tree '{name}' needs 'tree'");
                 m.Trees.Add(new TreeDef { Name = name, Root = ParseNode(to["tree"], m, file) });
             }
+
+            foreach (var s in m.Stops)
+                if (m.Trees.All(t => t.Name != s.Tree))
+                    throw new TableException($"{file}: switch '{s.Switch}': unknown expression '{s.Tree}' in stops of state '{s.State}'");
         }
 
         static Node ParseNode(JToken t, TableModel m, string file)

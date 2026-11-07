@@ -372,8 +372,13 @@ namespace Kmnk.FaceTrackingGenerator
             return key;
         }
 
-        public static bool RemoveTree(JObject expression, string name) =>
-            expression?["trees"] is JObject trees && trees.Remove(name);
+        // Also takes the expression out of the switches' stops (SwitchEdit owns the "stops" format).
+        public static bool RemoveTree(JObject expression, string name)
+        {
+            if (!(expression?["trees"] is JObject trees) || trees[name] == null) return false;
+            SwitchEdit.ForgetTree(expression, name);  // before removing: it reads the tree's sides
+            return trees.Remove(name);
+        }
 
         static string NodeLabel(JObject o)
         {
