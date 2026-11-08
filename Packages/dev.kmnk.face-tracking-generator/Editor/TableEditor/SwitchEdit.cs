@@ -100,20 +100,13 @@ namespace Kmnk.FaceTrackingGenerator
             var cases = new JObject();
             for (int i = 0; i < states.Count; i++)
                 cases[states[i]] = keepFirst && i > 0 ? new JObject() : (content == null || content.Type == JTokenType.Null ? new JObject() : content.DeepClone());
-            return new JObject { ["switch"] = reference, ["cases"] = cases };
+            return ExpressionSyntax.NewSwitch(reference, cases);
         }
 
         // ---- the boxes that use a switch
 
-        static IEnumerable<JObject> Nodes(JToken t)
-        {
-            if (!(t is JObject o)) yield break;
-            if (o["switch"] != null) yield return o;
-            if (o["children"] is JArray ch)
-                foreach (var c in ch.OfType<JArray>().Where(c => c.Count == 2)) foreach (var n in Nodes(c[1])) yield return n;
-            if (o["cases"] is JObject cases)
-                foreach (var p in cases.Properties()) foreach (var n in Nodes(p.Value)) yield return n;
-        }
+        static IEnumerable<JObject> Nodes(JToken t) =>
+            ExpressionSyntax.Walk(t).Select(x => x.obj).Where(o => ExpressionSyntax.KindOf(o) == ExpressionSyntax.Kind.Switch);
 
         static HashSet<string> Names(string reference)
         {
@@ -131,7 +124,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (!(expression["trees"] is JObject trees)) yield break;
             foreach (var p in trees.Properties())
                 foreach (var n in Nodes(p.Value?["tree"]))
-                    if (Uses((string)n["switch"])) yield return (p.Name, n);
+                    if (Uses(ExpressionSyntax.SwitchOf(n))) yield return (p.Name, n);
         }
 
         // The switches as written in the table, in order.
@@ -169,7 +162,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             var map = new Dictionary<string, string> { [reference] = name + (reference.Contains("{side}") ? "{side}" : "") };
             foreach (var side in Sides(reference)) map[reference.Replace("{side}", side)] = name + side;
-            foreach (var (_, node) in Boxes(expression, reference).ToList()) node["switch"] = map[(string)node["switch"]];
+            foreach (var (_, node) in Boxes(expression, reference).ToList()) node[ExpressionSyntax.KeySwitch] = map[ExpressionSyntax.SwitchOf(node)];
             return true;
         }
 
@@ -188,7 +181,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             foreach (var (_, node) in Boxes(expression, reference).ToList())
-                if (node["cases"] is JObject cases && cases[from] != null)
+                if (node[ExpressionSyntax.KeyCases] is JObject cases && cases[from] != null)
                 {
                     var p = cases.Property(from);
                     p.AddBeforeSelf(new JProperty(to, p.Value));
@@ -212,7 +205,7 @@ namespace Kmnk.FaceTrackingGenerator
             var name = "state" + k;
             foreach (var (def, _) in Defs(expression, reference)) ((JArray)def["states"]).Add(name);
             foreach (var (_, node) in Boxes(expression, reference).ToList())
-                if (node["cases"] is JObject cases) cases[name] = new JObject();
+                if (node[ExpressionSyntax.KeyCases] is JObject cases) cases[name] = new JObject();
             return name;
         }
 
@@ -227,7 +220,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (def["transitions"] is JArray ts)
                     foreach (var t in ts.OfType<JObject>().Where(t => (string)t["from"] == state || (string)t["to"] == state).ToList()) t.Remove();
             }
-            foreach (var (_, node) in Boxes(expression, reference).ToList()) (node["cases"] as JObject)?.Remove(state);
+            foreach (var (_, node) in Boxes(expression, reference).ToList()) (node[ExpressionSyntax.KeyCases] as JObject)?.Remove(state);
             foreach (var (def, _) in Defs(expression, reference))
                 if (def["stops"] is JObject stops) { stops.Remove(state); if (!stops.HasValues) def.Remove("stops"); }
             return true;

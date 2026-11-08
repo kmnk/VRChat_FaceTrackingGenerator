@@ -34,6 +34,10 @@
     },
 
     // 2D Freeform Cartesian: positions of two inputs. One pose can move several regions.
+    // A 1D or 2D node can also have face movements of its own, next to "1d" / "2d": they stay the same at every
+    // position while the node is chosen (the Tuning tab calls them "All positions"), e.g.
+    //   { "1d": "MouthOpen", "brow.happy": 100, "children": [...] }
+    // A position does not write them again; if it does, the node's value is used.
     "Mouth": {
       "tree": {
         "2d": ["SmileFrown", "JawOpen"],

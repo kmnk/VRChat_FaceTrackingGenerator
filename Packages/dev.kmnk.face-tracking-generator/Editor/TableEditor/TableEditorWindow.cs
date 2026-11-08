@@ -1339,7 +1339,7 @@ namespace Kmnk.FaceTrackingGenerator
                     EditorGUI.indentLevel--;
                     SeparatorLine();
                 }
-                DrawSwitchPanel(expression, (string)ExpressionGraph.Find(expression, graphTree, graphPath)?["switch"], graphTree);
+                DrawSwitchPanel(expression, ExpressionGraph.Find(expression, graphTree, graphPath) is JObject swBox ? ExpressionSyntax.SwitchOf(swBox) : null, graphTree);
                 return;
             }
             if (box == null || t == null || box.TuningKey == null) return;
@@ -1504,10 +1504,12 @@ namespace Kmnk.FaceTrackingGenerator
             var name = t.Name;
 
             // Graph: amount of each face movement (0-100) along the input, positions as dotted lines, the try value as a line.
-            var rect = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(100, 90, GUILayout.ExpandWidth(true)));
+            var rect = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(100, 104, GUILayout.ExpandWidth(true)));
             tuneTry.TryGetValue(key, out var tryValue);
             if (Event.current.type == EventType.Repaint) DrawTuningGraph(rect, n, lo, hi, tryValue);
 
+            DrawAllPositions(t, n.Node, key, allNames, x => x.Nodes[index].Node);
+            var own1 = ExpressionSyntax.OwnParts(n.Node).Keys.ToList();
             for (int i = 0; i < n.Children.Count; i++)
             {
                 var (plo, phi) = Tuning.PositionRange(n, i);
@@ -1529,7 +1531,7 @@ namespace Kmnk.FaceTrackingGenerator
                             GUIUtility.ExitGUI();
                         }
                 }
-                DrawPose(t, n.Child(i), key, allNames, (x, edit) => edit(Tuning.PoseObject(x.Nodes[index].Children, j)));
+                DrawPose(t, n.Child(i), key, allNames, (x, edit) => edit(Tuning.PoseObject(x.Nodes[index].Children, j)), own1);
             }
 
             EditorGUI.BeginChangeCheck();
@@ -1669,6 +1671,9 @@ namespace Kmnk.FaceTrackingGenerator
                     }
             }
 
+            DrawAllPositions(t, n.Node, key, allNames, x => x.Nodes2D[k].Node);
+            var own2 = ExpressionSyntax.OwnParts(n.Node).Keys.ToList();
+
             // Positions
             for (int i = 0; i < n.Children.Count; i++)
             {
@@ -1696,7 +1701,7 @@ namespace Kmnk.FaceTrackingGenerator
                             GUIUtility.ExitGUI();
                         }
                 }
-                DrawPose(t, n.Child(i), key + "/" + i, allNames, (tree, edit) => edit(Tuning.PoseObject(tree.Nodes2D[k].Children, j)));
+                DrawPose(t, n.Child(i), key + "/" + i, allNames, (tree, edit) => edit(Tuning.PoseObject(tree.Nodes2D[k].Children, j)), own2);
             }
             EditorGUILayout.Space(4);
         }
@@ -1737,14 +1742,44 @@ namespace Kmnk.FaceTrackingGenerator
 
         // The face movement rows of a position, and "+ Add face movement". locate finds the pose again in a tree made
         // after the edit and passes it to an edit.
-        void DrawPose(Tuning.Tree t, JToken child, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate)
+        void DrawPose(Tuning.Tree t, JToken child, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate,
+                      ICollection<string> hidden = null)
         {
-            var name = t.Name;
             EditorGUI.indentLevel++;
-            var pose = Tuning.Pose(child);
+            var pose = ExpressionSyntax.Pose(child);
             if (pose == null) { PartsLine(Tuning.ChildText(child)); EditorGUI.indentLevel--; return; }
             if (pose.Count == 0) PartsLine(Tuning.ChildText(child));
-            foreach (var kv in pose)
+            DrawPartRows(t, pose, showKey, allNames, locate, hidden, null, null);
+            EditorGUI.indentLevel--;
+        }
+
+        // The face movements of a 1D or 2D node itself (All positions), above its positions. nodeOf finds the node again
+        // in a tree made after the edit.
+        void DrawAllPositions(Tuning.Tree t, JObject node, string showKey, ICollection<string> allNames, Func<Tuning.Tree, JObject> nodeOf)
+        {
+            EditorGUILayout.LabelField("All positions");
+            EditorGUI.indentLevel++;
+            var note = EditorText.Help("help.allPositions");
+            if (note != null) PartsLine(note);
+            var expression = ExpressionJson;
+            var top = Tuning.SameAtEveryPosition(node)
+                .Select(kv => (label: $"Same at every position/{Tuning.Label(kv.Key)} ({Math.Round(kv.Value).ToString(System.Globalization.CultureInfo.InvariantCulture)})",
+                               edit: (Action<Tuning.Tree>)(x => Tuning.MakeAllPositions(nodeOf(x), kv.Key))))
+                .ToList();
+            DrawPartRows(t, ExpressionSyntax.OwnParts(node), showKey, allNames, (x, edit) => edit(nodeOf(x)), Tuning.PartsBelow(node),
+                part => (new GUIContent("To positions", EditorText.Get("tip.toPositions")),
+                         x => Tuning.ToPositions(nodeOf(x), part, sw => SwitchEdit.States(expression, sw))),
+                top);
+            EditorGUI.indentLevel--;
+        }
+
+        // Face movement rows (slider, amount, an optional button, ×) and "+ Add face movement". hidden: parts the menu does
+        // not offer. top: menu items before the face movements (with their group in the label).
+        void DrawPartRows(Tuning.Tree t, Dictionary<string, float> parts, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate,
+                          ICollection<string> hidden, Func<string, (GUIContent content, Action<Tuning.Tree> edit)> rowButton, List<(string label, Action<Tuning.Tree> edit)> top)
+        {
+            var name = t.Name;
+            foreach (var kv in parts)
             {
                 var part = kv.Key;
                 using (new EditorGUILayout.HorizontalScope())
@@ -1753,6 +1788,15 @@ namespace Kmnk.FaceTrackingGenerator
                     var v = EditorGUILayout.IntSlider(Tuning.Label(part), (int)Math.Round(kv.Value), 0, 100);
                     if (EditorGUI.EndChangeCheck())
                         EditTreeAndShow("Set FT amount", name, showKey, tree => locate(tree, p => Tuning.SetAmount(p, part, v)));
+                    if (rowButton != null)
+                    {
+                        var (content, edit) = rowButton(part);
+                        if (GUILayout.Button(content, EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                        {
+                            EditTreeAndShow("Move FT face movement", name, showKey, edit);
+                            GUIUtility.ExitGUI();
+                        }
+                    }
                     if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removePart")), EditorStyles.miniButton, GUILayout.Width(20)))
                     {
                         EditTreeAndShow("Remove FT face movement", name, showKey, tree => locate(tree, p => Tuning.RemovePart(p, part)));
@@ -1768,12 +1812,22 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var r = GUILayoutUtility.GetLastRect();
                     var menu = new GenericMenu();
+                    if (top != null && top.Count > 0)
+                    {
+                        foreach (var (label, edit) in top)
+                        {
+                            var e = edit;
+                            menu.AddItem(new GUIContent(label), false, () => EditTreeAndShow("Move FT face movement", name, showKey, e));
+                        }
+                        menu.AddSeparator("");
+                    }
                     foreach (var (label, write) in Tuning.Choices(t, allNames))
                     {
+                        if (hidden != null && hidden.Contains(write)) continue;
                         var dot = label.IndexOf('.');
                         var path = (dot > 0 ? label.Substring(0, dot) + "/" : "") + label;
                         var w = write;
-                        if (pose.ContainsKey(write)) menu.AddDisabledItem(new GUIContent(path));
+                        if (parts.ContainsKey(write)) menu.AddDisabledItem(new GUIContent(path));
                         else menu.AddItem(new GUIContent(path), false, () => EditTreeAndShow("Add FT face movement", name, showKey, tree => locate(tree, p => Tuning.AddPart(p, w))));
                     }
                     if (menu.GetItemCount() > 0) menu.AddSeparator("");
@@ -1783,7 +1837,6 @@ namespace Kmnk.FaceTrackingGenerator
                     menu.DropDown(r);
                 }
             }
-            EditorGUI.indentLevel--;
         }
 
         void EditTreeAndShow(string undoName, string tree, string showKey, Action<Tuning.Tree> edit)
@@ -1793,15 +1846,39 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
+        // How many legend items go on each row: as many as fit in the width, at least one per row.
+        static List<int> LegendRows(List<float> widths, float width)
+        {
+            var rows = new List<int>();
+            float used = 0;
+            foreach (var w in widths)
+            {
+                if (rows.Count == 0 || used + w > width) { rows.Add(1); used = w; }
+                else { rows[rows.Count - 1]++; used += w; }
+            }
+            return rows;
+        }
+
         void DrawTuningGraph(Rect r, Tuning.Blend1D n, float lo, float hi, float tryValue)
         {
             var pro = EditorGUIUtility.isProSkin;
             EditorGUI.DrawRect(r, pro ? new Color(0.165f, 0.165f, 0.165f) : new Color(0.85f, 0.85f, 0.85f));
-            var plot = new Rect(r.x + 28, r.y + 8, r.width - 40, r.height - 24);
-            float X(float v) => plot.x + (hi > lo ? (v - lo) / (hi - lo) : 0) * plot.width;
-            float Y(float amount) => plot.yMax - Mathf.Clamp(amount, 0, 100) / 100f * plot.height;
             var label = new GUIStyle(EditorStyles.miniLabel);
             label.normal.textColor = pro ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
+
+            const int steps = 64;
+            var xs = Enumerable.Range(0, steps + 1).Select(k => lo + (hi - lo) * k / steps).ToArray();
+            var curves = Tuning.Curve(n, xs);
+            // The legend gets its own band above the plot (right-aligned rows, wrapped to the plot's width), so its text
+            // does not lie on the lines at 100.
+            var texts = curves.Keys.Select(Tuning.Label).ToList();
+            var widths = texts.Select(t => label.CalcSize(new GUIContent(t)).x + 14).ToList();
+            var legendRows = LegendRows(widths, r.width - 40);
+            const float legendLine = 14;
+            var plotTop = r.y + 8 + legendRows.Count * legendLine;
+            var plot = new Rect(r.x + 28, plotTop, r.width - 40, r.yMax - 16 - plotTop);
+            float X(float v) => plot.x + (hi > lo ? (v - lo) / (hi - lo) : 0) * plot.width;
+            float Y(float amount) => plot.yMax - Mathf.Clamp(amount, 0, 100) / 100f * plot.height;
 
             Handles.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
             Handles.DrawLine(new Vector3(plot.x, plot.yMax), new Vector3(plot.xMax, plot.yMax));
@@ -1816,23 +1893,25 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var v in new[] { lo, mid, hi })
                 GUI.Label(new Rect(X(v) - 14, plot.yMax + 1, 28, 14), v.ToString("0.##"), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
 
-            const int steps = 64;
-            var xs = Enumerable.Range(0, steps + 1).Select(k => lo + (hi - lo) * k / steps).ToArray();
-            var curves = Tuning.Curve(n, xs);
-            // Legend at the top right, in the order of the lines.
-            var texts = curves.Keys.Select(Tuning.Label).ToList();
-            var widths = texts.Select(t => label.CalcSize(new GUIContent(t)).x).ToList();
-            var legendX = plot.xMax - widths.Sum(w => w + 14);
             var c = 0;
             foreach (var kv in curves)
             {
                 var color = CurveColors[c % CurveColors.Length];
                 Handles.color = color;
                 Handles.DrawAAPolyLine(2f, xs.Select((x, k) => new Vector3(X(x), Y(kv.Value[k]))).ToArray());
-                EditorGUI.DrawRect(new Rect(legendX, r.y + 4, 8, 8), color);
-                GUI.Label(new Rect(legendX + 10, r.y - 1, widths[c] + 4, 14), texts[c], label);
-                legendX += widths[c] + 14;
                 c++;
+            }
+            // Legend in the order of the lines.
+            for (int row = 0, k = 0; row < legendRows.Count; row++)
+            {
+                var y = r.y + 2 + row * legendLine;
+                var legendX = plot.xMax - Enumerable.Range(k, legendRows[row]).Sum(i => widths[i]);
+                for (int end = k + legendRows[row]; k < end; k++)
+                {
+                    EditorGUI.DrawRect(new Rect(legendX, y + 3, 8, 8), CurveColors[k % CurveColors.Length]);
+                    GUI.Label(new Rect(legendX + 10, y - 2, widths[k] - 10, 14), texts[k], label);
+                    legendX += widths[k];
+                }
             }
             Handles.color = pro ? Color.white : Color.black;
             var tx = X(Mathf.Clamp(tryValue, lo, hi));

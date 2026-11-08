@@ -330,23 +330,26 @@ namespace Kmnk.FaceTrackingGenerator
 
         static Node ParseNode(JToken t, TableModel m, string file)
         {
+            var kind = ExpressionSyntax.KindOf(t);
+            if (kind == ExpressionSyntax.Kind.Other) throw new TableException($"{file}: '{t.Path}' must be an object");
             if (t == null || t.Type == JTokenType.Null) return new PoseNode();
-            if (!(t is JObject o)) throw new TableException($"{file}: '{t.Path}' must be an object");
-            if (o["1d"] != null)
+            var o = (JObject)t;
+            if (kind == ExpressionSyntax.Kind.Blend1D)
             {
-                var n = new Blend1DNode { Input = (string)o["1d"] };
+                var n = new Blend1DNode { Input = ExpressionSyntax.Input1D(o) };
                 if (m.Input(n.Input) == null) throw new TableException($"{file}: '{o.Path}': unknown input '{n.Input}'");
                 foreach (var c in Children(o, file))
                 {
                     if (c.Count != 2) throw new TableException($"{file}: '{c.Path}' must be [threshold, node]");
                     n.Children.Add((Num(c[0], file), ParseNode(c[1], m, file)));
                 }
+                WriteOwnParts(o, n, m, file);
                 return n;
             }
-            if (o["2d"] != null)
+            if (kind == ExpressionSyntax.Kind.Blend2D)
             {
-                var axes = StrList(o["2d"]);
-                if (axes.Count != 2) throw new TableException($"{file}: '{o.Path}.2d' must be [inputX, inputY]");
+                var axes = StrList(o[ExpressionSyntax.Key2D]);
+                if (axes.Count != 2) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.Key2D}' must be [inputX, inputY]");
                 var n = new Blend2DNode { InputX = axes[0], InputY = axes[1] };
                 foreach (var a in axes) if (m.Input(a) == null) throw new TableException($"{file}: '{o.Path}': unknown input '{a}'");
                 foreach (var c in Children(o, file))
@@ -354,31 +357,57 @@ namespace Kmnk.FaceTrackingGenerator
                     if (c.Count != 2 || !(c[0] is JArray pos) || pos.Count != 2) throw new TableException($"{file}: '{c.Path}' must be [[x, y], node]");
                     n.Children.Add((Num(pos[0], file), Num(pos[1], file), ParseNode(c[1], m, file)));
                 }
+                WriteOwnParts(o, n, m, file);
                 return n;
             }
-            if (o["switch"] != null)
+            if (kind == ExpressionSyntax.Kind.Switch)
             {
-                var n = new SwitchNode { Switch = (string)o["switch"] };
+                var n = new SwitchNode { Switch = ExpressionSyntax.SwitchOf(o) };
                 var sw = m.Switch(n.Switch) ?? throw new TableException($"{file}: '{o.Path}': unknown switch '{n.Switch}'");
-                if (!(o["cases"] is JObject cases)) throw new TableException($"{file}: '{o.Path}.cases' must be an object");
+                if (!(o[ExpressionSyntax.KeyCases] is JObject cases)) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.KeyCases}' must be an object");
                 foreach (var st in sw.States)
                     n.Cases.Add((st, ParseNode(cases[st], m, file)));
                 foreach (var p in cases.Properties())
                     if (!sw.States.Contains(p.Name)) throw new TableException($"{file}: '{p.Path}': switch '{sw.Name}' has no state '{p.Name}'");
+                foreach (var p in o.Properties().Where(x => ExpressionSyntax.IsPartKey(x.Name)))
+                    Warn(m, $"{file}: '{p.Path}': a switch node does not use face movements written on it");
                 return n;
             }
             var pose = new PoseNode();
             foreach (var p in o.Properties())
             {
-                if (!p.Name.Contains('.')) throw new TableException($"{file}: '{p.Path}': unknown node key '{p.Name}' (parts are written as region.name)");
+                if (!ExpressionSyntax.IsPartKey(p.Name)) throw new TableException($"{file}: '{p.Path}': unknown node key '{p.Name}' (parts are written as region.name)");
                 pose.Parts[p.Name] = Num(p.Value, file);
             }
             return pose;
         }
 
+        // A 1D or 2D node's own parts are written while the node is chosen, whatever its input: they are written into
+        // every pose under the node (also under nested nodes and empty positions), so the model keeps only poses. A
+        // node's value wins over the same part below it (written there, or by a node below).
+        static void WriteOwnParts(JObject o, Node n, TableModel m, string file)
+        {
+            var own = o.Properties().Where(p => ExpressionSyntax.IsPartKey(p.Name)).Select(p => (part: p.Name, value: Num(p.Value, file))).ToList();
+            if (own.Count == 0) return;
+            var below = new HashSet<string>();
+            foreach (var pose in n.SelfAndDescendants().OfType<PoseNode>())
+                foreach (var (part, value) in own)
+                {
+                    if (pose.Parts.ContainsKey(part)) below.Add(part);
+                    pose.Parts[part] = value;
+                }
+            foreach (var part in own.Select(x => x.part).Where(below.Contains))
+                Warn(m, $"{file}: '{o.Path}': {part} is also written below this node; the value here is used");
+        }
+
+        static void Warn(TableModel m, string msg)
+        {
+            if (!m.Warnings.Contains(msg)) m.Warnings.Add(msg);
+        }
+
         static IEnumerable<JArray> Children(JObject o, string file)
         {
-            if (!(o["children"] is JArray a)) throw new TableException($"{file}: '{o.Path}.children' must be an array");
+            if (!(o[ExpressionSyntax.KeyChildren] is JArray a)) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.KeyChildren}' must be an array");
             return a.Select(x => x as JArray ?? throw new TableException($"{file}: '{x.Path}' must be an array"));
         }
 

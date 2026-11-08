@@ -109,6 +109,8 @@ namespace Kmnk.FaceTrackingGenerator
             ["tune.2d"] = ("Moves with {0} and {1}. Click or drag in the graph to move Try.", "{0}・{1} で動く。図の中をクリック・ドラッグすると Try が動きます。"),
             ["tip.removePosition"] = ("Remove this position", "この位置を消す"),
             ["tip.removePart"] = ("Remove this face movement", "この顔の動きを外す"),
+            ["help.allPositions"] = ("Face movements that stay the same at every position. A position cannot have them too.", "どの位置でも同じ値の顔の動きです。位置の欄には同じ顔の動きを書けません。"),
+            ["tip.toPositions"] = ("Write it at every position instead", "全部の位置に書いて、ここから外す"),
             ["help.newPart"] = ("Write it as \"region.movement\". Regions: eye, mouth, brow, cheek, tongue and so on.", "「部位.動き」の形で。部位は eye・mouth・brow・cheek・tongue など。"),
             ["newPart.form"] = ("Use lowercase letters, digits and _, with one dot.", "英小文字・数字・_ で、. を 1 つ含めてください。"),
             ["newPart.used"] = ("This name is already used.", "この名前はもうあります。"),

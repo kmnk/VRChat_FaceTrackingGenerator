@@ -27,16 +27,11 @@ namespace Kmnk.FaceTrackingGenerator
 
         static readonly Regex PairForm = new Regex(@"^(.*)_\{(\w+)\}$");
 
-        // Part names written in the expression table's poses (with "_{s}" forms as written).
-        static IEnumerable<JObject> Poses(JToken t)
-        {
-            if (t is JObject o)
-            {
-                if (o.Properties().Any(p => p.Name.Contains("."))) yield return o;
-                foreach (var p in o.Properties()) foreach (var x in Poses(p.Value)) yield return x;
-            }
-            else if (t is JArray a) foreach (var x in a) foreach (var y in Poses(x)) yield return y;
-        }
+        // The objects of the expression table's trees with part names (poses, and nodes with their own parts), with "_{s}"
+        // forms as written.
+        static IEnumerable<JObject> Poses(JToken trees) =>
+            (trees as JObject)?.Properties().SelectMany(p => ExpressionSyntax.Walk(p.Value?["tree"])).Select(x => x.obj)
+                .Where(o => o.Properties().Any(p => ExpressionSyntax.IsPartKey(p.Name))) ?? Enumerable.Empty<JObject>();
 
         // Is the part used in a left/right tree as "<base>_{var}"?
         static bool WrittenAsPair(JObject expression, string name)

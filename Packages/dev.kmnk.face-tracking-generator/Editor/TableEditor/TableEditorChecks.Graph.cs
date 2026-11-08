@@ -103,9 +103,27 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var head = item.Split('|');
                 var can = ExpressionGraph.CanRemove(expression, head[0], head[1]);
+                var before = doc.Model();
+                // The face at the kept row (the box's input at that position, the switches above in their states), before.
+                var boxObj = ExpressionGraph.Find(expression, head[0], head[1]);
+                var tt = Kmnk.FaceTrackingGenerator.Tuning.Trees(expression).FirstOrDefault(x => x.Name == head[0]);
+                var keepRow = int.Parse(head[2]);
+                var n1 = tt?.Nodes.FirstOrDefault(x => ReferenceEquals(x.Node, boxObj));
+                var n2 = tt?.Nodes2D.FirstOrDefault(x => ReferenceEquals(x.Node, boxObj));
+                System.Func<TableModel, SortedDictionary<string, float>> faceAtRow = m =>
+                    n1 != null ? Kmnk.FaceTrackingGenerator.Tuning.TryWeights(m, tt, n1, n1.Position(keepRow), null)
+                    : n2 != null ? Kmnk.FaceTrackingGenerator.Tuning.TryWeights2D(m, tt, n2, keepRow, null) : null;
+                var faceBefore = faceAtRow(before);
                 var kept = ExpressionGraph.Remove(expression, head[0], head[1], int.Parse(head[2]));
                 var content = kept != null ? ExpressionGraph.Find(expression, head[0], kept)?.ToString(Newtonsoft.Json.Formatting.None) : null;
                 Debug.Log($"[FTG] graph remove {head[0]} {head[1]} keep={head[2]}: can={can.ToString().ToLower()} done={(kept != null).ToString().ToLower()} now={(content ?? "(face movements)")}");
+                if (CliArgs.Get("-ftRemoveCompare") == "1")  // the kept row's face before and after, with the switches above in their states
+                {
+                    var faceAfter = kept != null ? faceAtRow(doc.Model()) : null;
+                    var diff = faceBefore == null || faceAfter == null ? -1 : faceBefore.Keys.Union(faceAfter.Keys)
+                        .Select(key => System.Math.Abs((faceBefore.TryGetValue(key, out var x) ? x : 0) - (faceAfter.TryGetValue(key, out var y) ? y : 0))).DefaultIfEmpty(0).Max();
+                    Debug.Log($"[FTG] graph remove-compare {head[0]} {head[1]} keep={head[2]}: max-weight-diff-at-kept-row={(diff < 0 ? "-" : F(diff))}");
+                }
                 if (kept != null) PrintGraph(expression, doc.Json(TableDocument.Input), head[0]);
             }
             foreach (var item in (CliArgs.Get("-ftInsert") ?? "").Split(';').Where(x => x.Contains("=")))
@@ -207,7 +225,8 @@ namespace Kmnk.FaceTrackingGenerator
             var boxes = ExpressionGraph.Build(expression, tree, open);
             foreach (var b in boxes)
                 Debug.Log($"[FTG] graph box {tree} {b.Path}: {b.Title} | x={F(b.X)} y={F(b.Y)} h={F(b.Height)} open={b.Open.ToString().ToLower()} | tuning={b.TuningKey ?? "-"} | " +
-                          string.Join("; ", b.Rows.Select(r => (r.Nested ? "-> " : "") + r.Label + (r.Lines.Count > 0 ? " [" + string.Join(" / ", r.Lines) + "]" : ""))));
+                          string.Join("; ", b.Rows.Select(r => (r.Nested ? "-> " : "") + r.Label + (r.Lines.Count > 0 ? " [" + string.Join(" / ", r.Lines) + "]" : ""))) +
+                          (b.All != null ? $" | all={b.All}" + (b.AllLines.Count > 0 ? " [" + string.Join(" / ", b.AllLines) + "]" : "") + $" tip={b.AllFull}" : ""));
             foreach (var b in boxes) foreach (var r in b.Rows.Where(r => r.FullLabel != r.Label && !b.Open))
                 Debug.Log($"[FTG] graph tip {tree} {b.Path}: {r.FullLabel}");
             if (CliArgs.Get("-ftKeep") == "1")  // the Keep menu of each box (Remove Box, Delete key)

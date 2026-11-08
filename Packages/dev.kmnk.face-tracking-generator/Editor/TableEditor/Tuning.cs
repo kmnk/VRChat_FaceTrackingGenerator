@@ -16,7 +16,7 @@ namespace Kmnk.FaceTrackingGenerator
             public JObject Node;                                   // {"1d": input, "children": [[position, pose or node], ...]}
             public string Input;                                   // as written, e.g. "EyeLid{side}"
             public List<(string sw, string state)> When = new List<(string, string)>();  // switches above it, as written
-            public JArray Children => (JArray)Node["children"];
+            public JArray Children => (JArray)Node[ExpressionSyntax.KeyChildren];
             public float Position(int i) => ((JArray)Children[i])[0].Value<float>();
             public JToken Child(int i) => ((JArray)Children[i])[1];
         }
@@ -26,7 +26,7 @@ namespace Kmnk.FaceTrackingGenerator
             public JObject Node;                                   // {"2d": [inputX, inputY], "children": [[[x, y], pose or node], ...]}
             public string InputX, InputY;
             public List<(string sw, string state)> When = new List<(string, string)>();
-            public JArray Children => (JArray)Node["children"];
+            public JArray Children => (JArray)Node[ExpressionSyntax.KeyChildren];
             public (float x, float y) Position(int i) { var p = (JArray)((JArray)Children[i])[0]; return (p[0].Value<float>(), p[1].Value<float>()); }
             public JToken Child(int i) => ((JArray)Children[i])[1];
         }
@@ -38,7 +38,7 @@ namespace Kmnk.FaceTrackingGenerator
             public string Switch;                                  // as written, e.g. "EyelidSmile{side}"
             public List<(string sw, string state)> When = new List<(string, string)>();  // switches above it, as written
             public List<string> States = new List<string>();      // the switch's order; the order of "cases" when it is not found
-            public JToken Case(string state) => Node["cases"]?[state];
+            public JToken Case(string state) => Node[ExpressionSyntax.KeyCases]?[state];
         }
 
         public sealed class Tree
@@ -61,35 +61,31 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (!(p.Value is JObject entry)) continue;
                 var t = new Tree { Name = p.Name, Sides = SidesOf(entry["sides"]) };
-                Walk(entry["tree"], new List<(string, string)>(), t, expression);
+                foreach (var (o, when) in ExpressionSyntax.Walk(entry["tree"])) Add(o, when, t, expression);
                 result.Add(t);
             }
             return result;
         }
 
-        static void Walk(JToken token, List<(string, string)> path, Tree t, JObject expression)
+        static void Add(JObject o, List<(string, string)> when, Tree t, JObject expression)
         {
-            if (!(token is JObject o)) return;
-            if (o["1d"] != null && o["children"] is JArray ch1)
+            switch (ExpressionSyntax.KindOf(o))
             {
-                t.Nodes.Add(new Blend1D { Node = o, Input = (string)o["1d"], When = path.ToList() });
-                foreach (var c in ch1.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t, expression);
-            }
-            else if (o["2d"] != null && o["children"] is JArray ch2)
-            {
-                var axes = o["2d"] as JArray;
-                t.Nodes2D.Add(new Blend2D { Node = o, InputX = (string)axes?[0], InputY = (string)axes?[1], When = path.ToList() });
-                foreach (var c in ch2.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t, expression);
-            }
-            else if (o["switch"] != null && o["cases"] is JObject cases)
-            {
-                var sw = (string)o["switch"];
-                var states = SwitchEdit.States(expression, sw);
-                if (states.Count == 0) states = cases.Properties().Select(p => p.Name).ToList();
-                // A state without a case is an empty pose (TableLoader), so it counts as a pose here.
-                if (states.Any(st => Pose(cases[st]) != null))
-                    t.Switches.Add(new SwitchCases { Node = o, Switch = sw, When = path.ToList(), States = states });
-                foreach (var c in cases.Properties()) Walk(c.Value, path.Append((sw, c.Name)).ToList(), t, expression);
+                case ExpressionSyntax.Kind.Blend1D when o[ExpressionSyntax.KeyChildren] is JArray:
+                    t.Nodes.Add(new Blend1D { Node = o, Input = (string)o[ExpressionSyntax.Key1D], When = when.ToList() });
+                    break;
+                case ExpressionSyntax.Kind.Blend2D when o[ExpressionSyntax.KeyChildren] is JArray:
+                    var axes = o[ExpressionSyntax.Key2D] as JArray;
+                    t.Nodes2D.Add(new Blend2D { Node = o, InputX = (string)axes?[0], InputY = (string)axes?[1], When = when.ToList() });
+                    break;
+                case ExpressionSyntax.Kind.Switch when o[ExpressionSyntax.KeyCases] is JObject cases:
+                    var sw = (string)o[ExpressionSyntax.KeySwitch];
+                    var states = SwitchEdit.States(expression, sw);
+                    if (states.Count == 0) states = cases.Properties().Select(c => c.Name).ToList();
+                    // A state without a case is an empty pose (TableLoader), so it counts as a pose here.
+                    if (states.Any(st => ExpressionSyntax.Pose(cases[st]) != null))
+                        t.Switches.Add(new SwitchCases { Node = o, Switch = sw, When = when.ToList(), States = states });
+                    break;
             }
         }
 
@@ -156,19 +152,10 @@ namespace Kmnk.FaceTrackingGenerator
         public static string ChildText(JToken child)
         {
             var ja = EditorText.Current == EditorText.Language.Japanese;
-            var pose = Pose(child);
+            var pose = ExpressionSyntax.Pose(child);
             if (pose == null) return ja ? "別の表情の組み合わせ" : "Nested expressions";
             if (pose.Count == 0) return ja ? "普通の顔" : "Neutral";
             return string.Join(ja ? "、" : ", ", pose.Select(kv => $"{Label(kv.Key)} {Math.Round(kv.Value)}"));
-        }
-
-        // Part -> value of a pose child, or null when the child is a nested node.
-        public static Dictionary<string, float> Pose(JToken child)
-        {
-            if (child == null || child.Type == JTokenType.Null) return new Dictionary<string, float>();
-            if (!(child is JObject o) || o["1d"] != null || o["2d"] != null || o["switch"] != null) return null;
-            return o.Properties().Where(p => p.Value.Type == JTokenType.Integer || p.Value.Type == JTokenType.Float)
-                .ToDictionary(p => p.Name, p => p.Value.Value<float>());
         }
 
         public static string Uses(IEnumerable<string> inputs)
@@ -205,19 +192,20 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- 2D positions
 
         // The amount of each face movement at a point of a 2D node (pose children only).
-        public static Dictionary<string, float> Amounts2D(Blend2D n, float x, float y)
+        public static Dictionary<string, float> Amounts2D(Blend2D n, float x, float y, bool own = true)
         {
             var pts = Enumerable.Range(0, n.Children.Count).Select(n.Position).ToList();
-            var poses = Enumerable.Range(0, n.Children.Count).Select(i => Pose(n.Child(i)) ?? new Dictionary<string, float>()).ToList();
+            var poses = Enumerable.Range(0, n.Children.Count).Select(i => ExpressionSyntax.Pose(n.Child(i)) ?? new Dictionary<string, float>()).ToList();
             var result = new Dictionary<string, float>();
             if (pts.Count == 0) return result;
             var w = CurveEval.W2D(pts, (x, y));
             for (int i = 0; i < poses.Count; i++)
                 foreach (var kv in poses[i]) result[kv.Key] = (result.TryGetValue(kv.Key, out var v) ? v : 0) + w[i] * kv.Value;
+            if (own) foreach (var kv in ExpressionSyntax.OwnParts(n.Node)) result[kv.Key] = kv.Value;
             return result;
         }
 
-        public static bool HasNested(Blend2D n) => Enumerable.Range(0, n.Children.Count).Any(i => Pose(n.Child(i)) == null);
+        public static bool HasNested(Blend2D n) => Enumerable.Range(0, n.Children.Count).Any(i => ExpressionSyntax.Pose(n.Child(i)) == null);
 
         public static bool CanAddPosition2D(Blend2D n, float x, float y)
         {
@@ -232,7 +220,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             double rx = Math.Round((double)x, 2), ry = Math.Round((double)y, 2);
             var pose = new JObject();
-            foreach (var kv in Amounts2D(n, (float)rx, (float)ry).OrderBy(k => k.Key, StringComparer.Ordinal))
+            foreach (var kv in Amounts2D(n, (float)rx, (float)ry, own: false).OrderBy(k => k.Key, StringComparer.Ordinal))
             {
                 var a = (long)Math.Round(kv.Value);
                 if (a != 0) pose[kv.Key] = a;
@@ -285,10 +273,11 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // The amount of each face movement along the input, for the graph: part -> values at xs.
-        public static Dictionary<string, float[]> Curve(Blend1D n, float[] xs)
+        // With own, the node's own parts (All positions) are added as constant lines.
+        public static Dictionary<string, float[]> Curve(Blend1D n, float[] xs, bool own = true)
         {
             var ths = Enumerable.Range(0, n.Children.Count).Select(n.Position).ToList();
-            var poses = Enumerable.Range(0, n.Children.Count).Select(i => Pose(n.Child(i)) ?? new Dictionary<string, float>()).ToList();
+            var poses = Enumerable.Range(0, n.Children.Count).Select(i => ExpressionSyntax.Pose(n.Child(i)) ?? new Dictionary<string, float>()).ToList();
             var parts = poses.SelectMany(p => p.Keys).Distinct().ToList();
             var result = parts.ToDictionary(p => p, p => new float[xs.Length]);
             if (ths.Count == 0) return result;
@@ -298,6 +287,9 @@ namespace Kmnk.FaceTrackingGenerator
                 for (int i = 0; i < poses.Count; i++)
                     foreach (var kv in poses[i]) result[kv.Key][k] += w[i] * kv.Value;
             }
+            if (own)
+                foreach (var kv in ExpressionSyntax.OwnParts(n.Node))
+                    result[kv.Key] = Enumerable.Repeat(kv.Value, xs.Length).ToArray();
             return result;
         }
 
@@ -320,16 +312,16 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var row = (JArray)children[i];
             if (row[1] == null || row[1].Type == JTokenType.Null) row[1] = new JObject();
-            return Pose(row[1]) != null ? (JObject)row[1] : null;
+            return ExpressionSyntax.Pose(row[1]) != null ? (JObject)row[1] : null;
         }
 
         // The pose object of a state of a switch node, made when the state has no case. Null when the case is a nested node.
         public static JObject CasePose(SwitchCases n, string state)
         {
-            if (!(n.Node["cases"] is JObject cases)) n.Node["cases"] = cases = new JObject();
+            if (!(n.Node[ExpressionSyntax.KeyCases] is JObject cases)) n.Node[ExpressionSyntax.KeyCases] = cases = new JObject();
             var c = cases[state];
             if (c == null || c.Type == JTokenType.Null) cases[state] = c = new JObject();
-            return Pose(c) != null ? (JObject)c : null;
+            return ExpressionSyntax.Pose(c) != null ? (JObject)c : null;
         }
 
         // The weights of the face with a switch node held in a state (and the switches above it in theirs).
@@ -344,7 +336,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // Amounts are written as whole numbers so that 100 stays "100".
         public static void SetAmount(JObject pose, string part, float amount) =>
-            pose[part] = (long)Math.Round(Math.Min(Math.Max(amount, 0), 100));
+            ExpressionSyntax.SetPart(pose, part, (long)Math.Round(Math.Min(Math.Max(amount, 0), 100)));
 
         public static void RemovePart(JObject pose, string part) => pose.Remove(part);
 
@@ -353,9 +345,74 @@ namespace Kmnk.FaceTrackingGenerator
             if (pose[part] == null) SetAmount(pose, part, amount);
         }
 
+        // ---- face movements of a 1D or 2D node itself (All positions): written while the node is chosen, at every position
+
+        // The parts written anywhere under the node (its rows' poses and the nodes below), as written.
+        public static HashSet<string> PartsBelow(JObject node)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var r in ExpressionSyntax.Rows(node))
+                foreach (var (o, _) in ExpressionSyntax.Walk(r.Content))
+                    foreach (var part in ExpressionSyntax.OwnParts(o).Keys) names.Add(part);
+            return names;
+        }
+
+        // Parts that every position has with the same amount (none when a position holds a node).
+        public static Dictionary<string, float> SameAtEveryPosition(JObject node)
+        {
+            var poses = ExpressionSyntax.Rows(node).Select(r => ExpressionSyntax.Pose(r.Content)).ToList();
+            if (poses.Count == 0 || poses.Any(p => p == null)) return new Dictionary<string, float>();
+            return poses[0].Where(kv => poses.All(p => p.TryGetValue(kv.Key, out var v) && v == kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
+        // Moves a part that every position has with the same amount to the node. The face does not change.
+        public static bool MakeAllPositions(JObject node, string part)
+        {
+            if (!SameAtEveryPosition(node).TryGetValue(part, out var v)) return false;
+            foreach (var r in ExpressionSyntax.Rows(node)) (r.Content as JObject)?.Remove(part);
+            SetAmount(node, part, v);
+            return true;
+        }
+
+        // Writes the node's own part at every position instead (into the own parts of a node at a position, and into
+        // every state of a switch at a position), and removes it from the node. The face does not change.
+        // statesOf: switch name -> its states, for the states that have no case yet.
+        public static bool ToPositions(JObject node, string part, Func<string, List<string>> statesOf = null)
+        {
+            if (!(node[part] is JValue value) || !ExpressionSyntax.IsPartKey(part)) return false;
+            var rows = ExpressionSyntax.Rows(node);
+            for (int i = 0; i < rows.Count; i++) ExpressionSyntax.SetContent(node, i, WriteInto(rows[i].Content, part, value, statesOf));
+            node.Remove(part);
+            return true;
+        }
+
+        // The content with the part written into it: a pose (made from null) or a 1D or 2D node takes it as its own;
+        // a switch takes it in every state.
+        public static JToken WriteInto(JToken content, string part, JToken value, Func<string, List<string>> statesOf = null)
+        {
+            switch (ExpressionSyntax.KindOf(content))
+            {
+                case ExpressionSyntax.Kind.Switch:
+                    var sw = (JObject)content;
+                    if (!(sw[ExpressionSyntax.KeyCases] is JObject cases)) sw[ExpressionSyntax.KeyCases] = cases = new JObject();
+                    foreach (var st in statesOf?.Invoke(ExpressionSyntax.SwitchOf(sw)) ?? new List<string>())
+                        if (cases[st] == null) cases[st] = new JObject();
+                    var states = ExpressionSyntax.Rows(sw);
+                    for (int i = 0; i < states.Count; i++) ExpressionSyntax.SetContent(sw, i, WriteInto(states[i].Content, part, value, statesOf));
+                    return sw;
+                case ExpressionSyntax.Kind.Other:
+                    return content;
+                default:
+                    var o = content as JObject ?? new JObject();
+                    ExpressionSyntax.SetPart(o, part, value.DeepClone());
+                    return o;
+            }
+        }
+
         // ---- adding and removing positions of a 1D node
 
-        public static bool HasNested(Blend1D n) => Enumerable.Range(0, n.Children.Count).Any(i => Pose(n.Child(i)) == null);
+        public static bool HasNested(Blend1D n) => Enumerable.Range(0, n.Children.Count).Any(i => ExpressionSyntax.Pose(n.Child(i)) == null);
 
         public static bool CanAddPosition(Blend1D n, float x)
         {
@@ -369,7 +426,7 @@ namespace Kmnk.FaceTrackingGenerator
         public static int AddPosition(Blend1D n, float x)
         {
             var v = Math.Round((double)x, 2);
-            var amounts = Curve(n, new[] { (float)v });
+            var amounts = Curve(n, new[] { (float)v }, own: false);
             var pose = new JObject();
             foreach (var kv in amounts.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
@@ -407,16 +464,15 @@ namespace Kmnk.FaceTrackingGenerator
             var names = new SortedSet<string>(StringComparer.Ordinal);
             if (avatar?["parts"] is JObject parts) foreach (var p in parts.Properties()) names.Add(p.Name);
             if (avatar?["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) names.Add((string)x);
-            foreach (var t in Trees(expression))
-            {
-                var poses = t.Nodes.SelectMany(n => Enumerable.Range(0, n.Children.Count).Select(n.Child))
-                    .Concat(t.Nodes2D.SelectMany(n => Enumerable.Range(0, n.Children.Count).Select(n.Child)))
-                    .Select(Pose).Where(p => p != null);
-                foreach (var pose in poses)
-                    foreach (var part in pose.Keys)
-                        foreach (var vars in t.Sides ?? new List<Dictionary<string, string>> { null })
-                            names.Add(Sub(part, vars));
-            }
+            // Every pose and node of the trees (a node's own parts too), with the sides expanded.
+            if (expression?["trees"] is JObject trees)
+                foreach (var p in trees.Properties().Where(p => p.Value is JObject))
+                {
+                    var sides = SidesOf(p.Value["sides"]) ?? new List<Dictionary<string, string>> { null };
+                    foreach (var (o, _) in ExpressionSyntax.Walk(p.Value["tree"]))
+                        foreach (var part in ExpressionSyntax.OwnParts(o).Keys)
+                            foreach (var vars in sides) names.Add(Sub(part, vars));
+                }
             return names;
         }
 

@@ -33,55 +33,69 @@ namespace Kmnk.FaceTrackingGenerator
             public int ParentRow;
             public int Depth;
             public float X, Y, Height;
+            public string All;        // "All:  <face movements>" cut, for a 1D or 2D node with its own face movements (All positions); else null
+            public string AllFull;    // the same, not cut (for the tooltip)
+            public List<string> AllLines = new List<string>();  // one face movement per line, for an open box
             public string TuningKey;  // the fold key of the Tuning tab ("<tree>/<i>", "<tree>/2d/<k>", "<tree>/sw/<k>"), or null for a switch without poses
             public bool Open;         // shows the face movements one per line
         }
 
+        // The height of the All row and its open lines (0 without own face movements).
+        public static float AllHeight(Box b) => b.All == null ? 0 : RowHeight + b.AllLines.Count * LineHeight;
+
         public static List<string> TreeNames(JObject expression) =>
             expression?["trees"] is JObject trees ? trees.Properties().Where(p => p.Value is JObject).Select(p => p.Name).ToList() : new List<string>();
 
-        static bool IsBranch(JToken t) => t is JObject o && (o["1d"] != null || o["2d"] != null || o["switch"] != null);
+        static bool IsBranch(JToken t) => ExpressionSyntax.IsBranch(t);
 
         // The rows of a branching node: (label of the position, content).
-        static List<(string label, JToken child)> Children(JObject o)
-        {
-            var rows = new List<(string, JToken)>();
-            if (o["1d"] != null || o["2d"] != null)
-            {
-                if (o["children"] is JArray ch)
-                    foreach (var c in ch.OfType<JArray>().Where(c => c.Count == 2))
-                        rows.Add((c[0] is JArray p ? $"({Num(p[0])}, {Num(p[1])})" : Num(c[0]), c[1]));
-            }
-            else if (o["cases"] is JObject cases)
-                foreach (var p in cases.Properties()) rows.Add((p.Name, p.Value));
-            return rows;
-        }
+        static List<(string label, JToken child)> Children(JObject o) =>
+            ExpressionSyntax.Rows(o).Select(r => (r.State ?? (r.Position is JArray p ? $"({Num(p[0])}, {Num(p[1])})" : Num(r.Position)), r.Content)).ToList();
 
         static string Num(JToken t) => t.Type == JTokenType.Integer || t.Type == JTokenType.Float
             ? t.Value<double>().ToString("0.##", CultureInfo.InvariantCulture) : t.ToString();
 
         // "mouth.sad 100, eye.sad 100" cut to 26 characters, or "Neutral".
-        public static string PoseText(JToken child, bool cut = true)
+        public static string PoseText(JToken child, bool cut = true) => PartsText(ExpressionSyntax.Pose(child), cut);
+
+        static string PartsText(Dictionary<string, float> parts, bool cut = true)
         {
-            var pose = Tuning.Pose(child);
-            if (pose == null || pose.Count == 0) return "Neutral";
-            var s = string.Join(", ", pose.Select(kv => $"{Tuning.Label(kv.Key)} {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}"));
+            if (parts == null || parts.Count == 0) return "Neutral";
+            var s = string.Join(", ", parts.Select(kv => $"{Tuning.Label(kv.Key)} {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}"));
             return cut && s.Length > PoseTextLength ? s.Substring(0, PoseTextLength - 1) + "…" : s;
         }
 
         // The face movements of a pose, one per line ("Neutral" for an empty one).
-        public static List<string> PoseLines(JToken child)
+        public static List<string> PoseLines(JToken child) => PartsLines(ExpressionSyntax.Pose(child));
+
+        static List<string> PartsLines(Dictionary<string, float> parts)
         {
-            var pose = Tuning.Pose(child);
-            if (pose == null || pose.Count == 0) return new List<string> { "Neutral" };
-            return pose.Select(kv => $"{Tuning.Label(kv.Key)}  {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}").ToList();
+            if (parts == null || parts.Count == 0) return new List<string> { "Neutral" };
+            return parts.Select(kv => $"{Tuning.Label(kv.Key)}  {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}").ToList();
+        }
+
+        public const string AllPrefix = "All:  ";
+
+        static string KindName(JObject o)
+        {
+            switch (ExpressionSyntax.KindOf(o))
+            {
+                case ExpressionSyntax.Kind.Blend1D: return "1d";
+                case ExpressionSyntax.Kind.Blend2D: return "2d";
+                default: return "switch";
+            }
         }
 
         static string Title(JObject o)
         {
-            if (o["1d"] != null) return "1D  " + Tuning.Label((string)o["1d"]);
-            if (o["2d"] is JArray a) return $"2D  {Tuning.Label((string)a[0])} × {Tuning.Label((string)a[1])}";
-            return "Switch  " + Tuning.Label((string)o["switch"]);
+            switch (ExpressionSyntax.KindOf(o))
+            {
+                case ExpressionSyntax.Kind.Blend1D: return "1D  " + Tuning.Label(ExpressionSyntax.Input1D(o));
+                case ExpressionSyntax.Kind.Blend2D:
+                    var (x, y) = ExpressionSyntax.Inputs2D(o);
+                    return $"2D  {Tuning.Label(x)} × {Tuning.Label(y)}";
+                default: return "Switch  " + Tuning.Label(ExpressionSyntax.SwitchOf(o));
+            }
         }
 
         public static JObject TreeRoot(JObject expression, string tree) => expression?["trees"]?[tree]?["tree"] as JObject;
@@ -105,11 +119,19 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var box = new Box
             {
-                Path = path, Kind = o["1d"] != null ? "1d" : o["2d"] != null ? "2d" : "switch", Title = Title(o),
+                Path = path, Kind = KindName(o), Title = Title(o),
                 ParentPath = parentPath, ParentRow = parentRow, Depth = depth, X = depth * ColumnWidth,
                 TuningKey = keys.TryGetValue(o, out var k) ? k : null,
                 Open = open != null && open.Contains(path),
             };
+            var own = box.Kind == "switch" ? new Dictionary<string, float>() : ExpressionSyntax.OwnParts(o);
+            if (own.Count > 0)
+            {
+                // An open box lists them under "All:", as a position lists its face movements under its label.
+                box.All = box.Open ? AllPrefix.TrimEnd() : AllPrefix + PartsText(own);
+                box.AllFull = AllPrefix + PartsText(own, false);
+                if (box.Open) box.AllLines = PartsLines(own);
+            }
             var startY = nextY;
             var rows = Children(o);
             var hasChild = false;
@@ -128,7 +150,7 @@ namespace Kmnk.FaceTrackingGenerator
                     CanSplit = true, Lines = box.Open ? PoseLines(child) : new List<string>(),
                 });
             }
-            box.Height = TitleHeight + rows.Count * RowHeight + box.Rows.Sum(r => r.Lines.Count) * LineHeight;
+            box.Height = TitleHeight + rows.Count * RowHeight + box.Rows.Sum(r => r.Lines.Count) * LineHeight + AllHeight(box);
             box.Y = startY;
             nextY = hasChild ? Math.Max(nextY, startY + box.Height + Gap) : nextY + box.Height + Gap;
             boxes.Add(box);
@@ -216,7 +238,7 @@ namespace Kmnk.FaceTrackingGenerator
             var node = Find(expression, tree, path);
             if (node == null) return false;
             var rows = Children(node);
-            return row >= 0 && row < rows.Count && !IsBranch(rows[row].child) && Tuning.Pose(rows[row].child) != null;
+            return row >= 0 && row < rows.Count && !IsBranch(rows[row].child) && ExpressionSyntax.Pose(rows[row].child) != null;
         }
 
         // Makes the row's face movements a 1D node of the input with the same face movements at both ends of the
@@ -228,20 +250,12 @@ namespace Kmnk.FaceTrackingGenerator
             var pose = Children(node)[row].child;
             var copy = pose == null || pose.Type == JTokenType.Null ? new JObject() : (JObject)pose.DeepClone();
             var (lo, hi) = Tuning.Range(input, Enumerable.Empty<float>());
-            var nested = new JObject
-            {
-                ["1d"] = input,
-                ["children"] = new JArray(new JArray(Tuning.Num(lo), copy), new JArray(Tuning.Num(hi), copy.DeepClone())),
-            };
+            var nested = ExpressionSyntax.New1D(input, new[] { (Tuning.Num(lo), (JToken)copy), (Tuning.Num(hi), copy.DeepClone()) });
             SetRow(node, row, nested);
             return path + "/" + row;
         }
 
-        static void SetRow(JObject node, int row, JToken content)
-        {
-            if (node["cases"] is JObject cases) cases.Properties().ElementAt(row).Value = content;
-            else ((JArray)((JArray)node["children"]).OfType<JArray>().Where(c => c.Count == 2).ElementAt(row))[1] = content;
-        }
+        static void SetRow(JObject node, int row, JToken content) => ExpressionSyntax.SetContent(node, row, content);
 
         // Makes the row's face movements a 2D node of the two inputs with the same face movements at three positions
         // (the origin, the X end and the Y end), so the face does not change. The origin is 0 when the input's range
@@ -256,11 +270,7 @@ namespace Kmnk.FaceTrackingGenerator
             var (ylo, yhi) = Tuning.Range(inputY, Enumerable.Empty<float>());
             float x0 = xlo <= 0 && 0 <= xhi ? 0 : xlo, y0 = ylo <= 0 && 0 <= yhi ? 0 : ylo;
             JArray P(float x, float y) => new JArray(Tuning.Num(x), Tuning.Num(y));
-            var nested = new JObject
-            {
-                ["2d"] = new JArray(inputX, inputY),
-                ["children"] = new JArray(new JArray(P(x0, y0), copy), new JArray(P(xhi, y0), copy.DeepClone()), new JArray(P(x0, yhi), copy.DeepClone())),
-            };
+            var nested = ExpressionSyntax.New2D(inputX, inputY, new[] { ((JToken)P(x0, y0), (JToken)copy), (P(xhi, y0), copy.DeepClone()), (P(x0, yhi), copy.DeepClone()) });
             SetRow(node, row, nested);
             return path + "/" + row;
         }
@@ -277,18 +287,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var x = Ends(inputX);
             if (inputY == null)
-                return new JObject
-                {
-                    ["1d"] = inputX,
-                    ["children"] = new JArray(new JArray(Tuning.Num(origin ? x.origin : x.lo), first), new JArray(Tuning.Num(x.hi), rest)),
-                };
+                return ExpressionSyntax.New1D(inputX, new[] { (Tuning.Num(origin ? x.origin : x.lo), first), (Tuning.Num(x.hi), rest) });
             var y = Ends(inputY);
             JArray P(float a, float b) => new JArray(Tuning.Num(a), Tuning.Num(b));
-            return new JObject
-            {
-                ["2d"] = new JArray(inputX, inputY),
-                ["children"] = new JArray(new JArray(P(x.origin, y.origin), first), new JArray(P(x.hi, y.origin), rest), new JArray(P(x.origin, y.hi), rest.DeepClone())),
-            };
+            return ExpressionSyntax.New2D(inputX, inputY, new[] { ((JToken)P(x.origin, y.origin), first), (P(x.hi, y.origin), rest), (P(x.origin, y.hi), rest.DeepClone()) });
         }
 
         // Puts a new 1D or 2D box above the box: the box goes to the new box's origin, the other positions are neutral.
@@ -383,9 +385,14 @@ namespace Kmnk.FaceTrackingGenerator
 
         static string NodeLabel(JObject o)
         {
-            if (o["1d"] != null) return Tuning.Label((string)o["1d"]);
-            if (o["2d"] is JArray a) return $"{Tuning.Label((string)a[0])} × {Tuning.Label((string)a[1])}";
-            return Tuning.Label((string)o["switch"]);
+            switch (ExpressionSyntax.KindOf(o))
+            {
+                case ExpressionSyntax.Kind.Blend1D: return Tuning.Label(ExpressionSyntax.Input1D(o));
+                case ExpressionSyntax.Kind.Blend2D:
+                    var (x, y) = ExpressionSyntax.Inputs2D(o);
+                    return $"{Tuning.Label(x)} × {Tuning.Label(y)}";
+                default: return Tuning.Label(ExpressionSyntax.SwitchOf(o));
+            }
         }
 
         // Where a box is: "Mouth › LipPucker 0 › MouthOpen" (the tree, each box above with the position on the way,
@@ -422,7 +429,15 @@ namespace Kmnk.FaceTrackingGenerator
             var parent = Find(expression, tree, path.Substring(0, cut));
             if (parent == null || !int.TryParse(path.Substring(cut + 1), out var parentRow)) return null;
             var keep = rows[keepRow].child;
-            SetRow(parent, parentRow, keep == null || keep.Type == JTokenType.Null ? new JObject() : keep.DeepClone());
+            var content = keep == null || keep.Type == JTokenType.Null ? new JObject() : keep.DeepClone();
+            // The box's own face movements (All positions) go into the kept content, so the face does not change there.
+            // They win over the same face movements below, which are removed.
+            foreach (var p in ExpressionSyntax.PartProperties(node).ToList())
+            {
+                foreach (var (o, _) in ExpressionSyntax.Walk(content)) o.Remove(p.Name);
+                content = Tuning.WriteInto(content, p.Name, p.Value, sw => SwitchEdit.States(expression, sw));
+            }
+            SetRow(parent, parentRow, content);
             return path;
         }
 
@@ -438,7 +453,7 @@ namespace Kmnk.FaceTrackingGenerator
             var rows = Children(node);
             var (label, child) = rows[row];
             if (IsBranch(child)) return label + ":  " + Title((JObject)child);
-            var poses = rows.Select(r => Tuning.Pose(r.child)).Where(p => p != null).ToList();
+            var poses = rows.Select(r => ExpressionSyntax.Pose(r.child)).Where(p => p != null).ToList();
             if (poses.Count < 2) return label + ":  " + PoseText(child, false);
 
             // Parts in the order they are first written, row by row.
@@ -448,7 +463,7 @@ namespace Kmnk.FaceTrackingGenerator
             var differ = new HashSet<string>(parts.Where(k => poses.Any(p => Math.Abs(At(p, k) - At(poses[0], k)) > 1e-4f)));
             var same = parts.Where(k => !differ.Contains(k)).Select(Tuning.Label).Distinct().ToList();
 
-            var pose = Tuning.Pose(child);
+            var pose = ExpressionSyntax.Pose(child);
             var own = pose.Where(kv => differ.Contains(kv.Key))
                 .Select(kv => $"{Tuning.Label(kv.Key)} {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}").ToList();
             var text = pose.Count == 0 ? "Neutral" : string.Join(", ", own);

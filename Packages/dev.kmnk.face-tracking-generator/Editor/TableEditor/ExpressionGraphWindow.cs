@@ -570,6 +570,15 @@ namespace Kmnk.FaceTrackingGenerator
                 if (titleLabel != null) { titleLabel.style.flexGrow = 1; titleLabel.style.marginLeft = 2; titleLabel.style.unityTextAlign = TextAnchor.MiddleLeft; }
                 Input = RowPort.Make(Direction.Input, null);
                 Input.portName = "";
+                // The face movements of the node itself (All positions) above the rows. The input stays at the first row.
+                if (box.All != null)
+                {
+                    var spacer = new VisualElement();
+                    spacer.style.height = ExpressionGraph.AllHeight(box);
+                    inputContainer.Add(spacer);
+                    outputContainer.Add(AllLabel(box.All, ExpressionGraph.RowHeight, box.AllFull));
+                    foreach (var line in box.AllLines) outputContainer.Add(AllLabel(line, ExpressionGraph.LineHeight, null));
+                }
                 inputContainer.Add(Input);
                 for (int i = 0; i < box.Rows.Count; i++)
                 {
@@ -594,6 +603,17 @@ namespace Kmnk.FaceTrackingGenerator
                 RefreshExpandedState();
                 RefreshPorts();
                 SetPosition(new Rect(box.X, box.Y, ExpressionGraph.BoxWidth, box.Height));
+            }
+
+            static Label AllLabel(string text, float height, string tip)
+            {
+                var l = new Label(text) { tooltip = tip };
+                l.style.color = new Color(0.6f, 0.6f, 0.6f);
+                l.style.fontSize = 11;
+                l.style.unityTextAlign = TextAnchor.MiddleRight;
+                l.style.height = height;
+                l.style.paddingRight = 24;
+                return l;
             }
 
             internal string KeepText(int row) =>

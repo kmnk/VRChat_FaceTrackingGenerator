@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -8,6 +9,24 @@ namespace Kmnk.FaceTrackingGenerator
 {
     public static partial class TableEditorChecks
     {
+        // The loaded trees as text, to compare two models: every node with its inputs, positions and poses.
+        static string TreesText(TableModel m)
+        {
+            var sb = new System.Text.StringBuilder();
+            void Node(Kmnk.FaceTrackingGenerator.Node n)
+            {
+                switch (n)
+                {
+                    case PoseNode p: sb.Append("{" + string.Join(",", p.Parts.Select(kv => $"{kv.Key}:{F(kv.Value)}")) + "}"); break;
+                    case Blend1DNode b: sb.Append($"1d({b.Input})["); foreach (var c in b.Children) { sb.Append(F(c.threshold) + "="); Node(c.node); sb.Append(";"); } sb.Append("]"); break;
+                    case Blend2DNode b: sb.Append($"2d({b.InputX},{b.InputY})["); foreach (var c in b.Children) { sb.Append($"{F(c.x)},{F(c.y)}="); Node(c.node); sb.Append(";"); } sb.Append("]"); break;
+                    case SwitchNode s: sb.Append($"sw({s.Switch})["); foreach (var c in s.Cases) { sb.Append(c.state + "="); Node(c.node); sb.Append(";"); } sb.Append("]"); break;
+                }
+            }
+            foreach (var t in m.Trees) { sb.Append(t.Name + ":"); Node(t.Root); sb.Append("\n"); }
+            return sb.ToString();
+        }
+
         // Prints what the Tuning tab shows for -ftTable, applies its edits the way the tab does, and saves with -ftSave 1.
         //   -ftSetPosition "<tree>/<node>/<position>=<value>;..."   node and position count from 0 in the order printed
         //   -ftSetSmoothing "<name>/local=<ms>;<name>/remote=<ms>"
@@ -16,6 +35,10 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftSetAmountSw "<tree>/sw/<k>/<state>/<part>=<v>;..."
         //   -ftRemovePartSw "<tree>/sw/<k>/<state>/<part>;..."
         //   -ftTrySw "<tree>/sw/<k>/<state>;..."                     weights of the face (Face View) with the switch in that state
+        // The face movements of a 1D or 2D node itself (All positions); <node> is "<tree>/<i>" (1D) or "<tree>/2d/<k>" (2D):
+        //   -ftAddPartAll "<node>=<part>;..."   -ftSetAmountAll "<node>/<part>=<v>;..."   -ftRemovePartAll "<node>/<part>;..."
+        //   -ftMakeAll "<node>/<part>;..."      (Same at every position)   -ftToPositions "<node>/<part>;..."   (To positions)
+        //   Each prints the node and whether the loaded trees are the same as before (trees-same=true: the face did not change).
         // Lines:
         //   [FTG] tuning tree <name>: title=<text> nodes=<n> has2d=<bool>
         //   [FTG] tuning node <tree>/<i>: <title> | positions=<p,...> | <movements at each position>
@@ -224,6 +247,61 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] tuning try {tree.Name}/0 x={F(x)}: " + string.Join(" ", w.Where(kv => kv.Value != 0).Select(kv => $"{kv.Key}={F(kv.Value)}")));
                 }
             }
+
+            JObject NodeAt(string key)
+            {
+                var parts = key.Split('/');
+                var tree = trees.First(t => t.Name == parts[0]);
+                return parts[1] == "2d" ? tree.Nodes2D[int.Parse(parts[2])].Node : tree.Nodes[int.Parse(parts[1])].Node;
+            }
+            (string node, string rest) Cut(string item)
+            {
+                var i = item.LastIndexOf('/');
+                return (item.Substring(0, i), item.Substring(i + 1));
+            }
+            void AllEdit(string op, string item, Func<bool> edit, string nodeKey)
+            {
+                var before = TreesText(doc.Model());
+                var done = edit();
+                var after = TreesText(doc.Model());
+                Debug.Log($"[FTG] tuning all {op} {item}: done={done.ToString().ToLower()} node={NodeAt(nodeKey).ToString(Newtonsoft.Json.Formatting.None)} trees-same={(before == after).ToString().ToLower()}");
+            }
+            foreach (var item in (CliArgs.Get("-ftAddPartAll") ?? "").Split(';').Where(x => x.Contains("=")))
+            {
+                var (key, part) = (item.Substring(0, item.IndexOf('=')), item.Substring(item.IndexOf('=') + 1));
+                AllEdit("add", item, () => { Kmnk.FaceTrackingGenerator.Tuning.AddPart(NodeAt(key), part); return true; }, key);
+            }
+            foreach (var item in (CliArgs.Get("-ftSetAmountAll") ?? "").Split(';').Where(x => x.Contains("=")))
+            {
+                var (key, value) = Split(item);
+                var (node, part) = Cut(key);
+                AllEdit("set", item, () => { Kmnk.FaceTrackingGenerator.Tuning.SetAmount(NodeAt(node), part, value); return true; }, node);
+            }
+            foreach (var item in (CliArgs.Get("-ftRemovePartAll") ?? "").Split(';').Where(x => x.Contains("/")))
+            {
+                var (node, part) = Cut(item);
+                AllEdit("remove", item, () => { Kmnk.FaceTrackingGenerator.Tuning.RemovePart(NodeAt(node), part); return true; }, node);
+            }
+            foreach (var item in (CliArgs.Get("-ftMakeAll") ?? "").Split(';').Where(x => x.Contains("/")))
+            {
+                var (node, part) = Cut(item);
+                AllEdit("make", item, () => Kmnk.FaceTrackingGenerator.Tuning.MakeAllPositions(NodeAt(node), part), node);
+            }
+            foreach (var item in (CliArgs.Get("-ftToPositions") ?? "").Split(';').Where(x => x.Contains("/")))
+            {
+                var (node, part) = Cut(item);
+                var expr2 = doc.Json(TableDocument.Expression);
+                AllEdit("to-positions", item, () => Kmnk.FaceTrackingGenerator.Tuning.ToPositions(NodeAt(node), part, sw => SwitchEdit.States(expr2, sw)), node);
+            }
+            // What the All positions rows and menus show, per 1D and 2D node (only nodes that have or could have them).
+            foreach (var t in trees)
+                foreach (var (key, node) in t.Nodes.Select((n, i) => ($"{t.Name}/{i}", n.Node)).Concat(t.Nodes2D.Select((n, k) => ($"{t.Name}/2d/{k}", n.Node))))
+                {
+                    var own = ExpressionSyntax.OwnParts(node);
+                    var same = Kmnk.FaceTrackingGenerator.Tuning.SameAtEveryPosition(node);
+                    if (own.Count == 0 && same.Count == 0) continue;
+                    Debug.Log($"[FTG] tuning all {key}: own={string.Join(",", own.Select(kv => $"{kv.Key}={F(kv.Value)}"))} | same={string.Join(",", same.Select(kv => $"{kv.Key}={F(kv.Value)}"))} | below={string.Join(",", Kmnk.FaceTrackingGenerator.Tuning.PartsBelow(node).OrderBy(x => x, StringComparer.Ordinal))}");
+                }
 
             var trySw = CliArgs.Get("-ftTrySw");
             if (trySw != null)
