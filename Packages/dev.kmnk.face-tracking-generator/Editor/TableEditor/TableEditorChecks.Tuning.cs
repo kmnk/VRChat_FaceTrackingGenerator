@@ -12,9 +12,14 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftSetPosition "<tree>/<node>/<position>=<value>;..."   node and position count from 0 in the order printed
         //   -ftSetSmoothing "<name>/local=<ms>;<name>/remote=<ms>"
         //   -ftTry "<value>,..."                                     weights of the face for the first node at the values
+        //   -ftAddPartSw "<tree>/sw/<k>/<state>=<part>;..."          switch nodes with poses: k counts from 0 in the order printed
+        //   -ftSetAmountSw "<tree>/sw/<k>/<state>/<part>=<v>;..."
+        //   -ftRemovePartSw "<tree>/sw/<k>/<state>/<part>;..."
+        //   -ftTrySw "<tree>/sw/<k>/<state>;..."                     weights of the face (Face View) with the switch in that state
         // Lines:
         //   [FTG] tuning tree <name>: title=<text> nodes=<n> has2d=<bool>
         //   [FTG] tuning node <tree>/<i>: <title> | positions=<p,...> | <movements at each position>
+        //   [FTG] tuning switch <tree>/sw/<k>: <title> | states=<state>:<movements>|...
         //   [FTG] tuning 2d: <names>
         //   [FTG] tuning smoothing <name>: local=<ms> remote=<ms> | <users>
         //   [FTG] tuning set <tree>/<i>/<j>: asked=<v> written=<v>
@@ -101,6 +106,37 @@ namespace Kmnk.FaceTrackingGenerator
                     var pose = Kmnk.FaceTrackingGenerator.Tuning.PoseObject(node.Children, int.Parse(parts[2]));
                     Kmnk.FaceTrackingGenerator.Tuning.RemovePart(pose, parts[3]);
                     Debug.Log($"[FTG] tuning remove-part-2d {item}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            // Switch nodes with poses: the same edits as a 1D position, on the pose of a state.
+            JObject CasePose(string[] parts) =>
+                Kmnk.FaceTrackingGenerator.Tuning.CasePose(trees.First(t => t.Name == parts[0]).Switches[int.Parse(parts[2])], parts[3]);
+            var addPartSw = CliArgs.Get("-ftAddPartSw");
+            if (addPartSw != null)
+                foreach (var item in addPartSw.Split(';').Where(x => x.Contains("=")))
+                {
+                    var k = item.LastIndexOf('=');
+                    var pose = CasePose(item.Substring(0, k).Split('/'));
+                    Kmnk.FaceTrackingGenerator.Tuning.AddPart(pose, item.Substring(k + 1));
+                    Debug.Log($"[FTG] tuning add-part-sw {item}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            var setAmountSw = CliArgs.Get("-ftSetAmountSw");
+            if (setAmountSw != null)
+                foreach (var item in setAmountSw.Split(';').Where(x => x.Contains("=")))
+                {
+                    var (key, value) = Split(item);
+                    var parts = key.Split('/');
+                    var pose = CasePose(parts);
+                    Kmnk.FaceTrackingGenerator.Tuning.SetAmount(pose, parts[4], value);
+                    Debug.Log($"[FTG] tuning set-amount-sw {key}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
+                }
+            var removePartSw = CliArgs.Get("-ftRemovePartSw");
+            if (removePartSw != null)
+                foreach (var item in removePartSw.Split(';').Where(x => x.Length > 0))
+                {
+                    var parts = item.Split('/');
+                    var pose = CasePose(parts);
+                    Kmnk.FaceTrackingGenerator.Tuning.RemovePart(pose, parts[4]);
+                    Debug.Log($"[FTG] tuning remove-part-sw {item}: pose={pose.ToString(Newtonsoft.Json.Formatting.None)}");
                 }
             var setPart = CliArgs.Get("-ftSetPart");
             if (setPart != null)
@@ -189,6 +225,17 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
 
+            var trySw = CliArgs.Get("-ftTrySw");
+            if (trySw != null)
+                foreach (var item in trySw.Split(';').Where(x => x.Length > 0))
+                {
+                    var parts = item.Split('/');
+                    var tree = trees.First(t => t.Name == parts[0]);
+                    var n = tree.Switches[int.Parse(parts[2])];
+                    var w = Kmnk.FaceTrackingGenerator.Tuning.TryWeightsSwitch(model, tree, n, parts[3], null);
+                    Debug.Log($"[FTG] tuning try-sw {item}: " + string.Join(" ", w.Where(kv => kv.Value != 0).Select(kv => $"{kv.Key}={F(kv.Value)}")));
+                }
+
             if (CliArgs.Get("-ftSave") == "1")
             {
                 foreach (var p in doc.Save()) Debug.Log("[FTG] tuning saved " + p);
@@ -231,6 +278,12 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] tuning node {t.Name}/{i}: {Kmnk.FaceTrackingGenerator.Tuning.NodeTitle(n)} | positions=" +
                               string.Join(",", positions.Select(j => F(n.Position(j)))) + " | " +
                               string.Join(" / ", positions.Select(j => Kmnk.FaceTrackingGenerator.Tuning.ChildText(n.Child(j)))));
+                }
+                for (int k = 0; k < t.Switches.Count; k++)
+                {
+                    var n = t.Switches[k];
+                    Debug.Log($"[FTG] tuning switch {t.Name}/sw/{k}: {Kmnk.FaceTrackingGenerator.Tuning.SwitchTitle(n)} | states=" +
+                              string.Join("|", n.States.Select(st => st + ":" + Kmnk.FaceTrackingGenerator.Tuning.ChildText(n.Case(st)))));
                 }
             }
             var only2d = trees.Where(t => t.Nodes.Count == 0 && t.Has2D).Select(t => Kmnk.FaceTrackingGenerator.Tuning.Label(t.Name)).ToList();

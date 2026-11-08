@@ -337,7 +337,7 @@ namespace Kmnk.FaceTrackingGenerator
             tuneOpen[tree] = true;
             if (key != null)
             {
-                if (key.IndexOf("/2d/", StringComparison.Ordinal) < 0) tuneOpen[key] = true;
+                if (key.IndexOf("/2d/", StringComparison.Ordinal) < 0) tuneOpen[key] = true;  // 1D and switch folds
                 tuneScrollTo = key;
                 ShowTuning(key);
             }
@@ -1192,7 +1192,7 @@ namespace Kmnk.FaceTrackingGenerator
 
             EditorGUILayout.LabelField("Expressions", EditorStyles.boldLabel);
             Help("help.thresholds");
-            var shown = trees.Where(t => t.Nodes.Count > 0 || t.Has2D).ToList();
+            var shown = trees.Where(t => t.Nodes.Count > 0 || t.Has2D || t.Switches.Count > 0).ToList();
             if (shown.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.no1d"), EditorStyles.wordWrappedLabel);
             var firstNode = true;
             foreach (var t in shown)
@@ -1213,6 +1213,15 @@ namespace Kmnk.FaceTrackingGenerator
                     if (tuneOpen[key]) DrawTuningNode(t, i, key, allNames);
                 }
                 for (int k = 0; k < t.Nodes2D.Count; k++) DrawTuningNode2D(t, k, allNames);
+                for (int k = 0; k < t.Switches.Count; k++)
+                {
+                    var key = $"{t.Name}/sw/{k}";
+                    if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
+                    firstNode = false;
+                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.SwitchTitle(t.Switches[k]), true);
+                    ScrollMark(key);
+                    if (tuneOpen[key]) DrawTuningNodeSwitch(t, k, allNames);
+                }
                 EditorGUI.indentLevel--;
             }
 
@@ -1320,6 +1329,16 @@ namespace Kmnk.FaceTrackingGenerator
             var t = trees.FirstOrDefault(x => x.Name == graphTree);
             if (box != null && box.Kind == "switch")
             {
+                // The states' face movements of this box, then the switch itself (shared by the expressions that use it).
+                var swAt = box.TuningKey?.IndexOf("/sw/", StringComparison.Ordinal) ?? -1;
+                if (t != null && swAt >= 0 && int.TryParse(box.TuningKey.Substring(swAt + 4), out var sk) && sk < t.Switches.Count)
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.Foldout(true, Tuning.SwitchTitle(t.Switches[sk]), true);  // always open here
+                    DrawTuningNodeSwitch(t, sk, allNames);
+                    EditorGUI.indentLevel--;
+                    SeparatorLine();
+                }
                 DrawSwitchPanel(expression, (string)ExpressionGraph.Find(expression, graphTree, graphPath)?["switch"], graphTree);
                 return;
             }
@@ -1534,6 +1553,31 @@ namespace Kmnk.FaceTrackingGenerator
                         GUIUtility.ExitGUI();
                     }
             }
+            EditorGUILayout.Space(4);
+        }
+
+        // The states of a switch node with poses: per state its name, then its face movements (as at a 1D position).
+        void DrawTuningNodeSwitch(Tuning.Tree t, int k, ICollection<string> allNames)
+        {
+            var n = t.Switches[k];
+            var key = $"{t.Name}/sw/{k}";
+            EditorGUI.indentLevel++;
+            Help("help.switchPoses");
+            for (int i = 0; i < n.States.Count; i++)
+            {
+                var state = n.States[i];
+                EditorGUILayout.LabelField(i == 0 ? state + " (default)" : state);
+                DrawPose(t, n.Case(state), key + "/" + state, allNames, (tree, edit) => edit(Tuning.CasePose(tree.Switches[k], state)));
+            }
+            EditorGUI.indentLevel--;
+            EditorGUILayout.Space(4);
+        }
+
+        static void SeparatorLine()
+        {
+            EditorGUILayout.Space(6);
+            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
             EditorGUILayout.Space(4);
         }
 
@@ -1800,6 +1844,19 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (model == null || doc == null) return;
             tuneShown = key;
+            var atSw = key.IndexOf("/sw/", StringComparison.Ordinal);
+            if (atSw >= 0)
+            {
+                // "<tree>/sw/<k>/<state>": the face with the switch held in that state. Without a state, nothing to show.
+                var rest = key.Substring(atSw + 4);
+                var cut = rest.IndexOf('/');
+                var ts = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, atSw));
+                if (ts == null || cut < 0 || !int.TryParse(rest.Substring(0, cut), out var ks) || ks >= ts.Switches.Count) return;
+                var sn = ts.Switches[ks];
+                var state = rest.Substring(cut + 1);
+                FaceView.Show(model, Prefab(), Tuning.TryWeightsSwitch(model, ts, sn, state, inputs), $"{Tuning.Label(sn.Switch)} = {state} ({Tuning.Label(ts.Name)})");
+                return;
+            }
             var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
             if (at2d >= 0)
             {
@@ -1887,6 +1944,8 @@ namespace Kmnk.FaceTrackingGenerator
                     ShowTuning(t.Name + "/0");
                 }
             }
+            var tuneShowKey = CliArgs.Get("-ftTuneShowKey");  // a Tuning key to show in Face View, e.g. "<tree>/sw/<k>/<state>"
+            if (tuneShowKey != null && doc != null) ShowTuning(tuneShowKey);
             scroll.y = CliArgs.GetFloat("-ftScroll", 0);
             if (st.Contains("dirty") && doc != null)
             {

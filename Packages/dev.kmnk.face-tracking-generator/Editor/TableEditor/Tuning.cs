@@ -6,7 +6,8 @@ using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // The Tuning tab without drawing: the 1D nodes of the expression table (positions where face movements change)
+    // The Tuning tab without drawing: the 1D and 2D nodes of the expression table (positions where face movements change),
+    // the switch nodes with face movements in their states,
     // and the smoothing times of the input table. Works on the JSON trees, so a left/right pair stays one node.
     public static class Tuning
     {
@@ -30,12 +31,23 @@ namespace Kmnk.FaceTrackingGenerator
             public JToken Child(int i) => ((JArray)Children[i])[1];
         }
 
+        // A switch node with a pose (face movements that stay the same whatever the values) in at least one of its states.
+        public sealed class SwitchCases
+        {
+            public JObject Node;                                   // {"switch": name, "cases": {state: pose or node, ...}}
+            public string Switch;                                  // as written, e.g. "EyelidSmile{side}"
+            public List<(string sw, string state)> When = new List<(string, string)>();  // switches above it, as written
+            public List<string> States = new List<string>();      // the switch's order; the order of "cases" when it is not found
+            public JToken Case(string state) => Node["cases"]?[state];
+        }
+
         public sealed class Tree
         {
             public string Name;                                    // as written, e.g. "Eyelid{side}"
             public List<Dictionary<string, string>> Sides;         // the side variables, or null for a tree without sides
             public List<Blend1D> Nodes = new List<Blend1D>();
             public List<Blend2D> Nodes2D = new List<Blend2D>();
+            public List<SwitchCases> Switches = new List<SwitchCases>();
             public bool Has2D => Nodes2D.Count > 0;
         }
 
@@ -49,28 +61,36 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (!(p.Value is JObject entry)) continue;
                 var t = new Tree { Name = p.Name, Sides = SidesOf(entry["sides"]) };
-                Walk(entry["tree"], new List<(string, string)>(), t);
+                Walk(entry["tree"], new List<(string, string)>(), t, expression);
                 result.Add(t);
             }
             return result;
         }
 
-        static void Walk(JToken token, List<(string, string)> path, Tree t)
+        static void Walk(JToken token, List<(string, string)> path, Tree t, JObject expression)
         {
             if (!(token is JObject o)) return;
             if (o["1d"] != null && o["children"] is JArray ch1)
             {
                 t.Nodes.Add(new Blend1D { Node = o, Input = (string)o["1d"], When = path.ToList() });
-                foreach (var c in ch1.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t);
+                foreach (var c in ch1.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t, expression);
             }
             else if (o["2d"] != null && o["children"] is JArray ch2)
             {
                 var axes = o["2d"] as JArray;
                 t.Nodes2D.Add(new Blend2D { Node = o, InputX = (string)axes?[0], InputY = (string)axes?[1], When = path.ToList() });
-                foreach (var c in ch2.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t);
+                foreach (var c in ch2.OfType<JArray>().Where(c => c.Count == 2)) Walk(c[1], path, t, expression);
             }
             else if (o["switch"] != null && o["cases"] is JObject cases)
-                foreach (var c in cases.Properties()) Walk(c.Value, path.Append(((string)o["switch"], c.Name)).ToList(), t);
+            {
+                var sw = (string)o["switch"];
+                var states = SwitchEdit.States(expression, sw);
+                if (states.Count == 0) states = cases.Properties().Select(p => p.Name).ToList();
+                // A state without a case is an empty pose (TableLoader), so it counts as a pose here.
+                if (states.Any(st => Pose(cases[st]) != null))
+                    t.Switches.Add(new SwitchCases { Node = o, Switch = sw, When = path.ToList(), States = states });
+                foreach (var c in cases.Properties()) Walk(c.Value, path.Append((sw, c.Name)).ToList(), t, expression);
+            }
         }
 
         // The same side variables as TableLoader.Expand: ["Left", "Right"] or {"Left": {"s": "L"}, ...}.
@@ -117,6 +137,16 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var ja = EditorText.Current == EditorText.Language.Japanese;
             var s = ja ? $"{Label(n.Input)} で動く" : $"Moves with {Label(n.Input)}";
+            if (n.When.Count == 0) return s;
+            var conds = n.When.Select(w => ja ? $"{Label(w.sw)} が {w.state}" : $"{Label(w.sw)} is {w.state}");
+            return s + (ja ? "（" + string.Join("、", conds) + " のとき）" : " (when " + string.Join(", ", conds) + ")");
+        }
+
+        public static string SwitchTitle(SwitchCases n)
+        {
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            var name = Label(n.Switch) + (n.Switch.Contains("{side}") ? ja ? "（左右）" : " (left and right)" : "");
+            var s = ja ? $"{name} で切り替わる" : $"Changes with {name}";
             if (n.When.Count == 0) return s;
             var conds = n.When.Select(w => ja ? $"{Label(w.sw)} が {w.state}" : $"{Label(w.sw)} is {w.state}");
             return s + (ja ? "（" + string.Join("、", conds) + " のとき）" : " (when " + string.Join(", ", conds) + ")");
@@ -291,6 +321,25 @@ namespace Kmnk.FaceTrackingGenerator
             var row = (JArray)children[i];
             if (row[1] == null || row[1].Type == JTokenType.Null) row[1] = new JObject();
             return Pose(row[1]) != null ? (JObject)row[1] : null;
+        }
+
+        // The pose object of a state of a switch node, made when the state has no case. Null when the case is a nested node.
+        public static JObject CasePose(SwitchCases n, string state)
+        {
+            if (!(n.Node["cases"] is JObject cases)) n.Node["cases"] = cases = new JObject();
+            var c = cases[state];
+            if (c == null || c.Type == JTokenType.Null) cases[state] = c = new JObject();
+            return Pose(c) != null ? (JObject)c : null;
+        }
+
+        // The weights of the face with a switch node held in a state (and the switches above it in theirs).
+        public static SortedDictionary<string, float> TryWeightsSwitch(TableModel model, Tree t, SwitchCases n, string state, IDictionary<string, float> others)
+        {
+            var inputs = new Dictionary<string, float>(others ?? new Dictionary<string, float>());
+            var tracker = new SwitchTracker();
+            foreach (var (sw, st) in n.When.Append((n.Switch, state)))
+                foreach (var name in Expanded(t, sw)) tracker.Pinned[name] = st;
+            return CurveEval.Evaluate(model, inputs, tracker.Update(model, inputs));
         }
 
         // Amounts are written as whole numbers so that 100 stays "100".

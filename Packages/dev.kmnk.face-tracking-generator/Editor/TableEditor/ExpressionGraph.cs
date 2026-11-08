@@ -33,7 +33,7 @@ namespace Kmnk.FaceTrackingGenerator
             public int ParentRow;
             public int Depth;
             public float X, Y, Height;
-            public string TuningKey;  // the fold key of the Tuning tab ("<tree>/<i>", "<tree>/2d/<k>"), or null for a switch
+            public string TuningKey;  // the fold key of the Tuning tab ("<tree>/<i>", "<tree>/2d/<k>", "<tree>/sw/<k>"), or null for a switch without poses
             public bool Open;         // shows the face movements one per line
         }
 
@@ -134,7 +134,7 @@ namespace Kmnk.FaceTrackingGenerator
             boxes.Add(box);
         }
 
-        // The Tuning tab's fold keys of the 1D and 2D nodes, matched by object (the tab finds them with Tuning.Trees).
+        // The Tuning tab's fold keys of the 1D and 2D nodes and of the switch nodes with poses, matched by object (the tab finds them with Tuning.Trees).
         static Dictionary<JObject, string> TuningKeys(JObject expression, string tree)
         {
             var keys = new Dictionary<JObject, string>(JTokenEqualityComparerByReference.Instance);
@@ -142,6 +142,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (t == null) return keys;
             for (int i = 0; i < t.Nodes.Count; i++) keys[t.Nodes[i].Node] = $"{tree}/{i}";
             for (int k = 0; k < t.Nodes2D.Count; k++) keys[t.Nodes2D[k].Node] = $"{tree}/2d/{k}";
+            for (int k = 0; k < t.Switches.Count; k++) keys[t.Switches[k].Node] = $"{tree}/sw/{k}";
             return keys;
         }
 
