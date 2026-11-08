@@ -426,13 +426,38 @@ namespace Kmnk.FaceTrackingGenerator
             return path;
         }
 
-        // The row's text for a menu: the label as the closed box shows it, or the title of the box it holds.
-        public static string RowMenuText(JObject expression, string tree, string path, int row)
+        const int SameNames = 3;
+
+        // The row's text for the Keep menu (Remove Box, Delete key), not cut: the title of the box it holds, or its face
+        // movements. When two or more rows hold face movements, a row shows only those whose amount is not the same in
+        // all of them (a movement a row does not have counts as 0), and "(same: ...)" names the others.
+        public static string KeepMenuText(JObject expression, string tree, string path, int row)
         {
             var node = Find(expression, tree, path);
             if (node == null) return null;
-            var (label, child) = Children(node)[row];
-            return IsBranch(child) ? label + ":  " + Title((JObject)child) : label + ":  " + PoseText(child);
+            var rows = Children(node);
+            var (label, child) = rows[row];
+            if (IsBranch(child)) return label + ":  " + Title((JObject)child);
+            var poses = rows.Select(r => Tuning.Pose(r.child)).Where(p => p != null).ToList();
+            if (poses.Count < 2) return label + ":  " + PoseText(child, false);
+
+            // Parts in the order they are first written, row by row.
+            var parts = new List<string>();
+            foreach (var p in poses) foreach (var k in p.Keys) if (!parts.Contains(k)) parts.Add(k);
+            float At(Dictionary<string, float> p, string k) => p.TryGetValue(k, out var v) ? v : 0;
+            var differ = new HashSet<string>(parts.Where(k => poses.Any(p => Math.Abs(At(p, k) - At(poses[0], k)) > 1e-4f)));
+            var same = parts.Where(k => !differ.Contains(k)).Select(Tuning.Label).Distinct().ToList();
+
+            var pose = Tuning.Pose(child);
+            var own = pose.Where(kv => differ.Contains(kv.Key))
+                .Select(kv => $"{Tuning.Label(kv.Key)} {Math.Round(kv.Value).ToString(CultureInfo.InvariantCulture)}").ToList();
+            var text = pose.Count == 0 ? "Neutral" : string.Join(", ", own);
+            if (same.Count > 0)
+            {
+                var names = string.Join(", ", same.Take(SameNames)) + (same.Count > SameNames ? $" and {same.Count - SameNames} more" : "");
+                text = (text.Length > 0 ? text + "  " : "") + "(same: " + names + ")";
+            }
+            return label + ":  " + text;
         }
     }
 }

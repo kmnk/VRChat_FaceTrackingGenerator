@@ -13,6 +13,7 @@ namespace Kmnk.FaceTrackingGenerator
         //   -ftTree <name>                        default: every tree
         //   -ftSplit "<tree>|<box path>|<row>=<input>;..."   e.g. "Mouth|root/0/0|0=SmileFrown"
         //   -ftOpen "<box path>;..."           boxes shown open (face movements one per line)
+        //   -ftKeep 1                          also prints the Keep menu of each box: [FTG] graph keep <tree> <path> <row>: Keep <text>
         //   -ftSplit2D "<tree>|<box path>|<row>=<x>,<y>;..."   split with 2D
         //   -ftRemove "<tree>|<box path>|<keep row>;..."      remove a box, keeping one row's content
         //   -ftInsert "<tree>|<box path>=<x>[,<y>];..."      insert a 1D or 2D box above (weights compared with the new inputs at 0)
@@ -209,6 +210,10 @@ namespace Kmnk.FaceTrackingGenerator
                           string.Join("; ", b.Rows.Select(r => (r.Nested ? "-> " : "") + r.Label + (r.Lines.Count > 0 ? " [" + string.Join(" / ", r.Lines) + "]" : ""))));
             foreach (var b in boxes) foreach (var r in b.Rows.Where(r => r.FullLabel != r.Label && !b.Open))
                 Debug.Log($"[FTG] graph tip {tree} {b.Path}: {r.FullLabel}");
+            if (CliArgs.Get("-ftKeep") == "1")  // the Keep menu of each box (Remove Box, Delete key)
+                foreach (var b in boxes)
+                    for (int r = 0; r < b.Rows.Count; r++)
+                        Debug.Log($"[FTG] graph keep {tree} {b.Path} {r}: Keep {ExpressionGraph.KeepMenuText(expression, tree, b.Path, r)}");
             foreach (var b in boxes.Where(b => b.ParentPath != null))
                 Debug.Log($"[FTG] graph edge {tree} {b.ParentPath}#{b.ParentRow} -> {b.Path}");
             Debug.Log($"[FTG] graph inputs {tree}: {string.Join(",", ExpressionGraph.SplitInputs(input, expression, tree))}");

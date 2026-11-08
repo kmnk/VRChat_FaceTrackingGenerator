@@ -597,7 +597,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
 
             internal string KeepText(int row) =>
-                "Keep " + (ExpressionGraph.RowMenuText(graph.Expression, graph.Tree, Box.Path, row) ?? Box.Rows[row].Label).Replace("/", "\u2215");
+                "Keep " + (ExpressionGraph.KeepMenuText(graph.Expression, graph.Tree, Box.Path, row) ?? Box.Rows[row].Label).Replace("/", "\u2215");
 
             // Right-click: Remove Box > Keep <row>. The top box cannot be removed.
             public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
