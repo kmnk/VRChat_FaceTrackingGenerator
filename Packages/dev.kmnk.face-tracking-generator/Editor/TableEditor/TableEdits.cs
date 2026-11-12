@@ -44,6 +44,35 @@ namespace Kmnk.FaceTrackingGenerator
             else parts[part] = shape;
         }
 
+        // The scale of a part ({"shape", "scale"}), or 1 when it has none.
+        public static float PartScale(JObject avatar, string part)
+        {
+            var v = ((avatar["parts"] as JObject)?[part] as JObject)?["scale"];
+            return v != null && (v.Type == JTokenType.Float || v.Type == JTokenType.Integer) ? (float)v : 1f;
+        }
+
+        // Sets the scale of a part that has a blendshape, clamped to 0..1. "shape" becomes {"shape", "scale"};
+        // 1 removes "scale", and {"shape"} alone goes back to "shape".
+        public static void SetPartScale(JObject avatar, string part, float scale)
+        {
+            var parts = avatar["parts"] as JObject;
+            var v = parts?[part];
+            if (v == null) return;
+            scale = float.IsNaN(scale) ? 1f : Math.Max(0f, Math.Min(1f, scale));
+            if (v.Type == JTokenType.String)
+            {
+                if (scale == 1f) return;
+                parts[part] = v = new JObject { ["shape"] = (string)v };
+            }
+            if (!(v is JObject o)) return;
+            if (scale == 1f)
+            {
+                o.Remove("scale");
+                if (o.Count == 1 && o["shape"]?.Type == JTokenType.String) parts[part] = (string)o["shape"];
+            }
+            else o["scale"] = Math.Round((double)scale, 4);
+        }
+
         // Removes a part from the avatar table ("parts" and "missingParts").
         public static void RemovePart(JObject avatar, string part)
         {
@@ -119,6 +148,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- operations as JSON (TableEditorChecks.Edit)
         //   {"op": "setPart", "part": "eye.close_L", "shape": "..."}          shape null removes the part
+        //   {"op": "setPartScale", "part": "mouth.smile", "scale": 0.7}         1 removes the scale
         //   {"op": "setMissing", "part": "eye.happy", "missing": true}
         //   {"op": "setLayer", "controller": "fx", "list": "stopWhileFaceTrack", "layer": "Left Hand", "on": true}
         //   {"op": "setString", "key": "mesh", "value": "Body"}
@@ -130,6 +160,7 @@ namespace Kmnk.FaceTrackingGenerator
             switch (name)
             {
                 case "setPart": SetPart(avatar, (string)op["part"], op["shape"]?.Type == JTokenType.String ? (string)op["shape"] : null); break;
+                case "setPartScale": SetPartScale(avatar, (string)op["part"], (float)op["scale"]); break;
                 case "setMissing": SetMissing(avatar, (string)op["part"], (bool)op["missing"], removed); break;
                 case "setLayer": SetLayer(avatar, (string)op["controller"], (string)op["list"], (string)op["layer"], (bool)op["on"]); break;
                 case "setString": SetString(avatar, (string)op["key"], (string)op["value"]); break;

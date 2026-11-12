@@ -525,6 +525,9 @@ namespace Kmnk.FaceTrackingGenerator
                     FaceViewWindow.Open();
                     if (preview.Running) ApplyPreview(); else ShowSelected();
                 }
+                using (new EditorGUI.DisabledScope(table == null))
+                    if (EditorGUILayout.DropdownButton(new GUIContent("Share"), FocusType.Passive, GUILayout.Width(70)))
+                        ShareMenu().DropDown(GUILayoutUtility.GetLastRect());
                 if (doc != null && doc.IsDirty())
                 {
                     var old = GUI.contentColor;
@@ -540,6 +543,67 @@ namespace Kmnk.FaceTrackingGenerator
             }
             tab = GUILayout.Toolbar(tab, Tabs);
             EditorGUILayout.Space(4);
+        }
+
+        // ---- Share: the input and expression tables to and from a folder (TableShare)
+
+        internal const string ShareExport = "Export input and expression…", ShareImport = "Import input and expression…";
+
+        // The Share menu's items and whether each can be pressed. Both wait while there are unsaved changes:
+        // export writes the saved files, and import would overwrite what is being edited.
+        internal static List<(string label, bool enabled)> ShareMenuItems(bool dirty) =>
+            new List<(string, bool)> { (ShareExport, !dirty), (ShareImport, !dirty) };
+
+        GenericMenu ShareMenu()
+        {
+            var menu = new GenericMenu();
+            foreach (var (label, enabled) in ShareMenuItems(doc != null && doc.IsDirty()))
+            {
+                if (!enabled) { menu.AddDisabledItem(new GUIContent(label)); continue; }
+                GenericMenu.MenuFunction run = label == ShareExport ? (GenericMenu.MenuFunction)ShareExportTables : ShareImportTables;
+                menu.AddItem(new GUIContent(label), false, run);
+            }
+            return menu;
+        }
+
+        void ShareExportTables()
+        {
+            var path = TablePath;
+            if (path == null) return;
+            var folder = EditorUtility.OpenFolderPanel(ShareExport, "", "");
+            if (string.IsNullOrEmpty(folder)) return;
+            var existing = TableShare.Existing(folder);
+            if (existing.Count > 0 && !EditorUtility.DisplayDialog("FT Settings Editor",
+                    string.Format(EditorText.Get("share.overwrite"), string.Join(", ", existing)), "Overwrite", "Cancel")) return;
+            try { TableShare.Export(path, folder); }
+            catch (Exception e) when (e is TableLoader.TableException || e is IOException || e is UnauthorizedAccessException)
+            {
+                EditorUtility.DisplayDialog("FT Settings Editor", e.Message, "OK");
+                return;
+            }
+            ShowNotification(new GUIContent(string.Format(EditorText.Get("share.exported"), folder)), 4);
+        }
+
+        void ShareImportTables()
+        {
+            var path = TablePath;
+            if (path == null) return;
+            var folder = EditorUtility.OpenFolderPanel(ShareImport, "", "");
+            if (string.IsNullOrEmpty(folder)) return;
+            try
+            {
+                var changes = TableShare.Changes(path, folder);
+                if (changes.Count == 0) { EditorUtility.DisplayDialog("FT Settings Editor", EditorText.Get("share.noChanges"), "OK"); return; }
+                if (!EditorUtility.DisplayDialog("FT Settings Editor",
+                        string.Format(EditorText.Get("share.confirmImport"), string.Join(", ", changes)), "Import", "Cancel")) return;
+                TableShare.Import(path, folder);
+            }
+            catch (Exception e) when (e is TableLoader.TableException || e is IOException || e is UnauthorizedAccessException)
+            {
+                EditorUtility.DisplayDialog("FT Settings Editor", e.Message, "OK");
+                return;
+            }
+            Load();
         }
 
         static void Heading(string text, string right = null)
@@ -712,11 +776,19 @@ namespace Kmnk.FaceTrackingGenerator
             Help("help.parts");
             partFilter = EditorGUILayout.TextField(partFilter, EditorStyles.toolbarSearchField);
 
-            const float partW = 150, missW = 60;
+            const float partW = 150, missW = 60, scaleW = 46;
+            if (scaleHeading == null)
+            {
+                scaleHeading = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleRight };
+                scaleField = new GUIStyle(EditorStyles.numberField) { alignment = TextAnchor.MiddleRight };
+                scaleOne = new GUIStyle(scaleField);
+                scaleOne.normal.textColor = scaleOne.hover.textColor = new Color(0.54f, 0.54f, 0.54f);
+            }
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
+                GUILayout.Label("Scale", scaleHeading, GUILayout.Width(scaleW));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
                 GUILayout.Space(24);
             }
@@ -768,6 +840,16 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                     GUI.contentColor = color;
 
+                    // Scale: only for a part with a blendshape. Written when Enter is pressed or the field is left.
+                    if (!isMissing && shape != null)
+                    {
+                        var scale = TableEdits.PartScale(avatar, part);
+                        EditorGUI.BeginChangeCheck();
+                        var s = EditorGUILayout.DelayedFloatField(scale, scale == 1f ? scaleOne : scaleField, GUILayout.Width(scaleW));
+                        if (EditorGUI.EndChangeCheck() && s != scale) { var p = part; Edit("Set FT part scale", a => TableEdits.SetPartScale(a, p, s)); }
+                    }
+                    else GUILayout.Space(scaleW + 4);
+
                     EditorGUI.BeginChangeCheck();
                     var m = GUILayout.Toggle(isMissing, new GUIContent("", EditorText.Get("tip.missing")), GUILayout.Width(missW));
                     if (EditorGUI.EndChangeCheck()) { var p = part; Edit("Set FT missing part", a => TableEdits.SetMissing(a, p, m, removedParts)); }
@@ -815,15 +897,23 @@ namespace Kmnk.FaceTrackingGenerator
 
             // + Add Face Movement: a name (and left/right) as in Tuning, then the row opens its blendshape list.
             var addRect = GUILayoutUtility.GetRect(new GUIContent("+ Add Face Movement"), EditorStyles.miniButton, GUILayout.ExpandWidth(false));
-            if (GUI.Button(addRect, "+ Add Face Movement", EditorStyles.miniButton))
-            {
-                var names = Tuning.AllPartNames(avatar, doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
-                PopupWindow.Show(addRect, new NewPartPopup(names, "s", AddPendingPart));
-            }
+            if (Event.current.type == EventType.Repaint) addPartRect = addRect;
+            if (GUI.Button(addRect, "+ Add Face Movement", EditorStyles.miniButton)) ShowNewPart(addRect, null);
         }
 
+        void ShowNewPart(Rect at, string typed)
+        {
+            var names = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
+            var popup = new NewPartPopup(names, "s", AddPendingPart);
+            if (typed != null) popup.SetNameForCapture(typed);
+            PopupWindow.Show(at, popup);
+        }
+
+        static GUIStyle scaleHeading, scaleField, scaleOne;
         string renameAt, renameCapture;  // for TableEditorChecks.Capture: open the rename panel at this row
         Rect renameRect;
+        string newPartCapture;  // for TableEditorChecks.Capture: open "+ Add Face Movement" with this name typed
+        Rect addPartRect;
 
         void ShowRenamePart(string part, Rect at)
         {
@@ -2046,6 +2136,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (openSw != null) foreach (var n in openSw.Split(';').Where(x => x != "")) switchOpen.Add(n);
             var renameArg = CliArgs.Get("-ftAvatarRename");  // "<part>=<new name>": open the rename panel with the name typed
             if (renameArg != null && renameArg.Contains("=")) { renameAt = renameArg.Substring(0, renameArg.IndexOf('=')); renameCapture = renameArg.Substring(renameArg.IndexOf('=') + 1); selectedPart = renameAt; }
+            newPartCapture = CliArgs.Get("-ftAvatarNewPart");  // "<name>": open "+ Add Face Movement" with the name typed
             var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>" or "<name>_{s}": as + Add Face Movement
             if (addPart != null && doc != null) AddPendingPart(addPart);
             var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
@@ -2088,6 +2179,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             // Opens the rename panel after the windows have their places (a popup closes when focus moves).
             if (frame == 40 && renameAt != null && renameRect.height > 0) { var p = renameAt; renameAt = null; ShowRenamePart(p, renameRect); }
+            if (frame == 40 && newPartCapture != null && addPartRect.height > 0) { var n = newPartCapture; newPartCapture = null; ShowNewPart(addPartRect, n); }
         }
 
         // For the capture of the picker: the open picker window, if any.

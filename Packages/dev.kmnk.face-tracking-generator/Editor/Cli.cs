@@ -121,10 +121,33 @@ namespace Kmnk.FaceTrackingGenerator
         });
 
         // The window's "Create Settings/<name>".
+        // -ftFrom <folder>: the input and expression tables come from a folder written by ExportTables (Share).
         public static void CreateSettings() => Run(() =>
         {
-            var dest = TableWriter.CreateFromTemplates(CliArgs.Require("-ftName"));
+            var from = CliArgs.Get("-ftFrom");
+            var dest = from != null ? TableShare.CreateFromFolder(CliArgs.Require("-ftName"), from) : TableWriter.CreateFromTemplates(CliArgs.Require("-ftName"));
             Debug.Log("[FTG] settings: created " + dest);
+            return 0;
+        });
+
+        // The settings editor's Share > Export: -ftTable <avatar.jsonc> -ftDir <folder>.
+        public static void ExportTables() => Run(() =>
+        {
+            var dir = CliArgs.Require("-ftDir");
+            var existing = TableShare.Existing(dir);
+            TableShare.Export(CliArgs.Require("-ftTable"), dir);
+            Debug.Log($"[FTG] share: exported {TableShare.InputFile}, {TableShare.ExpressionFile} to {dir} (overwrote: {(existing.Count > 0 ? string.Join(", ", existing) : "none")})");
+            return 0;
+        });
+
+        // The settings editor's Share > Import: -ftTable <avatar.jsonc> -ftDir <folder>; -ftApply 1 overwrites.
+        public static void ImportTables() => Run(() =>
+        {
+            var table = CliArgs.Require("-ftTable");
+            var dir = CliArgs.Require("-ftDir");
+            var changes = TableShare.Changes(table, dir);
+            Debug.Log("[FTG] share: changes=" + (changes.Count > 0 ? string.Join(",", changes) : "none"));
+            if (CliArgs.Get("-ftApply") == "1" && changes.Count > 0) Debug.Log("[FTG] share: imported " + string.Join(",", TableShare.Import(table, dir)));
             return 0;
         });
 

@@ -117,6 +117,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Mesh;   // renderer path from the avatar root
         public string Shape;  // blendshape name
+        public float Scale = 1;  // multiplies the expression layer's amounts for this avatar (0 to 1)
     }
 
     public sealed class AfkGroup

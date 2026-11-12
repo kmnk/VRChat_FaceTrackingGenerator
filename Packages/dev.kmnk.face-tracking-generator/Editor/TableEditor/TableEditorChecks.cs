@@ -85,3 +85,24 @@ namespace Kmnk.FaceTrackingGenerator
         });
     }
 }
+
+namespace Kmnk.FaceTrackingGenerator
+{
+    public static partial class TableEditorChecks
+    {
+        // Prints the items of the settings editor's Share menu for -ftTable and whether each can be pressed, as the
+        // window builds it: "[FTG] share-menu: <item>=on|off | ...". -ftDirty 1 makes an unsaved change first.
+        public static void ShareMenu() => Cli.Run(() =>
+        {
+            var doc = TableDocument.Open(CliArgs.Require("-ftTable"));
+            if (CliArgs.Get("-ftDirty") == "1")
+            {
+                var avatar = doc.Json(TableDocument.Avatar);
+                avatar["name"] = (string)avatar["name"] + " (edited)";
+            }
+            var items = TableEditorWindow.ShareMenuItems(doc.IsDirty());
+            Debug.Log($"[FTG] share-menu: " + string.Join(" | ", items.Select(i => i.label + "=" + (i.enabled ? "on" : "off"))));
+            return 0;
+        });
+    }
+}

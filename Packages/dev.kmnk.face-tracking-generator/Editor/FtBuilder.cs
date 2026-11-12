@@ -389,7 +389,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var l = m.Parts["eye.close_L"];
                 var r = m.Parts["eye.close_R"];
-                AnimUtil.AddDirectChild(root, u.ShapeClip("FT/Face/Blink", new[] { (l.Mesh, l.Shape, 100f), (r.Mesh, r.Shape, 100f) }), Blink);
+                AnimUtil.AddDirectChild(root, u.ShapeClip("FT/Face/Blink", new[] { (l.Mesh, l.Shape, 100f * l.Scale), (r.Mesh, r.Shape, 100f * r.Scale) }), Blink);
             }
             AnimUtil.State(layer.stateMachine, "Face", root, new Vector3(300, 0));
         }

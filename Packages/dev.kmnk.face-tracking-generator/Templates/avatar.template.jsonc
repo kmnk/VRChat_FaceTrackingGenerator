@@ -13,24 +13,13 @@
   // The folder for the generated controllers and Expression Parameters (default shown):
   // "outputFolder": "Assets/FaceTrackingGeneratorOutput/MyAvatar",
 
-  // Part name -> blendshape. "mesh" is the renderer path from the avatar root.
+  // Part name -> blendshape. "mesh" is the renderer path from the avatar root. It starts empty: the settings
+  // editor's Avatar tab lists each part the expression layer uses as Not set, to choose its blendshape there.
+  // A part is written as "mouth.open": "<blendshape>", or with its own mesh "brow.happy": { "mesh": "Body", "shape": "<blendshape>" }.
+  // "scale" (0 to 1, default 1) multiplies the expression layer's amounts for this avatar, to tone down a strong
+  // blendshape without changing a shared expression layer: "mouth.smile": { "shape": "<blendshape>", "scale": 0.7 }
   "mesh": "Body",
-  "parts": {
-    "eye.close_L": "YourShapeEyeCloseLeft",
-    "eye.close_R": "YourShapeEyeCloseRight",
-    "eye.wide_L": "YourShapeEyeWideLeft",
-    "eye.wide_R": "YourShapeEyeWideRight",
-    "eye.smile_L": "YourShapeEyeSmileLeft",
-    "eye.smile_R": "YourShapeEyeSmileRight",
-    "eye.happy": "YourShapeEyeHappy",
-    "eye.look_left": "YourShapeLookLeft",
-    "eye.look_right": "YourShapeLookRight",
-    "eye.look_up": "YourShapeLookUp",
-    "eye.look_down": "YourShapeLookDown",
-    "mouth.smile": "YourShapeMouthSmile",
-    "mouth.open": "YourShapeMouthOpen",
-    "brow.happy": { "mesh": "Body", "shape": "YourShapeBrowHappy" }
-  },
+  "parts": {},
   // Parts in the expression layer that this avatar does not have.
   "missingParts": [],
 

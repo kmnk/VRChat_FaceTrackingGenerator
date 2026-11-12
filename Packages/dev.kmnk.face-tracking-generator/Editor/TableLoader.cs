@@ -50,6 +50,14 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- reading
 
+        // The input and expression table paths of an avatar table, built from its "tables" as Load does.
+        public static (string input, string expression) TablePaths(string avatarTablePath)
+        {
+            var tables = Obj(Read(avatarTablePath), "tables", avatarTablePath);
+            var dir = Path.GetDirectoryName(avatarTablePath);
+            return (Path.Combine(dir, Str(tables, "input", avatarTablePath)), Path.Combine(dir, Str(tables, "expression", avatarTablePath)));
+        }
+
         public static JObject Read(string path)
         {
             if (!File.Exists(path)) throw new TableException("table not found: " + path);
@@ -88,6 +96,17 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (t == null || (t.Type != JTokenType.Float && t.Type != JTokenType.Integer)) throw new TableException($"{file}: '{t?.Path}' must be a number");
             return t.Value<float>();
+        }
+
+        // "scale" of a part: a number from 0 to 1, 1 when it is not written.
+        static float PartScale(JObject po, string part, string file)
+        {
+            var t = po["scale"];
+            if (t == null) return 1;
+            if (t.Type != JTokenType.Float && t.Type != JTokenType.Integer) throw new TableException($"{file}: 'parts.{part}.scale' must be a number from 0 to 1");
+            var v = t.Value<float>();
+            if (float.IsNaN(v) || v < 0 || v > 1) throw new TableException($"{file}: 'parts.{part}.scale' must be a number from 0 to 1");
+            return v;
         }
 
         static List<string> StrList(JToken t) => t is JArray a ? a.Select(x => (string)x).ToList() : new List<string>();
@@ -188,8 +207,8 @@ namespace Kmnk.FaceTrackingGenerator
                         m.Parts[p.Name] = new PartTarget { Mesh = m.DefaultMesh, Shape = (string)p.Value };
                     }
                     else if (p.Value is JObject po)
-                        m.Parts[p.Name] = new PartTarget { Mesh = OptStr(po, "mesh", m.DefaultMesh), Shape = Str(po, "shape", file) };
-                    else throw new TableException($"{file}: '{p.Value.Path}' must be a string or {{\"mesh\", \"shape\"}}");
+                        m.Parts[p.Name] = new PartTarget { Mesh = OptStr(po, "mesh", m.DefaultMesh), Shape = Str(po, "shape", file), Scale = PartScale(po, p.Name, file) };
+                    else throw new TableException($"{file}: '{p.Value.Path}' must be a string or {{\"mesh\", \"shape\", \"scale\"}}");
                 }
 
             if (a["afkGroups"] is JArray groups)
@@ -477,7 +496,7 @@ namespace Kmnk.FaceTrackingGenerator
                     var r = new PoseNode();
                     foreach (var kv in p.Parts)
                     {
-                        if (m.Parts.ContainsKey(kv.Key)) { r.Parts[kv.Key] = kv.Value; continue; }
+                        if (m.Parts.TryGetValue(kv.Key, out var target)) { r.Parts[kv.Key] = kv.Value * target.Scale; continue; }
                         var msg = $"tree {where}: part {kv.Key} is not in the avatar layer";
                         if (missingParts.Contains(kv.Key)) { if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg); }
                         else if (!m.Warnings.Contains(msg)) m.Warnings.Add(msg);

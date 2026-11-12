@@ -23,7 +23,9 @@ namespace Kmnk.FaceTrackingGenerator
             this.add = add;
         }
 
-        public override Vector2 GetWindowSize() => new Vector2(300, pairVariable != null ? 150 : 128);
+        internal void SetNameForCapture(string n) => name = n;
+
+        public override Vector2 GetWindowSize() => new Vector2(300, pairVariable != null ? 164 : 142);
 
         public override void OnGUI(Rect rect)
         {

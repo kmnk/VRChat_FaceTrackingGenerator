@@ -195,20 +195,26 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, movements {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
 
             Step("gen.step1", "gen.help1");
+            var createLabel = "Create Settings/" + newName;
+            var fromLabel = createLabel + " from a folder…";
+            // Both buttons get the width of the longer label, right-aligned one above the other.
+            var createWidth = Mathf.Max(GUI.skin.button.CalcSize(new GUIContent(createLabel)).x, GUI.skin.button.CalcSize(new GUIContent(fromLabel)).x);
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUI.BeginChangeCheck();
                 var typed = EditorGUILayout.TextField("Avatar name", newName);
                 if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
-                if (GUILayout.Button("Create Settings/" + newName)) Do(() =>
+                if (GUILayout.Button(createLabel, GUILayout.Width(createWidth))) Do(() => SelectCreated(TableWriter.CreateFromTemplates(newName)));
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button(fromLabel, GUILayout.Width(createWidth)))
                 {
-                    var dest = TableWriter.CreateFromTemplates(newName);
-                    table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
-                    ProjectSelection.SetTable(dest);
-                    Reload();
-                    RestoreAvatar();
-                    return "Created " + dest;
-                });
+                    var folder = EditorUtility.OpenFolderPanel(fromLabel, "", "");
+                    if (!string.IsNullOrEmpty(folder)) Do(() => SelectCreated(TableShare.CreateFromFolder(newName, folder)));
+                    GUIUtility.ExitGUI();  // the folder panel was modal; start the layout again
+                }
             }
 
             using (new EditorGUI.DisabledScope(model == null))
@@ -310,6 +316,16 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox(message, MessageType.None);
             EditorGUILayout.EndScrollView();
+        }
+
+        // After Create Settings: the new settings become the chosen ones, as if picked in Settings file.
+        string SelectCreated(string dest)
+        {
+            table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
+            ProjectSelection.SetTable(dest);
+            Reload();
+            RestoreAvatar();
+            return "Created " + dest;
         }
 
         void Do(Func<string> action)
