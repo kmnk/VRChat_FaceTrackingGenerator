@@ -4,10 +4,10 @@
 Usage:
   scripts/check-perfect-sync.py <package dir> [--log <Unity log of Cli.Check>]
 
-Reads the table in <package dir>/Documentation~/perfect-sync.md (ARKit name, region, tracking keys) and the tree
-"PerfectSync" of <package dir>/Templates/expression.template.jsonc, and prints every row that differs.
+Reads the table in <package dir>/Documentation~/perfect-sync.md (ARKit name, region, tracking keys) and "neutral"
+(region -> tracking key -> part) of <package dir>/Templates/expression.template.jsonc, and prints every row that differs.
 With --log, also compares the Blendshapes Set rows that Cli.Check printed for a generated avatar
-("[FTG] check: face tracking row FTG/PerfectSync/<region> <key> -> <blendshape> x<multiplier>"): each row of the table
+("[FTG] check: face tracking row FTG/neutral/<region> <key> -> <blendshape> x<multiplier>"): each row of the table
 must be there, with a blendshape whose name equals the ARKit name without regard to capitals.
 Exit code 0 when everything matches, 1 otherwise.
 """
@@ -56,12 +56,15 @@ def definition(md):
 
 def template(path):
     data = json.loads(strip_comments(path.read_text(encoding="utf-8")))
-    tree = data["trees"]["PerfectSync"]["tree"]
     rows = {}
-    for part, value in tree.items():
-        region, name = part.split(".", 1)
-        keys = [value] if isinstance(value, str) else list(value)
-        rows[name] = (region, keys)
+    for region, keys in data["neutral"].items():
+        for key, value in keys.items():
+            part = value if isinstance(value, str) else value["part"]
+            if part.split(".")[0] != region:
+                rows.setdefault("(region of " + part + ")", (region, []))[1].append(key)
+                continue
+            name = part.split(".")[-1]
+            rows.setdefault(name, (region, []))[1].append(key)
     return rows
 
 
@@ -80,7 +83,7 @@ def main(argv):
     if log is not None:
         got = {}
         for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
-            m = re.search(r"\[FTG\] check: face tracking row FTG/PerfectSync/(\w+) (\w+) -> (\S+) x", line)
+            m = re.search(r"\[FTG\] check: face tracking row FTG/neutral/(\w+) (\w+) -> (\S+) x", line)
             if m:
                 got[(m.group(1), m.group(2))] = m.group(3)
         for name, (region, keys) in want.items():
