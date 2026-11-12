@@ -2,8 +2,9 @@
 
 Unity Editor tool that generates face tracking (FT) layers for VRChat avatars from text tables.
 
-- Reads three JSON tables (input / expression / avatar) and builds FX layers, clips, BlendTrees and smoothing.
-- Makes the inputs in the avatar's Face Tracking section (Forward to Animator from the face tracking keys), so FT moves with the desktop Selfie Expression and with face tracking devices through VRCFaceTracking (2026-11-02 or later). The inputs are not synced: every client makes them from VRChat's face tracking data.
+- Reads three JSON tables (input / expression / avatar). Face movements that follow the face (tracking parts) go into the generated avatar's Face Tracking section as Blendshapes Sets, so VRChat moves the blendshapes without Forward to Animator. The default template moves the 52 perfect sync (ARKit) blendshapes this way.
+- Builds FX layers for the rest: switches, fixed expressions, 1D / 2D expressions with smoothing, the weights of the Blendshapes Sets (FT on/off, AFK, talking, switch states).
+- Makes the inputs the Animator reads in the Face Tracking section (Forward to Animator from the face tracking keys), so FT moves with the desktop Selfie Expression and with face tracking devices through VRCFaceTracking (2026-11-02 or later). The inputs are not synced: every client makes them from VRChat's face tracking data.
 - Adds an AFK animation layer driven by a menu flag, and a button to add the FT toggle and AFK flag to the Expressions Menu.
 - Works on a copy of the avatar's controllers. The original controllers are not changed.
 
@@ -66,10 +67,18 @@ Saving rewrites the settings file in its own layout, and `//` comments in it are
 
 ## Settings
 
-`Packages/dev.kmnk.face-tracking-generator/Templates/` has simple templates of the three tables.
+`Packages/dev.kmnk.face-tracking-generator/Templates/` has templates of the three tables. The default expression table moves the 52 perfect sync (ARKit) blendshapes as tracking parts named `<region>.<ARKit name>` (e.g. `eye.eyeBlinkLeft`, `jaw.jawOpen`); "Fill prefab, mesh and menu" fills their blendshapes from the avatar's blendshapes with the same name, without regard to capitals. How perfect sync, VRChat's Face Tracking section and the generator correspond, with sources: `Packages/dev.kmnk.face-tracking-generator/Documentation~/perfect-sync.md` (`scripts/check-perfect-sync.py` checks the template against it).
 Your copies are in `Assets/Kmnk/FaceTrackingGenerator/Settings/`, outside the package. Updating the package replaces its folder in `Packages/` and does not touch them. Do not put your own files in `Packages/dev.kmnk.face-tracking-generator/`: they are removed on update.
 
 ## Inputs and expressions
+
+A face movement in `expression.jsonc` has either an amount (0-100, moved by the generated Animator) or tracking keys (a tracking part, written into the Face Tracking section). Tracking parts can be at the root of an expression or under a switch, not under a 1D or 2D node:
+
+```jsonc
+"PerfectSync": { "tree": { "eye.eyeBlinkLeft": "EyeClosedLeft", "lip.mouthSmileLeft": ["MouthCornerPullLeft", "MouthCornerSlantLeft"] } }
+```
+
+The generator writes one Blendshapes Set per expression, switch state and region (`FTG/<expression>/<region>`), with the part's `scale` as the multiplier, and switches their weights from the FX layers `FT/Sets/*`. When the avatar's Face Tracking section already has its own values, they are kept and the tracking parts are not written, unless `avatar.jsonc` has `"overwriteFaceTracking": true` (viseme rows and the avatar's Forward to Animator are kept even then). `eyeGazeMode` (default `"FaceTracking"`) sets Eye Look's Eye Gaze Mode; choose `"Both"` or `"BoneRotation"` for avatars that look with eye bones. Limits accepted for tracking parts: in one region a key moves one blendshape, values from several keys are not added (the largest wins), and the movement is proportional to the key (no curves, no smoothing).
 
 Each input of `input.jsonc` names a value with `key` (`v2/<name>`, as VRCFaceTracking calls it). The tool knows how to make every value in `Templates/Devices` from the face tracking keys of the Avatar Descriptor's Face Tracking section, with the same meaning as before. To make a value of your own, or to change one, write `expression` with the key names, `Voice` and `Viseme_*`, numbers, `+ - * /`, `abs`, `min`, `max` and `clamp`:
 

@@ -77,7 +77,18 @@ scripts/unity-batch.sh --no-quit <project> Kmnk.FaceTrackingGenerator.ScenarioRu
 - Success: exit 0 and `[FTG] scenario: wrote <n> records to <out>`
 - `-ftNdmf true` runs NDMF on the avatar first, as entering Play Mode does (for an avatar with the settings component), and prints its Face Tracking section (`[FTG] scenario: face tracking ...`)
 - The generated layers read the inputs as `FT/In/<input name>` (Forward to Animator writes them in VRChat), and run FT only while VRChat's `UserFaceTracking` is true: a scenario sets both, e.g. `set UserFaceTracking 1` and `set FT/In/JawOpen 0.5`
+- Tracking parts go into the Face Tracking section's Blendshapes Sets, which Unity does not run. The tool runs them: `set <tracking key> <value>` (e.g. `set EyeClosedLeft 1`) gives a key's value, and the snaps list the sets' weights under `sets`
 - Scenario file format: see the comment at the top of `ScenarioRunner.cs`
+
+### Perfect sync template (`scripts/check-perfect-sync.py`)
+
+```
+scripts/check-perfect-sync.py <package dir> [--log <Unity log of Cli.Check>]
+```
+
+Checks that the `PerfectSync` tree of `Templates/expression.template.jsonc` matches the table in `Documentation~/perfect-sync.md`, and with `--log` that the Blendshapes Set rows `Cli.Check` printed for a generated avatar with the 52 ARKit blendshapes match it too. Success: exit 0 and `52 names, 68 rows match`. When perfect sync, VRChat's Face Tracking section or the SDK's Auto-Fill changes, update `perfect-sync.md` (its sources and reasons) first, then the template.
+
+`Kmnk.FaceTrackingGenerator.TableEditorChecks.MakePerfectSyncAvatar -ftPrefab <avatar prefab> -ftOut <folder>` makes check avatars: Prefab Variants with a generated mesh `PerfectSyncFace` that has the 52 ARKit blendshapes (every second name with a capital first letter), one without and one with its own Blendshapes Set.
 - Paths relative to the project root work for `-ftScenario` and `-ftOut`
 
 ### Comparing records
