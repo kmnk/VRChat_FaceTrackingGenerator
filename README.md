@@ -93,7 +93,7 @@ When the avatar's Face Tracking section already has its own values, they are kep
 
 A transition's conditions compare face tracking keys of the Avatar Descriptor's Face Tracking section (`v2/` may be written before the name). The generator forwards each compared key to the Animator as `FT/In/<key>` (Forward to Animator); over 10 compared keys, the avatar is no longer Excellent in Forwarded Parameters.
 
-0.13.0 removed the input table: `input.jsonc` is not read (an avatar table's `"tables": { "input": ... }` is ignored, and the log says so), the Inputs tab and the device's missing keys are gone, and a condition naming an input such as `Smile` stops with an error. Write the keys in the conditions, or make the tables again from the templates.
+0.12.1 removed the input table: `input.jsonc` is not read (an avatar table's `"tables": { "input": ... }` is ignored, and the log says so), the Inputs tab and the device's missing keys are gone, and a condition naming an input such as `Smile` stops with an error. Write the keys in the conditions, or make the tables again from the templates.
 
 0.12.0 changed the expression table: tables with `trees`, `switches` or `stops` (1D and 2D expressions, curves, stops), inputs with `smoothing` or `average`, and avatar tables with `stopAutoEyes` or `gaze` do not load. Make the tables again from the templates.
 
