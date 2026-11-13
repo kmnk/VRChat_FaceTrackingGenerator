@@ -46,7 +46,7 @@ namespace Kmnk.FaceTrackingGenerator
         public string InputParam(string name)
         {
             var i = m.Input(name) ?? throw new InvalidOperationException("unknown input " + name);
-            if (i.IsTrack) throw new TableLoader.TableException($"input {name} is a tracking key: the Animator cannot read it (use an input of the input table)");
+            if (i.IsTrack) throw new TableLoader.TableException($"input {name} is a tracking key: the Animator cannot read it (a condition's key is forwarded as FT/In/<key>)");
             return i.Parameter;
         }
 

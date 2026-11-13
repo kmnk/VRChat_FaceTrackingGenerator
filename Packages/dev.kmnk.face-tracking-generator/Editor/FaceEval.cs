@@ -77,10 +77,12 @@ namespace Kmnk.FaceTrackingGenerator
             return list;
         }
 
-        // The range of an input for sliders: tracking keys 0 to 1; inputs from the values their transitions compare with.
+        // The range of an input for sliders: 0 to 1, wider if a transition compares the key with a value outside.
+        // input: "key:<key>" or the key.
         public static (float min, float max) Range(TableModel m, string input)
         {
-            var vals = m.StateMachines.SelectMany(sm => sm.Transitions).SelectMany(t => t.When).Where(c => c.Input == input).Select(c => c.Value).ToList();
+            var key = input != null && input.StartsWith(InputDef.TrackPrefix) ? input.Substring(InputDef.TrackPrefix.Length) : input;
+            var vals = m.StateMachines.SelectMany(sm => sm.Transitions).SelectMany(t => t.When).Where(c => c.Input == key).Select(c => c.Value).ToList();
             float lo = Math.Min(0, vals.DefaultIfEmpty(0).Min()), hi = Math.Max(1, vals.DefaultIfEmpty(1).Max());
             return (lo, hi);
         }

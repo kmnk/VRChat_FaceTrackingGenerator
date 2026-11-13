@@ -113,7 +113,6 @@ namespace Kmnk.FaceTrackingGenerator
             // Neutral rows: the row of a ...Left key and of its ...Right key, with the side words swapped.
             foreach (var kv in m.Neutral)
                 Pairs(kv.Value, r => kv.Key + " " + r.Key, r => new JObject { ["part"] = r.Part, ["strength"] = r.Strength }, "neutral row");
-            Pairs(m.Inputs.Where(i => !i.IsTrack), i => i.Name, i => new JObject { ["key"] = i.Key, ["expression"] = i.Expression }, "input");
         }
 
         static string FirstDiff(string a, string b)

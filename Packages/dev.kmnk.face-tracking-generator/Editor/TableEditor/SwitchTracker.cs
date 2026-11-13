@@ -22,7 +22,8 @@ namespace Kmnk.FaceTrackingGenerator
         // Updates the states for the input values and returns state machine -> state for FaceEval.
         public Dictionary<string, string> Update(TableModel model, IDictionary<string, float> inputs)
         {
-            float V(string name) => inputs.TryGetValue(name, out var v) ? v : 0;
+            // A condition compares a tracking key; the preview holds key values as "key:<key>".
+            float V(string key) => inputs.TryGetValue(InputDef.TrackPrefix + key, out var v) ? v : 0;
             var result = new Dictionary<string, string>();
             foreach (var sm in model.StateMachines)
             {

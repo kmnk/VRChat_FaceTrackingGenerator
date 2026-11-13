@@ -13,7 +13,7 @@ namespace Kmnk.FaceTrackingGenerator
         public string Expression;       // Custom expression from the tracking keys
         public bool ExpressionFromTable;  // true: the table's "expression"; false: built in (NativeInputs)
         public string Sync;             // "none" or "float8" as written in the table. Not used: inputs come from the Face Tracking section and are not synced
-        // A tracking key used by the rows of neutral and the states (name "key:<key>"). Not in the input table; never
+        // A tracking key used by the rows of neutral and the states (name "key:<key>"). Never
         // forwarded to the Animator. Used by the settings editor and FaceEval as the key's value.
         public bool IsTrack;
         public const string TrackPrefix = "key:";

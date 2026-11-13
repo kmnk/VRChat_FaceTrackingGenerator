@@ -5,18 +5,17 @@ using UnityEditor;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Carries the input and expression tables between projects through a folder (input.jsonc, expression.jsonc).
+    // Carries the expression table between projects through a folder (expression.jsonc; 0.12.1 removed the input table).
     // Files are copied byte for byte, so comments and order stay. The avatar table is never copied.
     // Used by the settings editor's Share menu, the generator window and Cli.ExportTables / ImportTables.
     public static class TableShare
     {
-        public const string InputFile = "input.jsonc", ExpressionFile = "expression.jsonc";
-        static readonly string[] Files = { InputFile, ExpressionFile };
+        public const string ExpressionFile = "expression.jsonc";
+        static readonly string[] Files = { ExpressionFile };
 
         static Dictionary<string, string> Sources(string avatarPath)
         {
-            var (input, expression) = TableLoader.TablePaths(avatarPath);
-            return new Dictionary<string, string> { [InputFile] = input, [ExpressionFile] = expression };
+            return new Dictionary<string, string> { [ExpressionFile] = TableLoader.ExpressionPath(avatarPath) };
         }
 
         // The tables already in the folder, which Export would overwrite.
@@ -25,12 +24,12 @@ namespace Kmnk.FaceTrackingGenerator
         public static void Export(string avatarPath, string folder)
         {
             var src = Sources(avatarPath);
-            foreach (var kv in src) TableLoader.Read(kv.Value);  // both must exist before anything is written
+            foreach (var kv in src) TableLoader.Read(kv.Value);  // it must read before anything is written
             Directory.CreateDirectory(folder);
             foreach (var f in Files) File.Copy(src[f], Path.Combine(folder, f), true);
         }
 
-        // Both tables of the folder must read; throws TableException naming the file otherwise.
+        // The folder's table must read; throws TableException naming the file otherwise.
         static void CheckFolder(string folder)
         {
             foreach (var f in Files) TableLoader.Read(Path.Combine(folder, f));
@@ -57,7 +56,7 @@ namespace Kmnk.FaceTrackingGenerator
             return changed;
         }
 
-        // Settings/<name>/ from the templates, with the folder's input and expression tables.
+        // Settings/<name>/ from the templates, with the folder's expression table.
         public static string CreateFromFolder(string name, string folder)
         {
             CheckFolder(folder);

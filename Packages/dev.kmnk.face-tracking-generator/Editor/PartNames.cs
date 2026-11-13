@@ -67,7 +67,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
     }
 
-    // Left/right pairs of the input table ("sides" with "{side}" in names), for the settings editor.
+    // Left/right pairs ("sides" with "{side}" in names), and numbers for the files the settings editor writes.
     public static class Sides
     {
         public static string Sub(string s, Dictionary<string, string> vars)

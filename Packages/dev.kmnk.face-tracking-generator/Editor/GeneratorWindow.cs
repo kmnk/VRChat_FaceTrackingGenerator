@@ -452,7 +452,7 @@ namespace Kmnk.FaceTrackingGenerator
             return e;
         }
 
-        // Copies the three templates from the package to Settings/<name>/ and returns the avatar table path.
+        // Copies the two templates from the package to Settings/<name>/ and returns the avatar table path.
         public static string CreateFromTemplates(string name)
         {
             if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
@@ -460,7 +460,7 @@ namespace Kmnk.FaceTrackingGenerator
             var dir = $"{Paths.SettingsRoot}/{name}";
             if (Directory.Exists(dir)) throw new IOException(dir + " already exists");
             Directory.CreateDirectory(dir);
-            foreach (var t in new[] { "input", "expression", "avatar" })
+            foreach (var t in new[] { "expression", "avatar" })
             {
                 var text = File.ReadAllText($"{Paths.Templates}/{t}.template.jsonc");
                 if (t == "avatar") text = text.Replace("\"name\": \"MyAvatar\"", $"\"name\": \"{name}\"");

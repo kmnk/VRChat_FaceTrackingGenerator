@@ -57,7 +57,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var log = new List<string>();
             var avatar = TableLoader.Read(avatarTable);
-            var (_, exprPath) = TableLoader.TablePaths(avatarTable);
+            var exprPath = TableLoader.ExpressionPath(avatarTable);
             var expr = File.Exists(exprPath) ? TableLoader.Read(exprPath) : null;
             var meshes = new[] { face }.Concat(prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r != face && r.sharedMesh != null))
                 .Select(r => (path: AnimationUtility.CalculateTransformPath(r.transform, prefab.transform), shapes: Enumerable.Range(0, r.sharedMesh.blendShapeCount).Select(r.sharedMesh.GetBlendShapeName).ToList()))

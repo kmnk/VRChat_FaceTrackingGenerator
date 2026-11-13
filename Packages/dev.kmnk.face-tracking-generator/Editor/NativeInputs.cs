@@ -7,7 +7,6 @@ namespace Kmnk.FaceTrackingGenerator
     // VRCFaceTracking's definitions of the same names, written as Custom expressions:
     //   https://github.com/benaclejames/VRCFaceTracking/blob/fc0b97b/VRCFaceTracking.Core/Params/Expressions/UnifiedExpressionsParameters.cs
     //   https://github.com/benaclejames/VRCFaceTracking/blob/fc0b97b/VRCFaceTracking.Core/Params/Data/UnifiedData.cs (gaze and eyelids in the keys)
-    // An input's "expression" in the input table overrides these.
     public static class NativeInputs
     {
         // The parameter that the generated Animator reads for an input, and that Forward to Animator writes.

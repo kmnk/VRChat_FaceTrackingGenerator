@@ -66,6 +66,31 @@ namespace Kmnk.FaceTrackingGenerator
             sms[name] = new JObject { ["states"] = new JObject { [Neutral] = new JObject { ["position"] = new JArray(0, 0) } }, ["transitions"] = new JArray() };
         }
 
+        // A state machine name: letters, digits and _ (it goes into Blendshapes Set, parameter and menu asset names).
+        public static bool IsMachineName(string name) => !string.IsNullOrEmpty(name) && System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z0-9_]+$");
+
+        // Another state machine has the name, without regard to capitals (the menu asset files would collide).
+        public static bool MachineNameUsed(JObject e, string name, string except = null) =>
+            Machines(e)?.Properties().Any(p => p.Name != except && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) == true;
+
+        // Renames in place (the order of the state machines stays).
+        public static void RenameStateMachine(JObject e, string from, string to)
+        {
+            var sms = Machines(e);
+            var p = sms?.Property(from) ?? throw new ArgumentException("no state machine " + from);
+            if (!IsMachineName(to)) throw new ArgumentException("not a state machine name: " + to);
+            if (MachineNameUsed(e, to, from)) throw new ArgumentException("state machine exists: " + to);
+            p.AddBeforeSelf(new JProperty(to, p.Value));
+            p.Remove();
+        }
+
+        public static void RemoveStateMachine(JObject e, string name)
+        {
+            var sms = Machines(e);
+            if (sms?.Property(name) == null) throw new ArgumentException("no state machine " + name);
+            sms.Remove(name);
+        }
+
         public static void AddState(JObject e, string sm, string st, float x = 250, float y = 0)
         {
             var states = States(e, sm) ?? throw new ArgumentException("no state machine " + sm);
@@ -242,6 +267,8 @@ namespace Kmnk.FaceTrackingGenerator
             switch ((string)op["op"])
             {
                 case "addStateMachine": AddStateMachine(e, S("name")); break;
+                case "renameStateMachine": RenameStateMachine(e, S("from"), S("to")); break;
+                case "removeStateMachine": RemoveStateMachine(e, S("name")); break;
                 case "addState": AddState(e, sm, S("state"), F("x", 250), F("y", 0)); break;
                 case "removeState": RemoveState(e, sm, S("state")); break;
                 case "renameState": RenameState(e, sm, S("from"), S("to")); break;

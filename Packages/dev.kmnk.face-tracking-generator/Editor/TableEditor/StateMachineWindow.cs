@@ -130,8 +130,9 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (names.Count > 0)
                 {
-                    var i = EditorGUILayout.Popup(Math.Max(0, names.IndexOf(machine)), names.ToArray(), EditorStyles.toolbarPopup, GUILayout.Width(140));
-                    if (names[i] != machine) { machine = names[i]; selState = null; selTransition = -1; }
+                    // The state machines, and adding, renaming and deleting one.
+                    if (EditorGUILayout.DropdownButton(new GUIContent(machine ?? ""), FocusType.Passive, EditorStyles.toolbarDropDown, GUILayout.Width(140)))
+                        MachineMenu(e, names, GUILayoutUtility.GetLastRect()).DropDown(GUILayoutUtility.GetLastRect());
                 }
                 using (new EditorGUI.DisabledScope(machine == null))
                     if (GUILayout.Button("+ State", EditorStyles.toolbarButton, GUILayout.Width(70)))
@@ -150,6 +151,50 @@ namespace Kmnk.FaceTrackingGenerator
             }
             var help = EditorText.Help("sm.help");
             if (help != null) EditorGUILayout.LabelField(linkFrom != null ? EditorText.Get("sm.pickTarget") : help, EditorStyles.miniLabel);
+        }
+
+        GenericMenu MachineMenu(JObject e, List<string> names, Rect at)
+        {
+            var menu = new GenericMenu();
+            foreach (var n in names)
+            {
+                var name = n;
+                menu.AddItem(new GUIContent(name), name == machine, () => { machine = name; selState = null; selTransition = -1; FrameAll(Expr); });
+            }
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent("New State Machine…"), false, () =>
+            {
+                var k = 1;
+                while (StateMachineEdit.MachineNameUsed(Expr, "StateMachine" + k)) k++;
+                PopupWindow.Show(at, new MachineNamePopup("New state machine", "StateMachine" + k, n => MachineNameProblem(n, null), n =>
+                {
+                    Edit("Add FT state machine", x => StateMachineEdit.AddStateMachine(x, n));
+                    machine = n; selState = null; selTransition = -1;
+                    FrameAll(Expr);
+                }));
+            });
+            var current = machine;
+            menu.AddItem(new GUIContent($"Rename \"{current}\"…"), false, () =>
+                PopupWindow.Show(at, new MachineNamePopup("Rename state machine", current, n => n == current ? EditorText.Get("sm.sameName") : MachineNameProblem(n, current), n =>
+                {
+                    Edit("Rename FT state machine", x => StateMachineEdit.RenameStateMachine(x, current, n));
+                    machine = n;
+                })));
+            menu.AddItem(new GUIContent($"Delete \"{current}\"…"), false, () =>
+            {
+                if (!EditorUtility.DisplayDialog("FT State Machine", string.Format(EditorText.Get("sm.removeMachine"), current), "Delete", "Cancel")) return;
+                Edit("Remove FT state machine", x => StateMachineEdit.RemoveStateMachine(x, current));
+                machine = null; selState = null; selTransition = -1;
+            });
+            return menu;
+        }
+
+        // Why a state machine name cannot be used, or null.
+        static string MachineNameProblem(string name, string except)
+        {
+            if (!StateMachineEdit.IsMachineName(name)) return EditorText.Get("sm.machineForm");
+            if (StateMachineEdit.MachineNameUsed(Expr, name, except)) return EditorText.Get("sm.machineUsed");
+            return null;
         }
 
         void Select(string state, int transition)
@@ -219,16 +264,20 @@ namespace Kmnk.FaceTrackingGenerator
             var menuStates = states.Where(n => (StateMachineEdit.States(e, machine)[n] as JObject)?["menu"]?.Value<bool>() == true).ToList();
             var menuRect = NodeRect(MenuPos(pos), local);
 
-            // transitions: a pair in both directions is drawn as two lines side by side
+            // transitions: a pair in both directions is drawn as two lines side by side; more transitions in the same
+            // direction (either of two conditions, such as the left or the right side) go further to the side.
             var trs = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().ToList() ?? new List<JObject>();
             var segments = new List<(Vector2 a, Vector2 b, int index)>();
+            var sameWay = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < trs.Count; i++)
             {
                 var f = (string)trs[i]["from"]; var t = (string)trs[i]["to"];
                 if (!rects.ContainsKey(f) || !rects.ContainsKey(t) || f == t) continue;
                 var a = rects[f].center; var b = rects[t].center;
                 var n = (b - a).normalized;
-                var side = new Vector2(-n.y, n.x) * 5 * zoom;
+                var k = sameWay.TryGetValue(f + "\n" + t, out var c0) ? c0 : 0;
+                sameWay[f + "\n" + t] = k + 1;
+                var side = new Vector2(-n.y, n.x) * (5 + 8 * k) * zoom;
                 segments.Add((a + side, b + side, i));
             }
             Handles.BeginGUI();
@@ -392,10 +441,25 @@ namespace Kmnk.FaceTrackingGenerator
             if (selState == st) selState = null;
         }
 
+        // The key a new condition starts with: one the transitions already compare, else one the rows use.
+        string DefaultKey()
+        {
+            var m = Editor?.Model;
+            return m?.Inputs.FirstOrDefault(i => !i.IsTrack)?.Key ?? m?.Inputs.FirstOrDefault(i => i.IsTrack)?.Key ?? NativeKeys.Names.First();
+        }
+
+        // The tracking keys for the condition popup, grouped by their first word ("Mouth/MouthCornerPullLeft").
+        static string[] keyNames, keyLabels;
+        static void LoadKeys()
+        {
+            if (keyNames != null) return;
+            keyNames = NativeKeys.Names.ToArray();
+            keyLabels = keyNames.Select(k => System.Text.RegularExpressions.Regex.Match(k, "^[A-Z][a-z]+").Value + "/" + k).ToArray();
+        }
+
         void MakeTransition(JObject e, string from, string to)
         {
-            var input = Editor?.Model?.Inputs.FirstOrDefault(i => !i.IsTrack)?.Name;
-            if (input == null) { EditorUtility.DisplayDialog("FT State Machine", EditorText.Get("sm.noInputs"), "OK"); return; }
+            var input = DefaultKey();
             var index = Editor.EditExpression("Add FT transition", x => StateMachineEdit.AddTransition(x, machine, from, to, input));
             Select(null, index);
         }
@@ -655,7 +719,7 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUILayout.LabelField("Conditions", EditorStyles.boldLabel);
             var help = EditorText.Help("sm.conditions");
             if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
-            var inputs = Editor.Model?.Inputs.Where(i => !i.IsTrack).Select(i => i.Name).ToList() ?? new List<string>();
+            LoadKeys();
             var when = t["when"] as JArray ?? new JArray();
             for (int c = 0; c < when.Count; c++)
             {
@@ -664,20 +728,24 @@ namespace Kmnk.FaceTrackingGenerator
                 var input = (string)cond[0]; var op = (string)cond[1]; var value = cond[2].Value<float>();
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    var options = inputs.Contains(input) ? inputs : inputs.Prepend(input).ToList();
-                    if (options.Count == 0) { GUILayout.Label(EditorText.Get("sm.noInputs")); continue; }
+                    // A tracking key ("v2/" is shown without it); an unknown name stays first so that it is not lost.
+                    var names = keyNames.ToList(); var labels = keyLabels.ToList();
+                    var shown = NativeInputs.NameOf(input);
+                    if (!names.Contains(shown)) { names.Insert(0, input); labels.Insert(0, input + " (not a key)"); shown = input; }
                     EditorGUI.BeginChangeCheck();
-                    var ii = EditorGUILayout.Popup(Math.Max(0, options.IndexOf(input)), options.ToArray());
+                    var ii = EditorGUILayout.Popup(Math.Max(0, names.IndexOf(shown)), labels.ToArray());
                     var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
                     var nv = EditorGUILayout.DelayedFloatField(value, GUILayout.Width(60));
-                    if (EditorGUI.EndChangeCheck()) { var ci = c; var ni = options[ii]; var no = oi == 1 ? "<" : ">"; Edit("Set FT condition", x => StateMachineEdit.SetCondition(x, machine, index, ci, ni, no, nv)); }
+                    if (EditorGUI.EndChangeCheck()) { var ci = c; var ni = names[ii]; var no = oi == 1 ? "<" : ">"; Edit("Set FT condition", x => StateMachineEdit.SetCondition(x, machine, index, ci, ni, no, nv)); }
                     using (new EditorGUI.DisabledScope(when.Count <= 1))
                         if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var ci = c; Edit("Remove FT condition", x => StateMachineEdit.RemoveCondition(x, machine, index, ci)); GUIUtility.ExitGUI(); }
                 }
             }
-            using (new EditorGUI.DisabledScope(inputs.Count == 0))
-                if (GUILayout.Button("+ Add Condition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
-                    Edit("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, inputs[0]));
+            if (GUILayout.Button("+ Add Condition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+            {
+                var k = DefaultKey();
+                Edit("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, k));
+            }
             EditorGUILayout.Space(8);
             if (GUILayout.Button("Remove Transition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
             {

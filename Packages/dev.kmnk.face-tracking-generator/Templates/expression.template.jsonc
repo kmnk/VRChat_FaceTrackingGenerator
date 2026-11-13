@@ -14,10 +14,11 @@
 //     (Override: the region moves with neutral's rows, with these rows in place of the same keys; null: Don't move)
 //   - "fixed": part -> amount (0 to 100), held while in the state
 //   - "menu": true (selectable from the menu: a toggle in the FT menu's submenu of the state machine)
-// "transitions": [{"from", "to", "when": [[input, ">" or "<", value], ...], "duration": seconds}]. All conditions must
-// hold. Different values for entering and leaving keep the state from flickering. Inputs are the input layer's (the
-// Animator reads them). While a state is chosen in the menu the transitions do not run; leaving the menu goes back to
-// the default state.
+// "transitions": [{"from", "to", "when": [[tracking key, ">" or "<", value], ...], "duration": seconds}]. All
+// conditions of a transition must hold; write two transitions between the same states for either of two (e.g. the left
+// or the right side). Different values for entering and leaving keep the state from flickering. The generator forwards
+// the keys the conditions compare to the Animator (Forward to Animator, FT/In/<key>). While a state is chosen in the
+// menu the transitions do not run; leaving the menu goes back to the default state.
 //
 // This template moves the 52 perfect sync (ARKit) blendshapes in neutral. Parts are "<region>.<ARKit name>", regions as
 // in VRCFaceTracking's Unified Expressions groups (gaze, eye, brow, nose, cheek, jaw, lip, tongue). Which keys move which
@@ -124,12 +125,15 @@
         "sad": { "menu": true, "position": [320, 110] }
       },
       "transitions": [
-        { "from": "neutral", "to": "joy", "when": [["Smile", ">", 0.5]], "duration": 0.2 },
-        { "from": "joy", "to": "neutral", "when": [["Smile", "<", 0.4]], "duration": 0.2 },
-        { "from": "neutral", "to": "angry", "when": [["BrowDown", ">", 0.5]], "duration": 0.2 },
-        { "from": "angry", "to": "neutral", "when": [["BrowDown", "<", 0.4]], "duration": 0.2 },
-        { "from": "neutral", "to": "sad", "when": [["Frown", ">", 0.5]], "duration": 0.2 },
-        { "from": "sad", "to": "neutral", "when": [["Frown", "<", 0.4]], "duration": 0.2 }
+        { "from": "neutral", "to": "joy", "when": [["MouthCornerPullLeft", ">", 0.5]], "duration": 0.2 },
+        { "from": "neutral", "to": "joy", "when": [["MouthCornerPullRight", ">", 0.5]], "duration": 0.2 },
+        { "from": "joy", "to": "neutral", "when": [["MouthCornerPullLeft", "<", 0.4], ["MouthCornerPullRight", "<", 0.4]], "duration": 0.2 },
+        { "from": "neutral", "to": "angry", "when": [["BrowLowererLeft", ">", 0.5]], "duration": 0.2 },
+        { "from": "neutral", "to": "angry", "when": [["BrowLowererRight", ">", 0.5]], "duration": 0.2 },
+        { "from": "angry", "to": "neutral", "when": [["BrowLowererLeft", "<", 0.4], ["BrowLowererRight", "<", 0.4]], "duration": 0.2 },
+        { "from": "neutral", "to": "sad", "when": [["MouthFrownLeft", ">", 0.5]], "duration": 0.2 },
+        { "from": "neutral", "to": "sad", "when": [["MouthFrownRight", ">", 0.5]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "when": [["MouthFrownLeft", "<", 0.4], ["MouthFrownRight", "<", 0.4]], "duration": 0.2 }
       ]
     }
   }

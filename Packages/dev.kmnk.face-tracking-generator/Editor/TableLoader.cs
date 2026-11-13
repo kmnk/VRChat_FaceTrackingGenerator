@@ -7,13 +7,8 @@ using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Reads the avatar table and the input and expression tables it points to, expands left/right pairs,
-    // resolves part names to blendshapes, and drops what the device or the avatar does not have (R23).
-    //
-    // Left/right pairs: an entry of "inputs" may have
-    //   "sides": ["Left", "Right"]                              -> "{side}" is replaced
-    //   "sides": {"Left": {"s": "L"}, "Right": {"s": "R"}}      -> "{side}" and "{s}" are replaced
-    // in the entry name and in every string and property name inside the entry.
+    // Reads the avatar table and the expression table it points to, resolves part names to blendshapes, and drops
+    // what the avatar does not have (R23). The input table was removed in 0.12.1: transitions compare tracking keys.
     public static class TableLoader
     {
         public sealed class TableException : Exception
@@ -32,29 +27,26 @@ namespace Kmnk.FaceTrackingGenerator
             ParseAvatar(avatar, m, avatarTablePath);
 
             var tables = Obj(avatar, "tables", avatarTablePath);
-            var inputPath = Path.Combine(dir, Str(tables, "input", avatarTablePath));
             var exprPath = Path.Combine(dir, Str(tables, "expression", avatarTablePath));
             var missingParts = StrList(avatar["missingParts"]);
-
-            var input = read(inputPath);
-            var missingKeys = StrList(input["missing"]);
-            ParseInputs(input, m, inputPath);
+            // 0.12.1 removed the input table: transitions compare tracking keys. An old "tables.input" is not read.
+            if (tables["input"] != null)
+                m.Notes.Add("avatar table: 'tables.input' is not read since 0.12.1 (transitions compare tracking keys)");
 
             var expr = read(exprPath);
             ParseExpressions(expr, m, exprPath);
 
-            Resolve(m, missingKeys, missingParts);
+            Resolve(m, missingParts);
             return m;
         }
 
         // ---- reading
 
-        // The input and expression table paths of an avatar table, built from its "tables" as Load does.
-        public static (string input, string expression) TablePaths(string avatarTablePath)
+        // The expression table path of an avatar table, built from its "tables" as Load does.
+        public static string ExpressionPath(string avatarTablePath)
         {
             var tables = Obj(Read(avatarTablePath), "tables", avatarTablePath);
-            var dir = Path.GetDirectoryName(avatarTablePath);
-            return (Path.Combine(dir, Str(tables, "input", avatarTablePath)), Path.Combine(dir, Str(tables, "expression", avatarTablePath)));
+            return Path.Combine(Path.GetDirectoryName(avatarTablePath), Str(tables, "expression", avatarTablePath));
         }
 
         public static JObject Read(string path)
@@ -244,39 +236,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- input layer
 
-        static void ParseInputs(JObject o, TableModel m, string file)
-        {
-            Removed(o, file, "smoothing", "the Face Tracking section has no smoothing");
-            foreach (var (name, v) in Expand(Obj(o, "inputs", file), file))
-            {
-                if (!(v is JObject io)) throw new TableException($"{file}: '{v.Path}' must be an object");
-                if (name.Contains(':')) throw new TableException($"{file}: input '{name}': ':' is not allowed in input names (\"{InputDef.TrackPrefix}\" names the tracking keys)");
-                Removed(io, file, "average", "write the average or the maximum as \"expression\"");
-                Removed(io, file, "smoothing", "the Face Tracking section has no smoothing");
-                var def = new InputDef { Name = name };
-                def.Key = Str(io, "key", file);
-                var expr = OptStr(io, "expression", null);
-                if (expr != null)
-                {
-                    try { FtExpression.Parse(expr); }
-                    catch (FtExpression.ParseException e) { throw new TableException($"{file}: input '{name}': {e.Message}"); }
-                    def.Expression = expr;
-                    def.ExpressionFromTable = true;
-                }
-                def.Sync = OptStr(io, "sync", "none");
-                if (def.Sync != "none" && def.Sync != "float8")
-                    throw new TableException($"{file}: input '{name}': sync '{def.Sync}' is not supported yet (use none or float8)");
-                if (m.Inputs.Any(i => i.Name == name)) throw new TableException($"{file}: duplicate input '{name}'");
-                def.Parameter = NativeInputs.Parameter(name);
-                if (def.Parameter.Length > NativeInputs.MaxParameterLength)
-                    throw new TableException($"{file}: input '{name}': the name is too long (the parameter {def.Parameter} is over {NativeInputs.MaxParameterLength} characters)");
-                m.Inputs.Add(def);
-            }
-            var synced = m.Inputs.Where(i => i.Sync == "float8").Select(i => i.Name).ToList();
-            if (synced.Count > 0)
-                m.Notes.Add($"input table: sync is ignored: inputs come from the Face Tracking section and are not synced ({string.Join(", ", synced)})");
-        }
-
         // A key that 0.12.0 removed (spec R13): an error that names it and why.
         static void Removed(JObject o, string file, string key, string why)
         {
@@ -385,10 +344,13 @@ namespace Kmnk.FaceTrackingGenerator
                     throw new TableException($"{file}: state machine '{sm.Name}': unknown state in {t.Path}");
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
                 {
-                    if (c.Count != 3) throw new TableException($"{file}: '{c.Path}' must be [input, \">\" or \"<\", value]");
-                    var cond = new Condition { Input = (string)c[0], Op = (string)c[1], Value = Num(c[2], file) };
+                    if (c.Count != 3) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");
+                    // The Face Tracking section's key ("v2/" may be written, as in neutral).
+                    var cond = new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = Num(c[2], file) };
                     if (cond.Op != ">" && cond.Op != "<") throw new TableException($"{file}: '{c.Path}': operator must be > or <");
-                    if (m.Input(cond.Input) == null) throw new TableException($"{file}: '{c.Path}': unknown input '{cond.Input}'");
+                    if (NativeKeys.Index(cond.Input) < 0)
+                        throw new TableException($"{file}: '{c.Path}': '{c[0]}' is not a tracking key of the Face Tracking section " +
+                            "(since 0.12.1 a condition compares a tracking key, such as MouthCornerPullLeft; the input table was removed)");
                     td.When.Add(cond);
                 }
                 if (td.When.Count == 0) throw new TableException($"{file}: '{t.Path}' needs a 'when' condition");
@@ -404,35 +366,16 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- dropping what the device or avatar does not have (R23)
 
-        static void Resolve(TableModel m, List<string> missingKeys, List<string> missingParts)
+        static void Resolve(TableModel m, List<string> missingParts)
         {
-            // "missing" lists keys with or without "v2/" ("v2/JawOpen" and "JawOpen" are the same key).
-            var missing = new HashSet<string>(missingKeys.Select(NativeInputs.NameOf));
-            foreach (var i in m.Inputs.ToList())
-            {
-                if (i.Expression == null) i.Expression = NativeInputs.Expression(i.Key);
-                string why = null;
-                if (missing.Contains(NativeInputs.NameOf(i.Key))) why = "the device does not send " + i.Key;
-                else if (i.Expression == null) why = "no expression for " + i.Key + " (write \"expression\" in the input table)";
-                else
-                {
-                    // An input made from a key the device does not send cannot be made either.
-                    var gone = NativeInputs.NamesIn(i.Expression).FirstOrDefault(missing.Contains);
-                    if (gone != null) why = "its expression uses " + gone + ", which the device does not send";
-                }
-                if (why == null) continue;
-                m.Inputs.Remove(i);
-                m.Dropped.Add($"input {i.Name}: {why}");
-            }
+            // The tracking keys the transitions compare: forwarded to the Animator as FT/In/<key> (Forward to Animator,
+            // a Custom expression of the key alone).
+            var compared = m.StateMachines.SelectMany(sm => sm.Transitions).SelectMany(t => t.When).Select(c => c.Input).Distinct().OrderBy(NativeKeys.Index).ToList();
+            foreach (var k in compared)
+                m.Inputs.Add(new InputDef { Name = k, Key = k, Expression = k, Parameter = NativeInputs.Parameter(k) });
 
             foreach (var sm in m.StateMachines)
             {
-                foreach (var t in sm.Transitions.ToList())
-                    if (t.When.Any(c => m.Input(c.Input) == null))
-                    {
-                        sm.Transitions.Remove(t);
-                        m.Dropped.Add($"state machine {sm.Name}: transition {t.From} -> {t.To} uses an input that is not sent");
-                    }
                 var reach = new HashSet<string> { sm.States[0].Name };
                 foreach (var st in sm.MenuStates) reach.Add(st.Name);
                 for (var changed = true; changed;)
@@ -448,7 +391,7 @@ namespace Kmnk.FaceTrackingGenerator
                     throw new TableException($"Blendshapes Set name '{n}' is longer than {NativeSets.MaxNameLength} characters; use shorter state machine, state or region names");
             }
 
-            // Rows of keys the device does not send, and of parts the avatar layer does not set (R23).
+            // Rows of parts the avatar layer does not set (R23).
             var missingPartSet = new HashSet<string>(missingParts);
             bool Keep(string where, string part)
             {
@@ -464,7 +407,6 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 foreach (var r in rows.ToList())
                 {
-                    if (missing.Contains(r.Key)) { rows.Remove(r); m.Dropped.Add($"{where}: key {r.Key}: the device does not send it"); continue; }
                     if (Keep(where, r.Part)) continue;
                     if (overrides) r.Part = null; else rows.Remove(r);
                 }
@@ -481,10 +423,11 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                 }
 
-            // The tracking keys of the rows that are left, as inputs "key:<key>" (for the settings editor and FaceEval).
+            // The tracking keys of the rows that are left and of the conditions, as inputs "key:<key>" (for the settings
+            // editor and FaceEval).
             var keys = m.Neutral.Values.SelectMany(r => r)
                 .Concat(m.StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows)))
-                .Select(r => r.Key).Distinct().OrderBy(k => NativeKeys.Index(k));
+                .Select(r => r.Key).Concat(compared).Distinct().OrderBy(k => NativeKeys.Index(k)).ToList();
             foreach (var k in keys)
                 m.Inputs.Add(new InputDef { Name = InputDef.TrackPrefix + k, Key = k, IsTrack = true });
         }

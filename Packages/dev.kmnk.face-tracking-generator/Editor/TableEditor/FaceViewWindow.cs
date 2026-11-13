@@ -156,7 +156,7 @@ namespace Kmnk.FaceTrackingGenerator
     }
 
     // Input -> the parts it moves, for the line under each slider of the preview: a tracking key ("key:<key>") moves
-    // the parts of its rows. Inputs of the input table only choose states and move no part themselves.
+    // the parts of its rows. The keys the transitions compare only choose states and move no part themselves.
     public static class InputParts
     {
         public static Dictionary<string, string> Of(TableModel m)

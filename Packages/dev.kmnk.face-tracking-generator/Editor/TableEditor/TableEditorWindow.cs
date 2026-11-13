@@ -17,7 +17,7 @@ namespace Kmnk.FaceTrackingGenerator
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
     public sealed class TableEditorWindow : EditorWindow
     {
-        static readonly string[] Tabs = { "Avatar", "Preview", "Inputs" };
+        static readonly string[] Tabs = { "Avatar", "Preview" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
@@ -53,7 +53,6 @@ namespace Kmnk.FaceTrackingGenerator
         (string sm, string state)? stateShown;
 
         // inputs tab: the search text
-        string inputSearch = "";
 
         // The open settings editor, for the state machine window. Changed is raised after the tables change.
         internal static TableEditorWindow Current { get; private set; }
@@ -204,83 +203,9 @@ namespace Kmnk.FaceTrackingGenerator
             if (Current == this) Changed?.Invoke();
         }
 
-        // ---- Inputs tab
-
+        // The device chosen in the Preview (Templates/Devices), or null for none.
         Devices.Device ChosenDevice(List<Devices.Device> devices) =>
             devices.FirstOrDefault(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, "")));
-
-        InputChoices.Result InputRows() => InputChoices.Rows(doc.Json(TableDocument.Input), doc.Json(TableDocument.Expression), model,
-            ChosenDevice(Devices.Load()), doc.SavedJson(TableDocument.Input));
-
-        static GUIStyle lockedNameStyle;
-        static GUIStyle LockedNameStyle
-        {
-            get
-            {
-                if (lockedNameStyle != null) return lockedNameStyle;
-                lockedNameStyle = new GUIStyle(EditorStyles.label);
-                lockedNameStyle.normal.textColor = EditorStyles.label.normal.textColor * new Color(1, 1, 1, 0.5f);
-                return lockedNameStyle;
-            }
-        }
-
-        void DrawInputsTab()
-        {
-            EditorGUILayout.LabelField("Inputs", EditorStyles.boldLabel);
-            Help("help.inputsTab");
-
-            var devices = Devices.Load();
-            var deviceNames = new List<string> { "Settings" };
-            deviceNames.AddRange(devices.Select(d => d.Name));
-            var device = ChosenDevice(devices);
-            var deviceIndex = device == null ? 0 : devices.IndexOf(device) + 1;
-            EditorGUI.BeginChangeCheck();
-            deviceIndex = EditorGUILayout.Popup("Device", deviceIndex, deviceNames.ToArray());
-            if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); }
-
-            var r = InputRows();
-            EditorGUILayout.Space(4);
-            inputSearch = EditorGUILayout.TextField(inputSearch, EditorStyles.toolbarSearchField);
-            bool Shown(InputChoices.Row row) => string.IsNullOrEmpty(inputSearch) || row.Display.IndexOf(inputSearch, StringComparison.OrdinalIgnoreCase) >= 0;
-
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("In the settings", EditorStyles.boldLabel);
-            foreach (var row in r.InTable.Where(Shown)) DrawInputRow(row);
-            if (device != null)
-            {
-                EditorGUILayout.Space(4);
-                EditorGUILayout.LabelField("Not in the settings", EditorStyles.boldLabel);
-                foreach (var row in r.NotInTable.Where(Shown)) DrawInputRow(row);
-            }
-        }
-
-        void DrawInputRow(InputChoices.Row row)
-        {
-            var area = EditorGUILayout.BeginVertical();
-            if (row.InTable && row.Added && Event.current.type == EventType.Repaint)
-                EditorGUI.DrawRect(new Rect(0, area.y, area.width + area.x * 2, area.height), new Color(0.17f, 0.29f, 0.4f, 0.8f));
-            var note = row.InTable ? InputChoices.Note(row) : null;
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                // The check box is disabled for a locked row; the name stays enabled (gray) so that its tooltip shows.
-                var locked = row.InTable && row.Locked;
-                using (new EditorGUI.DisabledScope(locked))
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var on = EditorGUILayout.Toggle(row.InTable, GUILayout.Width(16));
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        if (on && !row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
-                        else if (!on && row.InTable) Edit(TableDocument.Input, "Set FT input", j => InputChoices.Remove(j, row));
-                        GUIUtility.ExitGUI();
-                    }
-                }
-                var nameStyle = locked ? LockedNameStyle : EditorStyles.label;
-                GUILayout.Label(new GUIContent(row.Display, InputChoices.Tooltip(row)), nameStyle, GUILayout.ExpandWidth(true));
-            }
-            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
-            EditorGUILayout.EndVertical();
-        }
 
         internal bool PreviewRunning => preview.Running;
 
@@ -294,7 +219,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         internal JObject ExpressionJson => doc?.Json(TableDocument.Expression);
         internal JObject AvatarJson => doc?.Json(TableDocument.Avatar);
-        internal JObject InputJson => doc?.Json(TableDocument.Input);
         internal TableModel Model => model;
 
         // One unsaved edit of the expression table that returns a value (for the state machine window).
@@ -415,8 +339,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (error != null) EditorGUILayout.HelpBox(error, MessageType.Error);
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == 0) DrawAvatarTab();
-            else if (tab == 1) DrawPreviewTab();
-            else DrawInputsTab();
+            else DrawPreviewTab();
             EditorGUILayout.EndScrollView();
         }
 
@@ -462,9 +385,9 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUILayout.Space(4);
         }
 
-        // ---- Share: the input and expression tables to and from a folder (TableShare)
+        // ---- Share: the expression table to and from a folder (TableShare)
 
-        internal const string ShareExport = "Export input and expression…", ShareImport = "Import input and expression…";
+        internal const string ShareExport = "Export expression…", ShareImport = "Import expression…";
 
         // The Share menu's items and whether each can be pressed. Both wait while there are unsaved changes:
         // export writes the saved files, and import would overwrite what is being edited.
@@ -1039,7 +962,9 @@ namespace Kmnk.FaceTrackingGenerator
             Help("help.inputs");
             var device = deviceIndex == 0 ? null : devices[deviceIndex - 1];
             var partsOf = InputParts.Of(model);
-            foreach (var input in model.Inputs)
+            // The tracking keys ("key:<key>"). The keys forwarded for the transitions are the same values, so they are not
+            // shown again.
+            foreach (var input in model.Inputs.Where(x => x.IsTrack))
             {
                 var (lo, hi, label, sent) = PreviewSlider(input, device);
                 var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
@@ -1241,7 +1166,7 @@ namespace Kmnk.FaceTrackingGenerator
             var chooseAvatar = CliArgs.Get("-ftChooseAvatar");
             if (chooseAvatar != null) ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
             var tabArg = CliArgs.Get("-ftTab");
-            tab = tabArg == "preview" ? 1 : tabArg == "inputs" ? 2 : 0;
+            tab = tabArg == "preview" ? 1 : 0;
             scroll.y = CliArgs.GetFloat("-ftScroll", 0);
             if (st.Contains("dirty") && doc != null)
             {
@@ -1265,16 +1190,6 @@ namespace Kmnk.FaceTrackingGenerator
             newPartRegionCapture = CliArgs.Get("-ftAvatarNewPartIn");  // "<region>": press the + of the region's band
             var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>": as + Add Face Movement
             if (addPart != null && doc != null) AddPendingPart(addPart);
-            // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")
-            var inputAdd = CliArgs.Get("-ftInputAdd");
-            if (inputAdd != null && doc != null)
-                foreach (var name in inputAdd.Split(';').Where(x => x != ""))
-                {
-                    var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
-                    if (row != null) Edit(TableDocument.Input, "Capture", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
-                    else Debug.Log($"[FTG] capture: no input row {name}");
-                }
-            inputSearch = CliArgs.Get("-ftInputSearch") ?? inputSearch;
             if (CliArgs.Get("-ftShowSwitches") == "1") showSwitches = true;
             // "-ftPreviewMenu <state machine>=<state>,...": choose in the Preview's Menu
             var menuArg = CliArgs.Get("-ftPreviewMenu");

@@ -10,8 +10,8 @@ namespace Kmnk.FaceTrackingGenerator
     // The trees are edited, not TableModel: the model has left/right pairs expanded and rows dropped.
     public sealed class TableDocument
     {
-        public const string Avatar = "avatar", Input = "input", Expression = "expression";
-        public static readonly string[] Kinds = { Avatar, Input, Expression };
+        public const string Avatar = "avatar", Expression = "expression";
+        public static readonly string[] Kinds = { Avatar, Expression };
 
         sealed class Entry
         {
@@ -32,7 +32,7 @@ namespace Kmnk.FaceTrackingGenerator
             d.Add(Avatar, avatarPath);
             var tables = d.Json(Avatar)["tables"] as JObject ?? throw new TableLoader.TableException($"{avatarPath}: 'tables' must be an object");
             var dir = System.IO.Path.GetDirectoryName(avatarPath);
-            foreach (var kind in new[] { Input, Expression })
+            foreach (var kind in new[] { Expression })
             {
                 var rel = tables[kind]?.Type == JTokenType.String ? (string)tables[kind] : throw new TableLoader.TableException($"{avatarPath}: 'tables.{kind}' must be a string");
                 d.Add(kind, System.IO.Path.Combine(dir, rel));

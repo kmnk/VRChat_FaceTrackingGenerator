@@ -135,7 +135,7 @@ namespace Kmnk.FaceTrackingGenerator
         });
 
         // The window's "Create Settings/<name>".
-        // -ftFrom <folder>: the input and expression tables come from a folder written by ExportTables (Share).
+        // -ftFrom <folder>: the expression table comes from a folder written by ExportTables (Share).
         public static void CreateSettings() => Run(() =>
         {
             var from = CliArgs.Get("-ftFrom");
@@ -150,7 +150,7 @@ namespace Kmnk.FaceTrackingGenerator
             var dir = CliArgs.Require("-ftDir");
             var existing = TableShare.Existing(dir);
             TableShare.Export(CliArgs.Require("-ftTable"), dir);
-            Debug.Log($"[FTG] share: exported {TableShare.InputFile}, {TableShare.ExpressionFile} to {dir} (overwrote: {(existing.Count > 0 ? string.Join(", ", existing) : "none")})");
+            Debug.Log($"[FTG] share: exported {TableShare.ExpressionFile} to {dir} (overwrote: {(existing.Count > 0 ? string.Join(", ", existing) : "none")})");
             return 0;
         });
 

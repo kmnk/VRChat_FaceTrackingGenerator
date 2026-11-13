@@ -2,7 +2,7 @@
 // Copy this file to Settings/ and edit the copy. Paths of the other tables are relative to this file.
 {
   "name": "MyAvatar",
-  "tables": { "input": "input.jsonc", "expression": "expression.jsonc" },
+  "tables": { "expression": "expression.jsonc" },
 
   // The avatar prefab. Its Avatar Descriptor gives the FX, Gesture and Action controllers and the
   // Expression Parameters. The generator copies them and never changes the originals.
