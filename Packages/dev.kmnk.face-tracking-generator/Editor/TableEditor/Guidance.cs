@@ -6,7 +6,8 @@ using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // What moves each face movement: the inputs of the 1D and 2D nodes above it, and the switch states it is under.
+    // What moves each face movement: the tracking keys of its rows, and the states it is used in (override rows and
+    // fixed amounts). A part of neutral moves in every state that does not take its region.
     public static class PartUsage
     {
         public sealed class Usage
@@ -17,59 +18,36 @@ namespace Kmnk.FaceTrackingGenerator
 
         public static Dictionary<string, Usage> Of(TableModel m)
         {
-            var occurrences = new Dictionary<string, List<(List<string> inputs, List<(string sw, string st)> path)>>(StringComparer.Ordinal);
-            void Walk(Node n, List<string> inputs, List<(string, string)> path)
-            {
-                switch (n)
-                {
-                    case PoseNode p:
-                        foreach (var part in p.Parts.Keys)
-                        {
-                            if (!occurrences.TryGetValue(part, out var list)) occurrences[part] = list = new List<(List<string>, List<(string, string)>)>();
-                            list.Add((inputs.ToList(), path.ToList()));
-                        }
-                        break;
-                    case Blend1DNode b:
-                        foreach (var c in b.Children) Walk(c.node, inputs.Append(b.Input).ToList(), path);
-                        break;
-                    case Blend2DNode b:
-                        foreach (var c in b.Children) Walk(c.node, inputs.Append(b.InputX).Append(b.InputY).ToList(), path);
-                        break;
-                    case SwitchNode s:
-                        foreach (var c in s.Cases) Walk(c.node, inputs, path.Append((s.Switch, c.state)).ToList());
-                        break;
-                }
-            }
-            foreach (var t in m.Trees) Walk(t.Root, new List<string>(), new List<(string, string)>());
-
             var result = new Dictionary<string, Usage>(StringComparer.Ordinal);
-            foreach (var kv in occurrences)
+            Usage U(string part) => result.TryGetValue(part, out var u) ? u : result[part] = new Usage();
+            var inNeutral = new HashSet<string>();
+            foreach (var r in m.Neutral.Values.SelectMany(x => x))
             {
-                var u = new Usage();
-                foreach (var occ in kv.Value)
-                    foreach (var i in occ.inputs)
-                        if (!u.Inputs.Contains(i)) u.Inputs.Add(i);
-                var switches = kv.Value.SelectMany(o => o.path.Select(p => p.sw)).Distinct().ToList();
-                foreach (var sw in switches)
-                {
-                    // A condition only when every occurrence is under this switch and not all of its states appear.
-                    if (kv.Value.Any(o => o.path.All(p => p.sw != sw))) continue;
-                    var states = kv.Value.SelectMany(o => o.path.Where(p => p.sw == sw).Select(p => p.st)).Distinct().ToList();
-                    var all = m.Switch(sw)?.States ?? new List<string>();
-                    if (all.All(states.Contains)) continue;
-                    u.When.Add((sw, all.Where(states.Contains).ToList()));
-                }
-                result[kv.Key] = u;
+                inNeutral.Add(r.Part);
+                if (!U(r.Part).Inputs.Contains(r.Key)) U(r.Part).Inputs.Add(r.Key);
             }
+            foreach (var sm in m.StateMachines)
+                foreach (var st in sm.States)
+                {
+                    var parts = st.Regions.Values.SelectMany(x => x.Rows).Where(r => r.Part != null).Select(r => (r.Part, r.Key)).ToList();
+                    foreach (var (part, key) in parts) if (!U(part).Inputs.Contains(key)) U(part).Inputs.Add(key);
+                    foreach (var part in parts.Select(x => x.Part).Concat(st.Fixed.Keys).Distinct().Where(p => !inNeutral.Contains(p)))
+                    {
+                        var u = U(part);
+                        var w = u.When.FindIndex(x => x.sw == sm.Name);
+                        if (w < 0) u.When.Add((sm.Name, new List<string> { st.Name }));
+                        else if (!u.When[w].states.Contains(st.Name)) u.When[w].states.Add(st.Name);
+                    }
+                }
             return result;
         }
 
         // "EyeLidLeft で動く（EyelidSmileLeft が smile のとき）" / "Moves with EyeLidLeft (when EyelidSmileLeft is smile)"
         public static string Text(Usage u)
         {
-            if (u == null || u.Inputs.Count == 0) return null;
+            if (u == null || u.Inputs.Count == 0 && u.When.Count == 0) return null;
             var ja = EditorText.Current == EditorText.Language.Japanese;
-            var s = ja ? string.Join("・", u.Inputs) + " で動く" : "Moves with " + string.Join(", ", u.Inputs);
+            var s = u.Inputs.Count == 0 ? (ja ? "固定" : "Fixed") : ja ? string.Join("・", u.Inputs) + " で動く" : "Moves with " + string.Join(", ", u.Inputs);
             if (u.When.Count > 0)
             {
                 var conds = u.When.Select(w => ja ? $"{w.sw} が {string.Join(" / ", w.states)}" : $"{w.sw} is {string.Join(" / ", w.states)}");
@@ -98,7 +76,7 @@ namespace Kmnk.FaceTrackingGenerator
             public List<(string part, float value)> Parts = new List<(string, float)>();
         }
 
-        static string SideOf(string part) => part.EndsWith("_L") ? "L" : part.EndsWith("_R") ? "R" : "B";
+        static string SideOf(string part) => part.EndsWith("_L") || part.EndsWith("Left") ? "L" : part.EndsWith("_R") || part.EndsWith("Right") ? "R" : "B";
         static string RegionOf(string part) { var i = part.IndexOf('.'); return i < 0 ? part : part.Substring(0, i); }
 
         public static List<Overlap> Find(IDictionary<string, float> partValues)
@@ -154,20 +132,22 @@ namespace Kmnk.FaceTrackingGenerator
 
         static Dictionary<string, float> V(params (string, float)[] kv) => kv.ToDictionary(x => x.Item1, x => x.Item2);
 
+        static Dictionary<string, float> K(params (string, float)[] kv) => kv.ToDictionary(x => InputDef.TrackPrefix + x.Item1, x => x.Item2);
+
         public static readonly Preset[] All =
         {
-            new Preset { Ja = "ふつうの顔", En = "Neutral", Values = V(("EyeLidLeft", 0.75f), ("EyeLidRight", 0.75f)) },
-            new Preset { Ja = "笑って目を閉じる", En = "Smile with eyes closed", Values = V(("EyeLidLeft", 0), ("EyeLidRight", 0), ("SmileFrown", 1), ("SmileSad", 1)) },
-            new Preset { Ja = "口を開けて笑う", En = "Smile with mouth open", Values = V(("EyeLidLeft", 0.75f), ("EyeLidRight", 0.75f), ("SmileFrown", 1), ("SmileSad", 1), ("JawOpen", 1), ("MouthOpen", 0.5f)) },
-            new Preset { Ja = "口を大きく開ける", En = "Open mouth wide", Values = V(("EyeLidLeft", 0.75f), ("EyeLidRight", 0.75f), ("JawOpen", 1)) },
-            new Preset { Ja = "目を見開く", En = "Eyes wide open", Values = V(("EyeLidLeft", 1), ("EyeLidRight", 1)) },
-            new Preset { Ja = "横を見る", En = "Look sideways", Values = V(("EyeLidLeft", 0.75f), ("EyeLidRight", 0.75f), ("EyeLeftX", 1), ("EyeRightX", 1)) },
+            new Preset { Ja = "ふつうの顔", En = "Neutral", Values = K(("EyeClosedLeft", 0), ("EyeClosedRight", 0)) },
+            new Preset { Ja = "笑って目を閉じる", En = "Smile with eyes closed", Values = K(("EyeClosedLeft", 1), ("EyeClosedRight", 1), ("MouthCornerPullLeft", 1), ("MouthCornerPullRight", 1), ("CheekSquintLeft", 1), ("CheekSquintRight", 1)) },
+            new Preset { Ja = "口を開けて笑う", En = "Smile with mouth open", Values = K(("MouthCornerPullLeft", 1), ("MouthCornerPullRight", 1), ("JawOpen", 1)) },
+            new Preset { Ja = "口を大きく開ける", En = "Open mouth wide", Values = K(("JawOpen", 1), ("MouthStretchLeft", 1), ("MouthStretchRight", 1)) },
+            new Preset { Ja = "目を見開く", En = "Eyes wide open", Values = K(("EyeWideLeft", 1), ("EyeWideRight", 1), ("BrowOuterUpLeft", 1), ("BrowOuterUpRight", 1)) },
+            new Preset { Ja = "横を見る", En = "Look sideways", Values = K(("EyeLookOutLeft", 1), ("EyeLookInRight", 1)) },
         };
 
-        // The presets that set at least one input of the settings, with the values for those inputs only.
+        // The presets that set at least one tracking key of the settings, with the values for those keys only.
         public static List<(Preset preset, Dictionary<string, float> values)> For(TableModel m)
         {
-            var names = new HashSet<string>(m.Inputs.Where(i => !i.IsDerived).Select(i => i.Name));
+            var names = new HashSet<string>(m.Inputs.Where(i => i.IsTrack).Select(i => i.Name));
             return All.Select(p => (p, p.Values.Where(kv => names.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value)))
                 .Where(x => x.Item2.Count > 0).ToList();
         }
@@ -225,7 +205,7 @@ namespace Kmnk.FaceTrackingGenerator
             public static bool UsedBy(TableModel m, string key)
             {
                 var n = NameOf(key);
-                return m.Inputs.Any(i => !i.IsDerived && (NameOf(i.Key) == n || NativeInputs.NamesIn(i.Expression).Contains(n)));
+                return m.Inputs.Any(i => !i.IsTrack && (NameOf(i.Key) == n || NativeInputs.NamesIn(i.Expression).Contains(n)));
             }
         }
 
@@ -244,31 +224,13 @@ namespace Kmnk.FaceTrackingGenerator
             return list;
         }
 
-        // The range of an input's value with a device (a derived input: the average of its sources' ranges), or null
-        // when the device does not send it.
-        public static (float lo, float hi)? InputRange(TableModel m, InputDef i, Device d)
-        {
-            if (!i.IsDerived) return d.Range(i.Key, i.Expression);
-            var rs = i.Average.Select(s => m.Input(s)).Select(x => x == null ? null : InputRange(m, x, d)).ToList();
-            if (rs.Any(r => r == null)) return null;
-            return (rs.Average(r => r.Value.lo), rs.Average(r => r.Value.hi));
-        }
+        // The range of an input's value with a device, or null when the device does not send it. A tracking key
+        // ("key:<key>") is the key's listed range.
+        public static (float lo, float hi)? InputRange(TableModel m, InputDef i, Device d) =>
+            i.IsTrack ? d.Listed(i.Key) ?? (d.Range(i.Key) is (float, float) r ? r : ((float, float)?)null) : d.Range(i.Key, i.Expression);
 
-        // The range of the thresholds and positions that use an input, also through averages of it.
-        public static (float lo, float hi) ThresholdRange(TableModel m, string input)
-        {
-            var names = new List<string> { input };
-            names.AddRange(m.Inputs.Where(d => d.IsDerived && d.Average.Contains(input)).Select(d => d.Name));
-            var d0 = m.Inputs.FirstOrDefault(d => d.Name == input && d.IsDerived);
-            if (d0 != null) names.AddRange(d0.Average);
-            float lo = float.MaxValue, hi = float.MinValue;
-            foreach (var n in names)
-            {
-                var (a, b) = CurveEval.Range(m, n);
-                lo = Math.Min(lo, a); hi = Math.Max(hi, b);
-            }
-            return (lo, hi);
-        }
+        // The range of the values the transitions compare an input with (0 to 1 at least).
+        public static (float lo, float hi) ThresholdRange(TableModel m, string input) => FaceEval.Range(m, input);
 
         // A preview slider with a device: the thresholds' range within the device's range. clipped: some thresholds are
         // outside what the device sends, so they cannot be reached with it.

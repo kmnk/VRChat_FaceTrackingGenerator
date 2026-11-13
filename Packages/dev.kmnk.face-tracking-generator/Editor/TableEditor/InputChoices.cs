@@ -29,7 +29,7 @@ namespace Kmnk.FaceTrackingGenerator
             public List<Row> NotInTable = new List<Row>();
         }
 
-        static string Sub(string s, Dictionary<string, string> vars) => Tuning.Sub(s, vars);
+        static string Sub(string s, Dictionary<string, string> vars) => Sides.Sub(s, vars);
 
         // Rows for the tables. device is null for "Settings"; saved is the input table as last saved (for "added").
         public static Result Rows(JObject input, JObject expression, TableModel model, Devices.Device device, JObject saved)
@@ -42,14 +42,14 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var p in inputs.Properties())
                 {
                     if (!(p.Value is JObject o) || o["average"] != null) continue;
-                    var sides = Tuning.SidesOf(o["sides"]);
+                    var sides = Sides.Of(o["sides"]);
                     var vars = sides ?? new List<Dictionary<string, string>> { null };
                     var row = new Row
                     {
                         Name = p.Name, InTable = true, Added = !savedNames.Contains(p.Name), Sided = sides != null,
                         ExpressionFromTable = o["expression"] != null,
                     };
-                    row.Display = Tuning.Label(p.Name) + (row.Sided ? " (left and right)" : "");
+                    row.Display = Sides.Label(p.Name) + (row.Sided ? " (left and right)" : "");
                     foreach (var v in vars)
                     {
                         row.Expanded.Add(Sub(p.Name, v));
@@ -78,7 +78,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (right != null && set.Contains(right))
                     {
                         var name = n.Replace("Left", "{side}");
-                        r.NotInTable.Add(new Row { Name = name, Display = Tuning.Label(name) + " (left and right)", Sided = true,
+                        r.NotInTable.Add(new Row { Name = name, Display = Sides.Label(name) + " (left and right)", Sided = true,
                             Expanded = { n, right }, Keys = { "v2/" + n, "v2/" + right }, Expressions = { NativeInputs.Expression(n), NativeInputs.Expression(right) } });
                         done.Add(right);
                     }
@@ -91,62 +91,19 @@ namespace Kmnk.FaceTrackingGenerator
             return r;
         }
 
-        // Input name -> (expressions that use it, average inputs it is used through). Expressions are the expression
-        // table's tree names without side marks; switches count through their transitions' conditions.
+        // Input name -> (state machines whose transitions use it, unused). Through is always empty: inputs have no
+        // averages any more (0.12.0).
         static Dictionary<string, (HashSet<string> trees, HashSet<string> through)> Usage(JObject expression, TableModel m)
         {
             var result = new Dictionary<string, (HashSet<string>, HashSet<string>)>();
             if (m == null) return result;
-            var labels = new Dictionary<string, string>();
-            foreach (var t in Tuning.Trees(expression))
-                foreach (var n in Tuning.Expanded(t, t.Name)) labels[n] = Tuning.Label(t.Name);
-            void Add(string input, string tree, string through)
-            {
-                if (input == null) return;
-                if (!result.TryGetValue(input, out var u)) result[input] = u = (new HashSet<string>(), new HashSet<string>());
-                u.Item1.Add(tree);
-                if (through != null) u.Item2.Add(through);
-                var def = m.Input(input);
-                if (def != null && def.IsDerived) foreach (var a in def.Average) Add(a, tree, input);
-            }
-            foreach (var t in m.Trees)
-            {
-                var tree = labels.TryGetValue(t.Name, out var l) ? l : Tuning.Label(t.Name);
-                foreach (var node in t.Root.SelfAndDescendants())
-                    switch (node)
-                    {
-                        case Blend1DNode b: Add(b.Input, tree, null); break;
-                        case Blend2DNode b: Add(b.InputX, tree, null); Add(b.InputY, tree, null); break;
-                        case SwitchNode s:
-                            var sw = m.Switch(s.Switch);
-                            if (sw != null) foreach (var c in sw.Transitions.SelectMany(x => x.When)) Add(c.Input, tree, null);
-                            break;
-                    }
-            }
+            foreach (var sm in m.StateMachines)
+                foreach (var c in sm.Transitions.SelectMany(x => x.When))
+                {
+                    if (!result.TryGetValue(c.Input, out var u)) result[c.Input] = u = (new HashSet<string>(), new HashSet<string>());
+                    u.Item1.Add(sm.Name);
+                }
             return result;
-        }
-
-        // A device input offered by the expression graph's "Add from <device>": the row to add to the input table, the
-        // name to write in the tree, and the name shown in the list.
-        public sealed class SplitChoice
-        {
-            public Row Row;
-            public string Write, Display;
-        }
-
-        // The device's inputs not in the table that a box can be split on, sorted by what the list shows. In a tree with
-        // sides every row as it is; in a tree without sides, a left/right row gives one choice per side
-        // ("BrowLowererLeft"), which adds the pair and writes that side (as ExpressionGraph.SplitInputs).
-        public static List<SplitChoice> SplitChoices(Result r, bool sided)
-        {
-            var list = new List<SplitChoice>();
-            foreach (var row in r.NotInTable)
-            {
-                if (sided || !row.Sided) list.Add(new SplitChoice { Row = row, Write = row.Name, Display = row.Display });
-                else foreach (var n in row.Expanded) list.Add(new SplitChoice { Row = row, Write = n, Display = n });
-            }
-            list.Sort((a, b) => string.CompareOrdinal(a.Display, b.Display));
-            return list;
         }
 
         // ---- edits (on the input table's JSON)
@@ -161,7 +118,6 @@ namespace Kmnk.FaceTrackingGenerator
             var o = new JObject();
             if (row.Sided) o["sides"] = new JArray("Left", "Right");
             o["key"] = "v2/" + row.Name;
-            if (input["smoothing"]?["default"] != null) o["smoothing"] = "default";
 
             int Rank(IEnumerable<string> keys)
             {
@@ -172,8 +128,8 @@ namespace Kmnk.FaceTrackingGenerator
             List<string> KeysOf(JProperty p)
             {
                 if (!(p.Value is JObject v) || v["key"] == null) return new List<string>();
-                var sides = Tuning.SidesOf(v["sides"]);
-                return (sides ?? new List<Dictionary<string, string>> { null }).Select(x => Tuning.Sub((string)v["key"], x)).ToList();
+                var sides = Sides.Of(v["sides"]);
+                return (sides ?? new List<Dictionary<string, string>> { null }).Select(x => Sides.Sub((string)v["key"], x)).ToList();
             }
             var props = inputs.Properties().ToList();
             var mine = Rank(row.Keys);
@@ -229,7 +185,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (row.Locked)
             {
                 var s = string.Format(EditorText.Get("inputs.usedBy"), string.Join(ja ? "・" : ", ", row.UsedBy));
-                if (row.Through.Count > 0) s += string.Format(EditorText.Get("inputs.through"), string.Join(ja ? "・" : ", ", row.Through.Select(Tuning.Label)));
+                if (row.Through.Count > 0) s += string.Format(EditorText.Get("inputs.through"), string.Join(ja ? "・" : ", ", row.Through.Select(Sides.Label)));
                 parts.Add(row.Added ? EditorText.Get("inputs.addedPrefix") + s : s);
             }
             else if (row.Added) parts.Add(EditorText.Get("inputs.added"));

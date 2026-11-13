@@ -11,8 +11,9 @@ namespace Kmnk.FaceTrackingGenerator
     {
         // Opens a window, lets it draw for a while, and writes what it drew to a PNG (-ftOut). Run from an editor
         // started with graphics and without -batchmode (scripts/unity-gui.sh): batchmode does not draw windows.
-        //   -ftWindow generator | table | graph   (default table; graph also opens the table editor and writes it to <out>.tuning.png)
-        //   -ftGraphTree <tree>  -ftGraphSelect <box path>  -ftGraphSplitList "<box path>#<row>"  -ftGraphListPage "<group>/<group>"  -ftGraphOpen "<box path>;..."   (graph only)
+        //   -ftWindow generator | table | statemachine   (default table; statemachine also opens the table editor)
+        //   -ftSmMachine <state machine>  -ftSmSelect <state>|<from>-><to>  -ftSmOpen <region>  -ftSmEdits <edits.jsonl>  -ftSmZoom <factor>   (statemachine only;
+        //   the edits are StateMachineEdit operations, as TableEditorChecks.Edit takes them, made before drawing)
         //   -ftSize 560x1000               window size in points
         //   -ftOpenScene <scene path>      opens the scene before the window opens
         // After drawing it prints "[FTG] capture: selection window=<generator|table> table=... avatar=... source=... preview=..."
@@ -48,18 +49,14 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                     window = g;
                 }
-                else if (which == "graph")
+                else if (which == "statemachine")
                 {
                     var t = EditorWindow.GetWindow<TableEditorWindow>("FT Table Editor");
                     t.ApplyCaptureArgs();
                     t.position = new Rect(80 + w + 20, 80, 560, 1000);
-                    var g = ExpressionGraphWindow.Open();
-                    var treeArg = CliArgs.Get("-ftGraphTree");
-                    if (treeArg != null) g.SelectTree(treeArg);
-                    var openArg = CliArgs.Get("-ftGraphOpen");  // "<box path>;..."
-                    if (openArg != null) foreach (var path in openArg.Split(';').Where(x => x != "")) g.SetOpen(path, true);
-                    g.Refresh();
-                    window = g;
+                    var sm = StateMachineWindow.Open();
+                    sm.ApplyCaptureArgs();
+                    window = sm;
                 }
                 else
                 {
@@ -77,7 +74,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     window.Repaint();
                     if (window is TableEditorWindow tw) tw.CaptureTick(frames);
-                    if (window is ExpressionGraphWindow gw) GraphTick(gw, frames);
+                    CommonTick(frames);
                     if (++frames < 60) return;
                     EditorApplication.update -= tick;
                     try
@@ -94,25 +91,7 @@ namespace Kmnk.FaceTrackingGenerator
                             Grab(face, facePath);
                             Debug.Log($"[FTG] capture: wrote {facePath}");
                         }
-                        if (window is ExpressionGraphWindow)
-                        {
-                            var te = TableEditorWindow.Current;
-                            if (te != null)
-                            {
-                                te.Repaint();
-                                var tePath = Path.ChangeExtension(outPath, null) + ".tuning.png";
-                                Grab(te, tePath);
-                                Debug.Log($"[FTG] capture: wrote {tePath}");
-                                Debug.Log($"[FTG] capture: tuning {te.TuningState()}");
-                            }
-                            var search = Resources.FindObjectsOfTypeAll<EditorWindow>().FirstOrDefault(x => x.GetType().Name == "SearchWindow");
-                            if (search != null)
-                            {
-                                var searchPath = Path.ChangeExtension(outPath, null) + ".split.png";
-                                Grab(search, searchPath);
-                                Debug.Log($"[FTG] capture: wrote {searchPath} (list at {search.position})");
-                            }
-                        }
+                        if (window is StateMachineWindow smw) Debug.Log($"[FTG] capture: state machine {smw.CaptureState()}");
                         var popup = TableEditorWindow.OpenPicker();
                         if (popup != null)
                         {
@@ -141,17 +120,10 @@ namespace Kmnk.FaceTrackingGenerator
             return found.Cast<VRC.SDKBase.VRC_AvatarDescriptor>().Count(d => d != null && d.gameObject.activeInHierarchy);
         }
 
-        // Selects a box and opens the split list on the graph at set frames, as a user would.
-        static void GraphTick(ExpressionGraphWindow g, int frame)
+        // Changes made at set frames, after the windows are open, as a user would.
+        static void CommonTick(int frame)
         {
             TableEditorWindow.Current?.Repaint();
-            if (frame == 20)
-            {
-                var select = CliArgs.Get("-ftGraphSelect");
-                var box = g.View.Boxes.FirstOrDefault(b => b.Box.Path == select);
-                if (box != null) { g.View.ClearSelection(); g.View.AddToSelection(box); }
-                Debug.Log($"[FTG] capture: graph boxes={g.View.Boxes.Count} edges={g.View.edges.ToList().Count} selected={(box != null ? box.Box.Path : "-")} scale={g.View.viewTransform.scale.x:0.##}");
-            }
             if (frame == 30)
             {
                 // "-ftHelpAfter en|ja|off": change the language after the window is open, as the settings editor's Help does.
@@ -169,78 +141,6 @@ namespace Kmnk.FaceTrackingGenerator
                 var te = TableEditorWindow.Current;
                 Debug.Log($"[FTG] capture: frame={frame} building={BuildGuard.Building.ToString().ToLower()} preview-running={(te != null && te.PreviewRunning).ToString().ToLower()} preview-scene-avatars={copies} sdk-avatars={SdkAvatars()}");
             }
-            if (frame == 40 && CliArgs.Get("-ftGraphListPage") != null) OpenListPage(CliArgs.Get("-ftGraphListPage"));
-            // "-ftGraphListChoose <row>": chooses that row of the open page as a click does; "-ftGraphListUndo 1" then undoes once.
-            var choose = CliArgs.Get("-ftGraphListChoose");
-            if (choose != null && (frame == 42 || frame == 46 || frame == 50))
-            {
-                var te = TableEditorWindow.Current;
-                if (frame == 42) ChooseListRow(choose);
-                if (frame == 46 && CliArgs.Get("-ftGraphListUndo") == "1") Undo.PerformUndo();
-                var inputs = te?.InputJson?["inputs"] as Newtonsoft.Json.Linq.JObject;
-                Debug.Log($"[FTG] capture: frame={frame} inputs={string.Join(",", inputs?.Properties().Select(p => p.Name) ?? Enumerable.Empty<string>())} boxes={string.Join(",", g.View.Boxes.Select(b => b.Box.Path + ":" + b.Box.Title))}");
-            }
-            if (frame == 33 && CliArgs.Get("-ftGraphNew") != null)
-            {
-                // "-ftGraphNew <name>": opens the "+ New Expression" panel with the name typed in.
-                g.ShowNewTreeForCapture(CliArgs.Get("-ftGraphNew"), CliArgs.Get("-ftGraphNewSides") == "1");
-            }
-            if (frame == 35)
-            {
-                var split = CliArgs.Get("-ftGraphSplitList");
-                if (split != null)
-                {
-                    var parts = split.Split('#');
-                    var box = g.View.Boxes.FirstOrDefault(b => b.Box.Path == parts[0]);
-                    if (box != null)
-                    {
-                        var port = box.Outputs[int.Parse(parts[1])];
-                        var p = port.worldBound.center + new Vector2(140, 160);
-                        g.OpenSplitList(parts[0], int.Parse(parts[1]), g.position.position + p);
-                    }
-                }
-            }
-        }
-
-        // "-ftGraphListPage "<group>/<group>"": opens those pages of the open split list, as clicking the groups does
-        // (the internal SearchWindow's selection stack), without the slide animation.
-        static void OpenListPage(string page)
-        {
-            var search = Resources.FindObjectsOfTypeAll<EditorWindow>().FirstOrDefault(x => x.GetType().Name == "SearchWindow");
-            if (search == null) { Debug.Log("[FTG] capture: no split list"); return; }
-            var flags = BindingFlags.NonPublic | BindingFlags.Instance;
-            var t = search.GetType();
-            var tree = (UnityEditor.Experimental.GraphView.SearchTreeEntry[])t.GetField("m_Tree", flags).GetValue(search);
-            var stack = (System.Collections.IList)t.GetField("m_SelectionStack", flags).GetValue(search);
-            var start = 0;
-            foreach (var name in page.Split('/'))
-            {
-                var level = stack.Count;
-                var i = Array.FindIndex(tree, start, e => e is UnityEditor.Experimental.GraphView.SearchTreeGroupEntry && e.level == level && e.name == name);
-                if (i < 0) { Debug.Log($"[FTG] capture: no list page {name}"); return; }
-                stack.Add(tree[i]);
-                start = i + 1;
-            }
-            t.GetField("m_Anim", flags).SetValue(search, 1f);
-            search.Repaint();
-            var rows = tree.Skip(start).TakeWhile(e => e.level >= stack.Count).Where(e => e.level == stack.Count).Select(e => e.name).ToList();
-            Debug.Log($"[FTG] capture: list page {page} rows={rows.Count}: {string.Join(" | ", rows)}");
-        }
-
-        static void ChooseListRow(string row)
-        {
-            var search = Resources.FindObjectsOfTypeAll<EditorWindow>().FirstOrDefault(x => x.GetType().Name == "SearchWindow");
-            if (search == null) { Debug.Log("[FTG] capture: no split list"); return; }
-            var flags = BindingFlags.NonPublic | BindingFlags.Instance;
-            var t = search.GetType();
-            var tree = (UnityEditor.Experimental.GraphView.SearchTreeEntry[])t.GetField("m_Tree", flags).GetValue(search);
-            var stack = (System.Collections.IList)t.GetField("m_SelectionStack", flags).GetValue(search);
-            var parent = stack[stack.Count - 1];
-            var start = Array.IndexOf(tree, parent) + 1;
-            var e = tree.Skip(start).TakeWhile(x => x.level >= stack.Count).FirstOrDefault(x => x.level == stack.Count && x.name == row);
-            if (e == null) { Debug.Log($"[FTG] capture: no list row {row}"); return; }
-            t.GetMethod("SelectEntry", flags).Invoke(search, new object[] { e, true });
-            Debug.Log($"[FTG] capture: chose {row}");
         }
 
         static void SdkCallback(string name, bool withType)

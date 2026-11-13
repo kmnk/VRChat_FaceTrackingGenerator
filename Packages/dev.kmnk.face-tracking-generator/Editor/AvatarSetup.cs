@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json.Linq;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -43,6 +46,41 @@ namespace Kmnk.FaceTrackingGenerator
                 log.Add("menu: " + AssetDatabase.GetAssetPath(desc.expressionsMenu));
             }
             log.AddRange(AfkFinder.FillTable(avatarTable, desc));
+            if (face != null) log.AddRange(FillParts(avatarTable, prefab, face));
+            return log;
+        }
+
+        // For the parts of the expression table that have no blendshape and are not marked missing: the blendshape whose
+        // name equals the part's name after the dot, ignoring capitals (spec R5), on the face mesh, else on another mesh
+        // of the avatar (written with its mesh). Others stay Not set.
+        public static List<string> FillParts(string avatarTable, GameObject prefab, SkinnedMeshRenderer face)
+        {
+            var log = new List<string>();
+            var avatar = TableLoader.Read(avatarTable);
+            var (_, exprPath) = TableLoader.TablePaths(avatarTable);
+            var expr = File.Exists(exprPath) ? TableLoader.Read(exprPath) : null;
+            var meshes = new[] { face }.Concat(prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r != face && r.sharedMesh != null))
+                .Select(r => (path: AnimationUtility.CalculateTransformPath(r.transform, prefab.transform), shapes: Enumerable.Range(0, r.sharedMesh.blendShapeCount).Select(r.sharedMesh.GetBlendShapeName).ToList()))
+                .ToList();
+            var parts = avatar["parts"] as JObject ?? new JObject();
+            var missing = new HashSet<string>((avatar["missingParts"] as JArray)?.Select(x => (string)x) ?? new string[0]);
+            int found = 0, notFound = 0;
+            foreach (var part in PartNames.Used(avatar, expr))
+            {
+                if (parts[part] != null || missing.Contains(part) || !PartNames.IsForm(part)) continue;
+                var movement = PartNames.Movement(part);
+                string shape = null, mesh = null;
+                foreach (var (path, shapes) in meshes)
+                {
+                    shape = shapes.FirstOrDefault(x => x == movement) ?? shapes.FirstOrDefault(x => string.Equals(x, movement, StringComparison.OrdinalIgnoreCase));
+                    if (shape != null) { mesh = path; break; }
+                }
+                if (shape == null) { notFound++; continue; }
+                parts[part] = mesh == meshes[0].path ? (JToken)shape : new JObject { ["mesh"] = mesh, ["shape"] = shape };
+                found++;
+            }
+            if (found > 0) TableWriter.SetTopLevel(avatarTable, "parts", parts.ToString(Newtonsoft.Json.Formatting.Indented).Replace("\n", "\n  "));
+            log.Add($"parts: {found} face movements set from blendshapes with the same name, {notFound} not found (Not set)");
             return log;
         }
 

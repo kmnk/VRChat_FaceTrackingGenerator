@@ -23,7 +23,7 @@ namespace Kmnk.FaceTrackingGenerator
                 Debug.Log($"[FTG] preset {preset.Label}: " + string.Join(" ", values.Select(kv => $"{kv.Key}={kv.Value}")));
                 tracker.Reset();
                 var states = tracker.Update(model, values);
-                var found = Overlaps.Find(CurveEval.EvaluateParts(model, values, states));
+                var found = Overlaps.Find(FaceEval.EvaluateParts(model, values, states));
                 Debug.Log($"[FTG] overlap {preset.Label}: " + (found.Count == 0 ? "none" : string.Join(" || ", found.Select(o => Overlaps.Message(o, usage).Replace("\n", " ")))));
             }
             var set = CliArgs.Get("-ftSet");
@@ -31,12 +31,12 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var values = set.Split(',').Select(x => x.Split('=')).ToDictionary(x => x[0].Trim(), x => float.Parse(x[1], System.Globalization.CultureInfo.InvariantCulture));
                 tracker.Reset();
-                var found = Overlaps.Find(CurveEval.EvaluateParts(model, values, tracker.Update(model, values)));
+                var found = Overlaps.Find(FaceEval.EvaluateParts(model, values, tracker.Update(model, values)));
                 Debug.Log($"[FTG] overlap -ftSet {set}: " + (found.Count == 0 ? "none" : string.Join(" || ", found.Select(o => Overlaps.Message(o, usage).Replace("\n", " ")))));
             }
             foreach (var d in Devices.Load())
             {
-                var direct = model.Inputs.Where(i => !i.IsDerived).ToList();
+                var direct = model.Inputs.Where(i => !i.IsTrack).ToList();
                 var sent = direct.Where(i => d.Sends(i.Key, i.Expression)).ToList();
                 var notSent = direct.Where(i => !d.Sends(i.Key, i.Expression)).Select(i => i.Name).ToList();
                 var unused = d.Keys.Count(k => !Devices.Device.UsedBy(model, k.key));

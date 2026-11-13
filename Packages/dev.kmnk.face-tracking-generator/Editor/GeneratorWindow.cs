@@ -192,7 +192,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (EditorGUI.EndChangeCheck()) EditorText.Current = (EditorText.Language)lang;
             }
             if (model != null)
-                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count}, switches {model.Switches.Count}, trees {model.Trees.Count}, movements {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count(i => !i.IsTrack)}, neutral rows {model.Neutral.Sum(kv => kv.Value.Count)}, state machines {model.StateMachines.Count}, movements {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
 
             Step("gen.step1", "gen.help1");
             var createLabel = "Create Settings/" + newName;
@@ -338,15 +338,15 @@ namespace Kmnk.FaceTrackingGenerator
 
         void Curves()
         {
-            var names = model.Inputs.Select(i => i.Name).ToArray();
+            var names = model.Inputs.Where(i => i.IsTrack).Select(i => i.Name).ToArray();
             if (names.Length == 0) return;
             curveInput = Mathf.Clamp(EditorGUILayout.Popup("Input", curveInput, names), 0, names.Length - 1);
             var input = names[curveInput];
-            var (lo, hi) = CurveEval.Range(model, input);
+            var (lo, hi) = FaceEval.Range(model, input);
             const int steps = 60;
             var samples = new List<SortedDictionary<string, float>>();
             for (int i = 0; i <= steps; i++)
-                samples.Add(CurveEval.Evaluate(model, new Dictionary<string, float> { [input] = lo + (hi - lo) * i / steps }));
+                samples.Add(FaceEval.Evaluate(model, new Dictionary<string, float> { [input] = lo + (hi - lo) * i / steps }));
             var shapes = samples.SelectMany(s => s.Keys).Distinct().Where(k => samples.Any(s => s.TryGetValue(k, out var v) && Math.Abs(v) > 0.05f)).ToList();
             var rect = GUILayoutUtility.GetRect(300, 180, GUILayout.ExpandWidth(true));
             EditorGUI.DrawRect(rect, new Color(0.15f, 0.15f, 0.15f));
@@ -371,7 +371,7 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUILayout.LabelField("  " + shapes[k] + $"  (max {samples.Max(s => s.TryGetValue(shapes[k], out var v) ? v : 0):0.#})");
                 GUI.color = old;
             }
-            EditorGUILayout.HelpBox("Other inputs are 0 and switches are in their default state. Values of 2D BlendTrees are an approximation (gradient band interpolation) and may differ from Unity's.", MessageType.None);
+            EditorGUILayout.HelpBox("Other keys are 0 and the state machines are in their default state.", MessageType.None);
         }
     }
 

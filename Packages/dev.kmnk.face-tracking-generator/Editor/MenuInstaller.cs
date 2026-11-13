@@ -39,7 +39,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 if (!hasParam)
                 {
-                    var cost = expr.CalcTotalCost() + VRCExpressionParameters.TypeCost(VRCExpressionParameters.ValueType.Bool);
+                    var cost = expr.CalcTotalCost() + 1;  // a synced Bool is 1 bit (TypeCost is obsolete in SDK 3.10)
                     if (cost > VRCExpressionParameters.MAX_PARAMETER_COST)
                     {
                         log.Add($"{param}: not added; synced parameters would use {cost} bits (max {VRCExpressionParameters.MAX_PARAMETER_COST})");
@@ -66,8 +66,71 @@ namespace Kmnk.FaceTrackingGenerator
                     log.Add($"{param}: toggle '{label}' added to {menu.name}");
                 }
             }
+            // A submenu for each state machine with menu states (design.md "メニューとパラメータ"). Generation writes its toggles.
+            foreach (var sm in FtBuilder.WithMenu(m))
+            {
+                var path = StateMenuPath(m, sm.Name);
+                var sub = LoadOrCreateMenu(path);
+                if (menu.controls.Any(c => c.type == VRCExpressionsMenu.Control.ControlType.SubMenu && c.subMenu == sub)) { log.Add($"submenu {sm.Name}: already there"); continue; }
+                if (menu.controls.Count >= VRCExpressionsMenu.MAX_CONTROLS)
+                {
+                    log.Add($"submenu {sm.Name}: not added; menu {menu.name} already has {menu.controls.Count} controls (max {VRCExpressionsMenu.MAX_CONTROLS})");
+                    continue;
+                }
+                menu.controls.Add(new VRCExpressionsMenu.Control
+                {
+                    name = sm.Name,
+                    type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+                    subMenu = sub,
+                    parameter = new VRCExpressionsMenu.Control.Parameter { name = "" },
+                    subParameters = new VRCExpressionsMenu.Control.Parameter[0],
+                    labels = new VRCExpressionsMenu.Control.Label[0],
+                });
+                EditorUtility.SetDirty(menu);
+                log.Add($"submenu {sm.Name}: added to {menu.name} ({path})");
+            }
             AssetDatabase.SaveAssets();
             return log;
+        }
+
+        public static string StateMenuPath(TableModel m, string sm) => $"{m.MenuFolder}/Menus/{sm}.asset";
+
+        static VRCExpressionsMenu LoadOrCreateMenu(string path)
+        {
+            var sub = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(path);
+            if (sub != null) return sub;
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+            sub = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+            AssetDatabase.CreateAsset(sub, path);
+            return sub;
+        }
+
+        // Writes the toggles of each state machine's submenu: one per menu state, setting FT/Menu/<name> to the state's
+        // value. The asset keeps its GUID, so the avatar's menu keeps pointing to it. Returns the paths written.
+        public static List<string> WriteStateMenus(TableModel m, List<string> log)
+        {
+            var written = new List<string>();
+            foreach (var sm in FtBuilder.WithMenu(m))
+            {
+                var path = StateMenuPath(m, sm.Name);
+                var sub = LoadOrCreateMenu(path);
+                if (sm.MenuStates.Count() > VRCExpressionsMenu.MAX_CONTROLS)
+                    log.Add($"warning: state machine {sm.Name}: {sm.MenuStates.Count()} menu states; the submenu has the first {VRCExpressionsMenu.MAX_CONTROLS}");
+                sub.controls = sm.MenuStates.Take(VRCExpressionsMenu.MAX_CONTROLS).Select(st => new VRCExpressionsMenu.Control
+                {
+                    name = st.Name,
+                    type = VRCExpressionsMenu.Control.ControlType.Toggle,
+                    parameter = new VRCExpressionsMenu.Control.Parameter { name = FtBuilder.MenuParam(sm.Name) },
+                    value = sm.MenuValue(st.Name),
+                    subParameters = new VRCExpressionsMenu.Control.Parameter[0],
+                    labels = new VRCExpressionsMenu.Control.Label[0],
+                }).ToList();
+                EditorUtility.SetDirty(sub);
+                log.Add($"menu: {path}: {sub.controls.Count} toggles on {FtBuilder.MenuParam(sm.Name)}");
+                written.Add(path);
+            }
+            AssetDatabase.SaveAssets();
+            return written;
         }
 
         // Finds the submenu control named m.SubMenu in the root menu, or adds one with a new menu asset in the

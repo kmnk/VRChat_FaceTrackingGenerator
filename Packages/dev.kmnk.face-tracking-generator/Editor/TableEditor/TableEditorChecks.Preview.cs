@@ -13,8 +13,8 @@ namespace Kmnk.FaceTrackingGenerator
     public static partial class TableEditorChecks
     {
         // Puts the avatar prefab of -ftTable in a new scene and, for each query of -ftQueries (the Cli.Curve form:
-        // {"label", "set": {input: value}, "state": {switch: state}}), shows the weights with FacePreview and checks
-        //   - the blendshape values on the avatar equal the CurveEval weights
+        // {"label", "set": {input: value}, "state": {state machine: state}}), shows the weights with FacePreview and checks
+        //   - the blendshape values on the avatar equal the FaceEval weights
         //   - an image of the face equals an image of a second copy of the avatar with the weights set directly
         // then stops the preview and checks the values are back and the scene has no new change.
         // Writes <label>.png and weights.jsonl (the Weights list, in the Cli.Curve form) to -ftOut.
@@ -56,7 +56,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var label = (string)q["label"];
                 var set = ((JObject)q["set"] ?? new JObject()).Properties().ToDictionary(p => p.Name, p => p.Value.Value<float>());
                 var st = ((JObject)q["state"] ?? new JObject()).Properties().ToDictionary(p => p.Name, p => (string)p.Value);
-                var weights = CurveEval.Evaluate(model, set, st);
+                var weights = FaceEval.Evaluate(model, set, st);
                 var missing = preview.Apply(model, weights);
 
                 // values on the avatar
@@ -104,8 +104,8 @@ namespace Kmnk.FaceTrackingGenerator
             return failed == 0 ? 0 : 1;
         });
 
-        // Prints the switch states for a sequence of input values (-ftSteps: JSON Lines of {"label", "set": {...}};
-        // values stay until changed, like moving sliders). Writes "label switch=state ..." lines.
+        // Prints the states for a sequence of input values (-ftSteps: JSON Lines of {"label", "set": {...}, "menu":
+        // {state machine: state or null}}; values stay until changed, like moving sliders). Writes "label sm=state ..." lines.
         public static void Switches() => Cli.Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
@@ -115,6 +115,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var o = JObject.Parse(line);
                 foreach (var p in ((JObject)o["set"] ?? new JObject()).Properties()) inputs[p.Name] = p.Value.Value<float>();
+                foreach (var p in ((JObject)o["menu"] ?? new JObject()).Properties()) tracker.Choose(p.Name, p.Value.Type == JTokenType.Null ? null : (string)p.Value);
                 var states = tracker.Update(model, inputs);
                 Debug.Log($"[FTG] table-editor switches {(string)o["label"]}: " + string.Join(" ", states.Select(kv => kv.Key + "=" + kv.Value)));
             }

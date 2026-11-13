@@ -21,26 +21,15 @@ namespace Kmnk.FaceTrackingGenerator
             public List<string> Written = new List<string>();
             public Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController> Controllers = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             public VRCExpressionParameters ExpressionParameters;
-            // Forward to Animator behaviors for the Face Tracking section (NativeFtWriter)
-            public List<VRCAvatarDescriptor.FaceTrackingParameterBehavior> FaceTrackingBehaviors = new List<VRCAvatarDescriptor.FaceTrackingParameterBehavior>();
-            // stopAutoEyes: turn off the eyelids of the avatar's Eye Look. They close on top of FT/Face's eyelids, and
-            // cannot be stopped only while FT is on: Tracking Control on the eyes zeroes the face tracking eye keys.
-            // The eye bones stay: Selfie Expression on desktop moves the eyes only through them.
-            public bool TurnOffEyelids;
+            // What NativeFtWriter writes into the Face Tracking section
+            public NativeFtWriter.Plan FaceTracking = new NativeFtWriter.Plan();
         }
 
         // Points an Avatar Descriptor at the generated controllers and Expression Parameters, and writes the inputs
         // into its Face Tracking section. Both the Prefab Variant and the build-time copy go through here.
         public static void Assign(VRCAvatarDescriptor d, Result r)
         {
-            r.Log.AddRange(NativeFtWriter.Apply(d, r.FaceTrackingBehaviors));
-            if (r.TurnOffEyelids && d.enableEyeLook && d.customEyeLookSettings.eyelidType != VRCAvatarDescriptor.EyelidType.None)
-            {
-                var eyes = d.customEyeLookSettings;
-                eyes.eyelidType = VRCAvatarDescriptor.EyelidType.None;
-                d.customEyeLookSettings = eyes;
-                r.Log.Add("eye look: eyelids turned off (stopAutoEyes)");
-            }
+            r.Log.AddRange(NativeFtWriter.Apply(d, r.FaceTracking));
             d.customizeAnimationLayers = true;
             var layers = d.baseAnimationLayers;
             for (int i = 0; i < layers.Length; i++)
@@ -122,8 +111,8 @@ namespace Kmnk.FaceTrackingGenerator
             r.Written.Add(exprPath);
             r.Controllers = outputs;
             r.ExpressionParameters = expr;
-            r.FaceTrackingBehaviors = NativeFtWriter.Behaviors(m);
-            r.TurnOffEyelids = m.StopAutoEyes;
+            r.FaceTracking = NativeFtWriter.Build(m);
+            foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
 
             if (writeVariant && m.VariantPath != null)
             {
@@ -155,8 +144,8 @@ namespace Kmnk.FaceTrackingGenerator
             var list = p.parameters.ToList();
             // Inputs come from the Face Tracking section and every client computes them, so none is synced (R4).
             // The input layer's keys and parameters, and v2/ parameters (VRCFaceTracking's), are taken out.
-            var known = new HashSet<string>(m.Inputs.Where(i => !i.IsDerived).Select(i => i.Key));
-            known.UnionWith(m.Inputs.Select(i => i.Parameter));
+            var known = new HashSet<string>(m.Inputs.Where(i => !i.IsTrack).Select(i => i.Key));
+            known.UnionWith(m.Inputs.Where(i => !i.IsTrack).Select(i => i.Parameter));
             foreach (var x in list.ToList())
             {
                 var isFtKey = x.name != null && x.name.StartsWith("v2/");
@@ -165,6 +154,14 @@ namespace Kmnk.FaceTrackingGenerator
                     list.Remove(x);
                     r.Log.Add("expression parameters: removed " + x.name);
                 }
+            }
+            // The menu of each state machine with menu states: an Int that the submenu's toggles set (design.md "メニューとパラメータ").
+            foreach (var sm in FtBuilder.WithMenu(m))
+            {
+                var name = FtBuilder.MenuParam(sm.Name);
+                list.RemoveAll(x => x.name == name);
+                list.Add(new VRCExpressionParameters.Parameter { name = name, valueType = VRCExpressionParameters.ValueType.Int, defaultValue = 0, saved = false, networkSynced = true });
+                r.Log.Add("expression parameters: added " + name + " (Int, synced)");
             }
             p.parameters = list.ToArray();
             EditorUtility.SetDirty(p);

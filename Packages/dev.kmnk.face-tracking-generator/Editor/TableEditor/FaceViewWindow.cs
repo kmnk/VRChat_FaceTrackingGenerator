@@ -155,9 +155,8 @@ namespace Kmnk.FaceTrackingGenerator
         internal static FaceViewWindow Find() => Resources.FindObjectsOfTypeAll<FaceViewWindow>().FirstOrDefault();
     }
 
-    // Input -> the parts it moves, for the line under each slider of the preview. A 1D node's input and a 2D node's two
-    // inputs move every part under the node. An average input's parts are also listed for its sources, with
-    // " (<average input>)". A switch's conditions only choose a branch and move no part themselves.
+    // Input -> the parts it moves, for the line under each slider of the preview: a tracking key ("key:<key>") moves
+    // the parts of its rows. Inputs of the input table only choose states and move no part themselves.
     public static class InputParts
     {
         public static Dictionary<string, string> Of(TableModel m)
@@ -168,35 +167,16 @@ namespace Kmnk.FaceTrackingGenerator
                 if (!direct.TryGetValue(input, out var set)) direct[input] = set = new SortedSet<string>(StringComparer.Ordinal);
                 set.UnionWith(parts);
             }
-            SortedSet<string> Walk(Node n)
-            {
-                var under = new SortedSet<string>(StringComparer.Ordinal);
-                switch (n)
-                {
-                    case PoseNode p: under.UnionWith(p.Parts.Keys); break;
-                    case Blend1DNode b:
-                        foreach (var c in b.Children) under.UnionWith(Walk(c.node));
-                        Add(b.Input, under);
-                        break;
-                    case Blend2DNode b:
-                        foreach (var c in b.Children) under.UnionWith(Walk(c.node));
-                        Add(b.InputX, under); Add(b.InputY, under);
-                        break;
-                    case SwitchNode s:
-                        foreach (var c in s.Cases) under.UnionWith(Walk(c.node));
-                        break;
-                }
-                return under;
-            }
-            foreach (var t in m.Trees) Walk(t.Root);
+            // Inputs move no part themselves: they only choose states. Tracking keys move the parts of their rows.
+            foreach (var kv in m.Neutral) foreach (var r in kv.Value) Add(InputDef.TrackPrefix + r.Key, new[] { r.Part });
+            foreach (var st in m.StateMachines.SelectMany(x => x.States))
+                foreach (var r in st.Regions.Values.SelectMany(x => x.Rows).Where(x => x.Part != null)) Add(InputDef.TrackPrefix + r.Key, new[] { r.Part });
 
             var lines = new Dictionary<string, string>();
             foreach (var input in m.Inputs)
             {
                 var pieces = new List<string>();
                 if (direct.TryGetValue(input.Name, out var own) && own.Count > 0) pieces.Add(string.Join(", ", own));
-                foreach (var d in m.Inputs.Where(d => d.IsDerived && d.Average.Contains(input.Name)))
-                    if (direct.TryGetValue(d.Name, out var via) && via.Count > 0) pieces.Add(string.Join(", ", via) + " (" + d.Name + ")");
                 if (pieces.Count > 0) lines[input.Name] = string.Join(", ", pieces);
             }
             return lines;

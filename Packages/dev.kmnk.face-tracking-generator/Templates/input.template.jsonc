@@ -1,30 +1,20 @@
-// Input layer: the values FT uses and how they are smoothed.
-// Each input is made in the avatar's Face Tracking section (Forward to Animator) from the face tracking keys, so it moves
-// with the desktop Selfie Expression and with devices through VRCFaceTracking (2026-11-02 or later). Inputs are not
-// synced: every client makes them from the face tracking data.
+// Input layer: the values the state machines' transitions compare (the Animator reads them). The rows of neutral and
+// the states do not need inputs: they use the tracking keys directly.
+// Each input is made in the avatar's Face Tracking section (Forward to Animator) from the face tracking keys. Only the
+// inputs a transition uses are forwarded. Inputs are not synced: every client makes them from the face tracking data.
 // "key" names the value (v2/<name>, as in VRCFaceTracking); the tool knows the expression of the values in
 // Templates/Devices. "expression" writes your own, with the key names of the Face Tracking section, Voice and Viseme_*,
-// numbers, + - * /, abs, min, max and clamp, e.g. "expression": "JawOpen * 1.2". An input without an expression is dropped.
+// numbers, + - * /, abs, min, max and clamp.
+// Input names cannot contain ":".
 // Copy this file to Settings/ and edit the copy.
 {
-  // Time constants in seconds. "local" is for your own view, "remote" for others.
-  "smoothing": {
-    "default": { "localTau": 0.0072, "remoteTau": 0.0467 }
-  },
-
-  // Keys this device does not send. Inputs, switches and parts that use them are dropped.
+  // Keys this device does not send. Inputs, rows and transitions that use them are dropped.
   "missing": [],
 
   "inputs": {
-    // A left/right pair written once. "{side}" becomes Left and Right.
-    "EyeLid{side}": { "sides": ["Left", "Right"], "key": "v2/EyeLid{side}", "smoothing": "default" },
-    "SmileFrown": { "key": "v2/SmileFrown", "smoothing": "default" },
-    "JawOpen": { "key": "v2/JawOpen", "smoothing": "default" },
-    "Eye{side}X": { "sides": ["Left", "Right"], "key": "v2/Eye{side}X", "smoothing": "default" },
-    "Eye{side}Y": { "sides": ["Left", "Right"], "key": "v2/Eye{side}Y", "smoothing": "default" },
-
-    // A derived input: the average of two inputs (for avatars with one set of gaze blendshapes).
-    "EyeX": { "average": ["EyeLeftX", "EyeRightX"] },
-    "EyeY": { "average": ["EyeLeftY", "EyeRightY"] }
+    // The template's state machine Emotion: joy, angry and sad come with these.
+    "Smile": { "key": "v2/Smile", "expression": "max(MouthCornerPullLeft, MouthCornerPullRight)" },
+    "BrowDown": { "key": "v2/BrowDown", "expression": "max(BrowLowererLeft, BrowLowererRight)" },
+    "Frown": { "key": "v2/Frown", "expression": "max(MouthFrownLeft, MouthFrownRight)" }
   }
 }

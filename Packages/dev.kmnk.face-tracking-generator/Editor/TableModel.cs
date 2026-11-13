@@ -5,24 +5,18 @@ namespace Kmnk.FaceTrackingGenerator
 {
     // Resolved model of the three tables (input, expression, avatar). TableLoader builds it.
 
-    public sealed class SmoothingDef
-    {
-        public string Name;
-        public float LocalTau;   // seconds
-        public float RemoteTau;  // seconds
-    }
-
     public sealed class InputDef
     {
         public string Name;
-        public string Key;              // Which value it is (e.g. v2/EyeLidLeft), to find its built-in expression. Null for derived inputs
+        public string Key;              // Which value it is (e.g. v2/EyeLidLeft), to find its built-in expression
         public string Parameter;        // Animator parameter the generated layers read: FT/In/<Name> (Forward to Animator writes it)
-        public string Expression;       // Custom expression from the tracking keys. Null for derived inputs
+        public string Expression;       // Custom expression from the tracking keys
         public bool ExpressionFromTable;  // true: the table's "expression"; false: built in (NativeInputs)
-        public string Smoothing;        // SmoothingDef name, or null for no smoothing
         public string Sync;             // "none" or "float8" as written in the table. Not used: inputs come from the Face Tracking section and are not synced
-        public List<string> Average;    // derived input: average of these inputs
-        public bool IsDerived => Average != null;
+        // A tracking key used by the rows of neutral and the states (name "key:<key>"). Not in the input table; never
+        // forwarded to the Animator. Used by the settings editor and FaceEval as the key's value.
+        public bool IsTrack;
+        public const string TrackPrefix = "key:";
     }
 
     public sealed class Condition
@@ -40,71 +34,45 @@ namespace Kmnk.FaceTrackingGenerator
         public float Duration;
     }
 
-    public sealed class SwitchDef
+    // A row of a Blendshapes Set: a tracking key moves a part (its blendshape) by key value x Strength x the part's
+    // scale. Part null: "Don't move" (a state's override row that takes the key out of the region).
+    public sealed class TrackRow
+    {
+        public string Key;
+        public string Part;
+        public float Strength = 1;
+    }
+
+    // What a state does to a region: Off (the region's neutral set is 0) or Override (Rows over the neutral rows).
+    public sealed class RegionDef
+    {
+        public bool Off;
+        public List<TrackRow> Rows = new List<TrackRow>();
+    }
+
+    public sealed class StateDef
     {
         public string Name;
-        public List<string> States = new List<string>();  // first is the default state
+        public bool Menu;  // selectable from the menu
+        public SortedDictionary<string, RegionDef> Regions = new SortedDictionary<string, RegionDef>(System.StringComparer.Ordinal);
+        public SortedDictionary<string, float> Fixed = new SortedDictionary<string, float>(System.StringComparer.Ordinal);  // part -> amount x scale
+    }
+
+    public sealed class StateMachineDef
+    {
+        public string Name;
+        public List<StateDef> States = new List<StateDef>();  // first is the default state
         public List<TransitionDef> Transitions = new List<TransitionDef>();
-    }
 
-    public abstract class Node
-    {
-        // The nodes directly under this one, in table order.
-        public abstract IEnumerable<Node> ChildNodes { get; }
-
-        // This node and every node under it, parents before children.
-        public IEnumerable<Node> SelfAndDescendants()
+        public StateDef State(string name) => States.Find(s => s.Name == name);
+        public IEnumerable<StateDef> MenuStates => States.Where(s => s.Menu);
+        // The value of FT/Menu/<name> that selects a state: 1, 2, ... in state order; 0 for a state not in the menu.
+        public int MenuValue(string state)
         {
-            yield return this;
-            foreach (var c in ChildNodes)
-                foreach (var d in c.SelfAndDescendants()) yield return d;
+            var i = MenuStates.Select(s => s.Name).ToList().IndexOf(state);
+            return i < 0 ? 0 : i + 1;
         }
-
-        // Part names of every pose under this node.
-        public IEnumerable<string> PartNames() => SelfAndDescendants().OfType<PoseNode>().SelectMany(p => p.Parts.Keys);
-    }
-
-    // Leaf: part name -> value (0-100). An empty pose writes nothing.
-    public sealed class PoseNode : Node
-    {
-        public SortedDictionary<string, float> Parts = new SortedDictionary<string, float>(System.StringComparer.Ordinal);
-        public override IEnumerable<Node> ChildNodes => Enumerable.Empty<Node>();
-    }
-
-    public sealed class Blend1DNode : Node
-    {
-        public string Input;
-        public List<(float threshold, Node node)> Children = new List<(float, Node)>();
-        public override IEnumerable<Node> ChildNodes => Children.Select(c => c.node);
-    }
-
-    // 2D Freeform Cartesian
-    public sealed class Blend2DNode : Node
-    {
-        public string InputX, InputY;
-        public List<(float x, float y, Node node)> Children = new List<(float, float, Node)>();
-        public override IEnumerable<Node> ChildNodes => Children.Select(c => c.node);
-    }
-
-    public sealed class SwitchNode : Node
-    {
-        public string Switch;
-        public List<(string state, Node node)> Cases = new List<(string, Node)>();
-        public override IEnumerable<Node> ChildNodes => Cases.Select(c => c.node);
-    }
-
-    public sealed class TreeDef
-    {
-        public string Name;
-        public Node Root;
-        public Node BaseRoot;  // the root before StopWrap wrapped it (the same node when no switch stops the tree)
-    }
-
-    // A tree that adds nothing to the face while a switch is in a state ("stops" of the switch). Names are after the
-    // left/right expansion.
-    public sealed class StopDef
-    {
-        public string Switch, State, Tree;
+        public float MaxDuration => Transitions.Select(t => t.Duration).DefaultIfEmpty(0).Max();
     }
 
     public sealed class AssetRef
@@ -149,29 +117,34 @@ namespace Kmnk.FaceTrackingGenerator
         public AssetRef Prefab;
         public string VariantPath;
         public string OutputFolder;
+        // The folder of the state machines' submenus (Menus/<name>.asset). The build-time output changes OutputFolder
+        // but not this, so that the avatar's menu points to one asset.
+        public string MenuFolder;
         public string DefaultMesh;
         public SortedDictionary<string, PartTarget> Parts = new SortedDictionary<string, PartTarget>(System.StringComparer.Ordinal);
-        public string Gaze = "shared";
         public string FaceTrackParameter = "FaceTrack";
         public string AfkPlayParameter = "AFKPlay";
         public string FaceTrackLabel = "FaceTrack";   // names of the toggles in the menu
         public string AfkPlayLabel = "AFK";
         public List<AfkGroup> AfkGroups = new List<AfkGroup>();
-        public bool StopAutoEyes;
+        // Face Tracking section: replace the avatar's own values (Blendshapes Sets, blendshape Parameter Behaviors,
+        // Eye Look on Face Tracking) only when true.
+        public bool OverwriteFaceTracking;
+        // Eye Look's Eye Gaze Mode written with tracking parts: "FaceTracking", "Both" or "BoneRotation".
+        public string EyeGazeMode = "FaceTracking";
         public SortedDictionary<string, LayerAdjust> Layers = new SortedDictionary<string, LayerAdjust>(System.StringComparer.Ordinal);  // "fx", "gesture", "action"
         public AssetRef Menu;
         public string SubMenu;   // when set, the toggles go into a submenu of this name inside Menu
         public AfkClips AfkClips = new AfkClips();
 
         // Input layer
-        public List<SmoothingDef> Smoothings = new List<SmoothingDef>();
         public List<InputDef> Inputs = new List<InputDef>();
 
         // Expression layer
         public List<string> StopWhileTalking = new List<string>();
-        public List<SwitchDef> Switches = new List<SwitchDef>();
-        public List<TreeDef> Trees = new List<TreeDef>();
-        public List<StopDef> Stops = new List<StopDef>();  // in table order
+        // region -> rows, in table order. Parts not set in the avatar layer are left out (R23).
+        public SortedDictionary<string, List<TrackRow>> Neutral = new SortedDictionary<string, List<TrackRow>>(System.StringComparer.Ordinal);
+        public List<StateMachineDef> StateMachines = new List<StateMachineDef>();
 
         // What the loader dropped and why (R23), for reports
         public List<string> Dropped = new List<string>();
@@ -181,6 +154,12 @@ namespace Kmnk.FaceTrackingGenerator
         public List<string> Warnings = new List<string>();
 
         public InputDef Input(string name) => Inputs.Find(i => i.Name == name);
-        public SwitchDef Switch(string name) => Switches.Find(s => s.Name == name);
+        public StateMachineDef StateMachine(string name) => StateMachines.Find(s => s.Name == name);
+
+        // Every part the expression layer uses: neutral rows, override rows and fixed amounts.
+        public IEnumerable<string> UsedParts() =>
+            Neutral.Values.SelectMany(r => r).Select(r => r.Part)
+                .Concat(StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows).Select(r => r.Part).Concat(st.Fixed.Keys)))
+                .Where(p => p != null).Distinct();
     }
 }

@@ -41,7 +41,7 @@ namespace Kmnk.FaceTrackingGenerator
             Print(Rows());
             if (CliArgs.Get("-ftTips") == "1")
             {
-                // The tooltips: every row, and every input of the model (the Preview sliders and Tuning headings).
+                // The tooltips: every row, and every input of the model (the Preview sliders).
                 string One(string t) => t == null ? "-" : t.Replace("\n", " / ");
                 var r0 = Rows();
                 var rows = r0.InTable.Concat(r0.NotInTable).ToList();
@@ -49,7 +49,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var m = doc.Model();
                 foreach (var i in m.Inputs) Debug.Log($"[FTG] inputs tip input {i.Name}: {One(ParameterHelp.Tooltip(m, i))}");
                 var missing = rows.Where(x => ParameterHelp.Describe(x.Sided && x.Keys.Count > 0 && x.Keys[0].Contains("Left") ? x.Keys[0].Replace("Left", "{side}") : x.Keys.FirstOrDefault()) == null).Select(x => x.Name)
-                    .Concat(m.Inputs.Where(i => !i.IsDerived && ParameterHelp.Describe(i.Key) == null).Select(i => i.Name)).ToList();
+                    .Concat(m.Inputs.Where(i => !i.IsTrack && ParameterHelp.Describe(i.Key) == null).Select(i => i.Name)).ToList();
                 Debug.Log($"[FTG] inputs tips: rows={rows.Count} inputs={m.Inputs.Count} without-description={missing.Count} {string.Join(",", missing)}");
             }
 

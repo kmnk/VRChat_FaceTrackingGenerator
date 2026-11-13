@@ -1,65 +1,136 @@
-// Expression layer: which parts move, how much, for which input values.
-// Parts are written as "<region>.<name>". The avatar layer maps them to blendshapes.
+// Expression layer: how the face moves, shared between avatars (Share copies it). The avatar layer maps the face
+// movements (parts) to blendshapes.
+//
+// Part names are "region.movement" or "region.state.movement" (the middle is only a mark; any part can be used in any
+// state). The region is the first part: it decides the Blendshapes Set a row goes into and whether it stops while talking.
+//
+// "neutral": region -> tracking key -> part. The generator writes each region as a Blendshapes Set of the avatar's Face
+// Tracking section (FTG/neutral/<region>): the key moves the part's blendshape by key value x strength x the part's
+// scale. A row is "part" or {"part": "...", "strength": 0.8} (0 to 1, default 1). Several keys on one blendshape: the
+// largest moves it. Key names are the Face Tracking section's tracking keys (Unified Expressions), e.g. EyeClosedLeft.
+//
+// "stateMachines": name -> states and transitions. The first state is the default. A state can
+//   - "regions": region -> "off" (the region's neutral set stops) or {key: part | {"part", "strength"} | null}
+//     (Override: the region moves with neutral's rows, with these rows in place of the same keys; null: Don't move)
+//   - "fixed": part -> amount (0 to 100), held while in the state
+//   - "menu": true (selectable from the menu: a toggle in the FT menu's submenu of the state machine)
+// "transitions": [{"from", "to", "when": [[input, ">" or "<", value], ...], "duration": seconds}]. All conditions must
+// hold. Different values for entering and leaving keep the state from flickering. Inputs are the input layer's (the
+// Animator reads them). While a state is chosen in the menu the transitions do not run; leaving the menu goes back to
+// the default state.
+//
+// This template moves the 52 perfect sync (ARKit) blendshapes in neutral. Parts are "<region>.<ARKit name>", regions as
+// in VRCFaceTracking's Unified Expressions groups (gaze, eye, brow, nose, cheek, jaw, lip, tongue). Which keys move which
+// ARKit blendshape and why: Documentation~/perfect-sync.md in this package. The states joy, angry and sad are empty: add
+// overrides and fixed movements for your avatar in the State Machine window.
+// Copy this file to Settings/ and edit the copy.
 {
   // Regions that stop while talking (Voice > 0.1). Other regions keep moving.
-  "stopWhileTalking": ["mouth"],
+  "stopWhileTalking": ["jaw", "lip", "tongue"],
 
-  // Switches with states. A transition goes when all of its "when" conditions hold.
-  // Different values for entering and leaving keep the state from flickering.
-  // "stops" (optional) lists, per state, expressions that add nothing to the face while the switch is in that state:
-  //   "stops": { "smile": ["Gaze"] }
-  // In a left/right switch, "Eyelid{side}" stops the expression of the same side.
-  "switches": {
-    "EyelidSmile{side}": {
-      "sides": ["Left", "Right"],
-      "states": ["normal", "smile"],
-      "transitions": [
-        { "from": "normal", "to": "smile", "when": [["SmileFrown", ">", 0.5]] },
-        { "from": "smile", "to": "normal", "when": [["SmileFrown", "<", 0.4]] }
-      ]
+  "neutral": {
+    "gaze": {
+      "EyeLookUpLeft": "gaze.eyeLookUpLeft",
+      "EyeLookDownLeft": "gaze.eyeLookDownLeft",
+      "EyeLookInLeft": "gaze.eyeLookInLeft",
+      "EyeLookOutLeft": "gaze.eyeLookOutLeft",
+      "EyeLookUpRight": "gaze.eyeLookUpRight",
+      "EyeLookDownRight": "gaze.eyeLookDownRight",
+      "EyeLookInRight": "gaze.eyeLookInRight",
+      "EyeLookOutRight": "gaze.eyeLookOutRight"
+    },
+    "eye": {
+      "EyeClosedLeft": "eye.eyeBlinkLeft",
+      "EyeSquintLeft": "eye.eyeSquintLeft",
+      "EyeWideLeft": "eye.eyeWideLeft",
+      "EyeClosedRight": "eye.eyeBlinkRight",
+      "EyeSquintRight": "eye.eyeSquintRight",
+      "EyeWideRight": "eye.eyeWideRight"
+    },
+    "brow": {
+      "BrowLowererLeft": "brow.browDownLeft",
+      "BrowPinchLeft": "brow.browDownLeft",
+      "BrowLowererRight": "brow.browDownRight",
+      "BrowPinchRight": "brow.browDownRight",
+      "BrowInnerUpLeft": "brow.browInnerUp",
+      "BrowInnerUpRight": "brow.browInnerUp",
+      "BrowOuterUpLeft": "brow.browOuterUpLeft",
+      "BrowOuterUpRight": "brow.browOuterUpRight"
+    },
+    "nose": {
+      "NoseSneerLeft": "nose.noseSneerLeft",
+      "NoseSneerRight": "nose.noseSneerRight"
+    },
+    "cheek": {
+      "CheekPuffLeft": "cheek.cheekPuff",
+      "CheekPuffRight": "cheek.cheekPuff",
+      "CheekSquintLeft": "cheek.cheekSquintLeft",
+      "CheekSquintRight": "cheek.cheekSquintRight"
+    },
+    "jaw": {
+      "JawOpen": "jaw.jawOpen",
+      "JawForward": "jaw.jawForward",
+      "JawLeft": "jaw.jawLeft",
+      "JawRight": "jaw.jawRight",
+      "MouthClosed": "jaw.mouthClose"
+    },
+    "lip": {
+      "LipFunnelUpperLeft": "lip.mouthFunnel",
+      "LipFunnelUpperRight": "lip.mouthFunnel",
+      "LipFunnelLowerLeft": "lip.mouthFunnel",
+      "LipFunnelLowerRight": "lip.mouthFunnel",
+      "LipPuckerUpperLeft": "lip.mouthPucker",
+      "LipPuckerUpperRight": "lip.mouthPucker",
+      "LipPuckerLowerLeft": "lip.mouthPucker",
+      "LipPuckerLowerRight": "lip.mouthPucker",
+      "MouthUpperLeft": "lip.mouthLeft",
+      "MouthLowerLeft": "lip.mouthLeft",
+      "MouthUpperRight": "lip.mouthRight",
+      "MouthLowerRight": "lip.mouthRight",
+      "MouthCornerPullLeft": "lip.mouthSmileLeft",
+      "MouthCornerSlantLeft": "lip.mouthSmileLeft",
+      "MouthFrownLeft": "lip.mouthFrownLeft",
+      "MouthDimpleLeft": "lip.mouthDimpleLeft",
+      "MouthStretchLeft": "lip.mouthStretchLeft",
+      "MouthPressLeft": "lip.mouthPressLeft",
+      "MouthLowerDownLeft": "lip.mouthLowerDownLeft",
+      "MouthUpperUpLeft": "lip.mouthUpperUpLeft",
+      "MouthCornerPullRight": "lip.mouthSmileRight",
+      "MouthCornerSlantRight": "lip.mouthSmileRight",
+      "MouthFrownRight": "lip.mouthFrownRight",
+      "MouthDimpleRight": "lip.mouthDimpleRight",
+      "MouthStretchRight": "lip.mouthStretchRight",
+      "MouthPressRight": "lip.mouthPressRight",
+      "MouthLowerDownRight": "lip.mouthLowerDownRight",
+      "MouthUpperUpRight": "lip.mouthUpperUpRight",
+      "LipSuckUpperLeft": "lip.mouthRollUpper",
+      "LipSuckUpperRight": "lip.mouthRollUpper",
+      "LipSuckLowerLeft": "lip.mouthRollLower",
+      "LipSuckLowerRight": "lip.mouthRollLower",
+      "MouthRaiserUpper": "lip.mouthShrugUpper",
+      "MouthRaiserLower": "lip.mouthShrugLower"
+    },
+    "tongue": {
+      "TongueOut": "tongue.tongueOut"
     }
   },
 
-  "trees": {
-    // 1D: thresholds of one input. {} is an empty pose.
-    "Eyelid{side}": {
-      "sides": { "Left": { "s": "L" }, "Right": { "s": "R" } },
-      "tree": {
-        "switch": "EyelidSmile{side}",
-        "cases": {
-          "normal": { "1d": "EyeLid{side}", "children": [[0, { "eye.close_{s}": 100 }], [0.75, {}], [1, { "eye.wide_{s}": 100 }]] },
-          "smile": { "1d": "EyeLid{side}", "children": [[0, { "eye.smile_{s}": 100 }], [0.75, {}], [1, { "eye.wide_{s}": 100 }]] }
-        }
-      }
-    },
-
-    // 2D Freeform Cartesian: positions of two inputs. One pose can move several regions.
-    // A 1D or 2D node can also have face movements of its own, next to "1d" / "2d": they stay the same at every
-    // position while the node is chosen (the Tuning tab calls them "All positions"), e.g.
-    //   { "1d": "MouthOpen", "brow.happy": 100, "children": [...] }
-    // A position does not write them again; if it does, the node's value is used.
-    "Mouth": {
-      "tree": {
-        "2d": ["SmileFrown", "JawOpen"],
-        "children": [
-          [[0, 0], {}],
-          [[1, 0], { "mouth.smile": 100, "eye.happy": 100, "brow.happy": 50 }],
-          [[0, 1], { "mouth.open": 100 }]
-        ]
-      }
-    },
-
-    "Gaze": {
-      "tree": {
-        "2d": ["EyeX", "EyeY"],
-        "children": [
-          [[0, 0], {}],
-          [[-1, 0], { "eye.look_left": 100 }],
-          [[1, 0], { "eye.look_right": 100 }],
-          [[0, -1], { "eye.look_down": 100 }],
-          [[0, 1], { "eye.look_up": 100 }]
-        ]
-      }
+  "stateMachines": {
+    "Emotion": {
+      "states": {
+        "neutral": { "position": [0, 0] },
+        "joy": { "menu": true, "position": [320, -110] },
+        "angry": { "menu": true, "position": [320, 0] },
+        "sad": { "menu": true, "position": [320, 110] }
+      },
+      "transitions": [
+        { "from": "neutral", "to": "joy", "when": [["Smile", ">", 0.5]], "duration": 0.2 },
+        { "from": "joy", "to": "neutral", "when": [["Smile", "<", 0.4]], "duration": 0.2 },
+        { "from": "neutral", "to": "angry", "when": [["BrowDown", ">", 0.5]], "duration": 0.2 },
+        { "from": "angry", "to": "neutral", "when": [["BrowDown", "<", 0.4]], "duration": 0.2 },
+        { "from": "neutral", "to": "sad", "when": [["Frown", ">", 0.5]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "when": [["Frown", "<", 0.4]], "duration": 0.2 }
+      ]
     }
   }
 }

@@ -1,4 +1,5 @@
-// What each face tracking value (v2/<name>) is, for the tooltips of the settings editor.
+// What each face tracking value (v2/<name>) is, for the tooltips of the settings editor. The same entries describe the
+// tracking keys of the rows of neutral and the states (the inputs "key:<name>"): a key name without "v2/" finds its entry here.
 // "{side}" stands for Left and Right: one entry covers both. Written in our own words from the VRCFaceTracking docs and source:
 //   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/parameters
 //   https://docs.vrcft.io/docs/tutorial-avatars/tutorial-avatars-extras/unified-blendshapes
@@ -10,6 +11,9 @@
 // So 1 is the avatar's own right, and up.
 {
   "parameters": {
+    "Smile": {"en": "Smiling: the larger of the two mouth corners pulled up and out.", "ja": "笑い。左右の口角を斜め上・外へ引く量の大きい方"},
+    "BrowDown": {"en": "Lowered brows: the larger of the two brows pulled down.", "ja": "眉を下げる。左右の眉の外側を下げる量の大きい方"},
+    "Frown": {"en": "Frowning mouth: the larger of the two mouth corners pulled down.", "ja": "への字の口。左右の口角を下げる量の大きい方"},
     "Eye{side}X": {"en": "Where the {side} eye looks, sideways: -1 left, 1 right (the avatar's own left and right).", "ja": "{side}目の視線の左右の向き。-1 で左、1 で右（アバター自身から見た左右）"},
     "Eye{side}Y": {"en": "Where the {side} eye looks, up and down: -1 down, 1 up.", "ja": "{side}目の視線の上下の向き。-1 で下、1 で上"},
     "EyeLid{side}": {"en": "How open the {side} eyelid is: 0 closed, about 0.75 relaxed, 1 wide open.", "ja": "{side}まぶたの開き具合。0 で閉じ、0.75 ほどがふつう、1 で見開く"},

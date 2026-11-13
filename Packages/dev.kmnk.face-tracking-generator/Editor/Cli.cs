@@ -21,7 +21,7 @@ namespace Kmnk.FaceTrackingGenerator
             var outPath = CliArgs.Get("-ftOut");
             if (outPath != null) File.WriteAllText(outPath, json + "\n");
             else Debug.Log(json);
-            Debug.Log($"[FTG] load: inputs={model.Inputs.Count} switches={model.Switches.Count} trees={model.Trees.Count} parts={model.Parts.Count} dropped={model.Dropped.Count} warnings={model.Warnings.Count}");
+            Debug.Log($"[FTG] load: inputs={model.Inputs.Count(i => !i.IsTrack)} keys={model.Inputs.Count(i => i.IsTrack)} neutral={model.Neutral.Sum(kv => kv.Value.Count)} stateMachines={model.StateMachines.Count} states={model.StateMachines.Sum(x => x.States.Count)} transitions={model.StateMachines.Sum(x => x.Transitions.Count)} parts={model.Parts.Count} dropped={model.Dropped.Count} warnings={model.Warnings.Count}");
             foreach (var d in model.Dropped) Debug.Log("[FTG] dropped: " + d);
             foreach (var w in model.Warnings) Debug.Log("[FTG] warning: " + w);
             foreach (var n in model.Notes) Debug.Log("[FTG] note: " + n);
@@ -56,6 +56,22 @@ namespace Kmnk.FaceTrackingGenerator
                 var ft = desc.faceTrackingParameterBehaviors;
                 Debug.Log($"[FTG] check: face tracking {model.VariantPath}: enabled={desc.enableFaceTracking} allKeys={desc.useAllTrackingKeys} behaviors={(ft == null ? 0 : ft.Count)}");
                 findings.AddRange(StaticChecker.FaceTracking(model, desc, model.VariantPath));
+                Debug.Log($"[FTG] check: eye look gaze={desc.customEyeLookSettings.eyeGazeMode} eyelids={desc.customEyeLookSettings.eyelidType} meshes={(desc.faceTrackingMeshes == null ? 0 : desc.faceTrackingMeshes.Count)} operations={StaticChecker.Operations(desc)}");
+                foreach (var s in desc.faceTrackingBlendshapesSetList ?? new System.Collections.Generic.List<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor.FaceTrackingBlendshapesSet>())
+                {
+                    var names = s.faceTrackingBlendshapeNames ?? new string[0];
+                    var rows = System.Linq.Enumerable.Range(0, names.Length).Where(i => !string.IsNullOrEmpty(names[i])).ToList();
+                    var visemes = (s.visemeBlendshapeNames ?? new string[0]).Count(v => !string.IsNullOrEmpty(v));
+                    Debug.Log($"[FTG] check: face tracking set {s.setName} weight={s.setWeight} rows={rows.Count} visemes={visemes}");
+                    foreach (var i in rows) Debug.Log($"[FTG] check: face tracking row {s.setName} {(VRC.SDK3.Avatars.Components.VRCAvatarDescriptor.FaceTrackingKey)i} -> {names[i]} x{s.faceTrackingBlendshapeMultipliers[i]}");
+                }
+                var src = !string.IsNullOrEmpty(model.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab?.Path;
+                var orig = AssetDatabase.LoadAssetAtPath<GameObject>(src)?.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>();
+                if (orig != null)
+                {
+                    var os = orig.faceTrackingBlendshapesSetList ?? new System.Collections.Generic.List<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor.FaceTrackingBlendshapesSet>();
+                    Debug.Log($"[FTG] check: original prefab face tracking sets={os.Count} rows={os.Sum(s => (s.faceTrackingBlendshapeNames ?? new string[0]).Count(v => !string.IsNullOrEmpty(v)))} visemes={os.Sum(s => (s.visemeBlendshapeNames ?? new string[0]).Count(v => !string.IsNullOrEmpty(v)))} gaze={orig.customEyeLookSettings.eyeGazeMode}");
+                }
             }
             foreach (var x in findings) Debug.Log("[FTG] finding: " + x);
             Debug.Log($"[FTG] check: findings={findings.Count}");
@@ -70,40 +86,38 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
-        // Response curves (R26). -ftQueries: JSON Lines of {"label", "set": {input: value}, "state": {switch: state}};
-        // writes JSON Lines of {"label", "shapes": {"mesh/shape": weight}} to -ftOut. Without -ftQueries, sweeps
-        // -ftInput over its range in 20 steps.
+        // Face values (R15) by FaceEval. -ftQueries: JSON Lines of {"label", "set": {key or "key:<key>": value},
+        // "state": {state machine: state}}; or -ftSet "Key=value,..." and -ftStates "StateMachine=state,..." for one
+        // query. Writes JSON Lines of {"label", "shapes": {"mesh/shape": weight}} to -ftOut, or the log without it.
         public static void Curve() => Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
-            var outPath = CliArgs.Require("-ftOut");
             var lines = new System.Collections.Generic.List<string>();
+            System.Collections.Generic.Dictionary<string, float> Keys(System.Collections.Generic.IEnumerable<(string, float)> pairs) =>
+                pairs.ToDictionary(p => p.Item1.StartsWith(InputDef.TrackPrefix) || NativeKeys.Index(p.Item1) < 0 ? p.Item1 : InputDef.TrackPrefix + p.Item1, p => p.Item2);
+            void Add(object label, System.Collections.Generic.Dictionary<string, float> set, System.Collections.Generic.Dictionary<string, string> st)
+            {
+                var shapes = FaceEval.Evaluate(model, set, st);
+                lines.Add(new JObject { ["label"] = JToken.FromObject(label ?? ""), ["states"] = new JObject(FaceEval.States(model, st).Select(kv => new JProperty(kv.Key, kv.Value))), ["shapes"] = new JObject(shapes.Select(kv => new JProperty(kv.Key, Math.Round(kv.Value, 1)))) }.ToString(Formatting.None));
+            }
             var q = CliArgs.Get("-ftQueries");
             if (q != null)
-            {
                 foreach (var raw in File.ReadAllLines(q))
                 {
                     if (string.IsNullOrWhiteSpace(raw)) continue;
                     var o = JObject.Parse(raw);
-                    var set = ((JObject)o["set"] ?? new JObject()).Properties().ToDictionary(p => p.Name, p => p.Value.Value<float>());
-                    var st = ((JObject)o["state"] ?? new JObject()).Properties().ToDictionary(p => p.Name, p => (string)p.Value);
-                    var shapes = CurveEval.Evaluate(model, set, st);
-                    lines.Add(new JObject { ["label"] = o["label"], ["shapes"] = new JObject(shapes.Select(kv => new JProperty(kv.Key, Math.Round(kv.Value, 1)))) }.ToString(Formatting.None));
+                    Add((string)o["label"], Keys(((JObject)o["set"] ?? new JObject()).Properties().Select(p => (p.Name, p.Value.Value<float>()))),
+                        ((JObject)o["state"] ?? new JObject()).Properties().ToDictionary(p => p.Name, p => (string)p.Value));
                 }
-            }
             else
             {
-                var input = CliArgs.Require("-ftInput");
-                var (lo, hi) = CurveEval.Range(model, input);
-                for (int i = 0; i <= 20; i++)
-                {
-                    var x = lo + (hi - lo) * i / 20f;
-                    var shapes = CurveEval.Evaluate(model, new System.Collections.Generic.Dictionary<string, float> { [input] = x });
-                    lines.Add(new JObject { ["label"] = $"{input}={x:0.###}", ["shapes"] = new JObject(shapes.Select(kv => new JProperty(kv.Key, Math.Round(kv.Value, 1)))) }.ToString(Formatting.None));
-                }
+                System.Collections.Generic.IEnumerable<string[]> Pairs(string arg) => (CliArgs.Get(arg) ?? "").Split(',').Where(x => x.Contains('=')).Select(x => x.Split('='));
+                Add("query", Keys(Pairs("-ftSet").Select(p => (p[0].Trim(), float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))),
+                    Pairs("-ftStates").ToDictionary(p => p[0].Trim(), p => p[1].Trim()));
             }
-            File.WriteAllText(outPath, string.Join("\n", lines) + "\n");
-            Debug.Log($"[FTG] curve: wrote {lines.Count} points to {outPath}");
+            var outPath = CliArgs.Get("-ftOut");
+            if (outPath != null) File.WriteAllText(outPath, string.Join("\n", lines) + "\n");
+            foreach (var l in lines) Debug.Log("[FTG] curve: " + l);
             return 0;
         });
 
@@ -209,53 +223,41 @@ namespace Kmnk.FaceTrackingGenerator
 
     public static class ModelJson
     {
+        static JObject Row(TrackRow r, TableModel m) => new JObject
+        {
+            ["key"] = r.Key, ["part"] = r.Part, ["strength"] = r.Strength,
+            ["shape"] = r.Part != null && m.Parts.TryGetValue(r.Part, out var t) ? t.Shape : null,
+        };
+
         public static JObject ToJson(TableModel m)
         {
             return new JObject
             {
                 ["avatar"] = m.AvatarName,
                 ["prefab"] = m.Prefab?.Path,
-                ["inputs"] = new JArray(m.Inputs.Select(i => i.IsDerived
-                    ? new JObject { ["name"] = i.Name, ["average"] = new JArray(i.Average) }
-                    : new JObject { ["name"] = i.Name, ["key"] = i.Key, ["parameter"] = i.Parameter, ["expression"] = i.Expression, ["expressionFrom"] = i.ExpressionFromTable ? "table" : "built-in", ["smoothing"] = i.Smoothing })),
-                ["smoothing"] = new JArray(m.Smoothings.Select(s => new JObject { ["name"] = s.Name, ["localTau"] = s.LocalTau, ["remoteTau"] = s.RemoteTau })),
-                ["switches"] = new JArray(m.Switches.Select(s => new JObject
+                ["inputs"] = new JArray(m.Inputs.Select(i => new JObject { ["name"] = i.Name, ["key"] = i.Key, ["parameter"] = i.Parameter, ["expression"] = i.Expression, ["expressionFrom"] = i.IsTrack ? "tracking key" : i.ExpressionFromTable ? "table" : "built-in" })),
+                ["neutral"] = new JObject(m.Neutral.Select(kv => new JProperty(kv.Key, new JArray(kv.Value.Select(r => Row(r, m)))))),
+                ["stateMachines"] = new JArray(m.StateMachines.Select(sm => new JObject
                 {
-                    ["name"] = s.Name,
-                    ["states"] = new JArray(s.States),
-                    ["transitions"] = new JArray(s.Transitions.Select(t => new JObject
+                    ["name"] = sm.Name,
+                    ["states"] = new JArray(sm.States.Select(st => new JObject
+                    {
+                        ["name"] = st.Name,
+                        ["menu"] = st.Menu ? sm.MenuValue(st.Name) : 0,
+                        ["regions"] = new JObject(st.Regions.Select(kv => new JProperty(kv.Key, kv.Value.Off ? (JToken)TableLoader.Off : new JArray(kv.Value.Rows.Select(r => Row(r, m)))))),
+                        ["fixed"] = new JObject(st.Fixed.Select(kv => new JProperty(kv.Key, kv.Value))),
+                    })),
+                    ["transitions"] = new JArray(sm.Transitions.Select(t => new JObject
                     {
                         ["from"] = t.From, ["to"] = t.To, ["duration"] = t.Duration,
                         ["when"] = new JArray(t.When.Select(c => new JArray(c.Input, c.Op, c.Value))),
                     })),
                 })),
-                ["trees"] = new JArray(m.Trees.Select(t => new JObject { ["name"] = t.Name, ["tree"] = Node(t.Root, m) })),
                 ["stopWhileTalking"] = new JArray(m.StopWhileTalking),
                 ["dropped"] = new JArray(m.Dropped),
                 ["warnings"] = new JArray(m.Warnings),
                 ["notes"] = new JArray(m.Notes),
             };
-        }
-
-        static JToken Node(Node n, TableModel m)
-        {
-            switch (n)
-            {
-                case PoseNode p:
-                    var o = new JObject();
-                    foreach (var kv in p.Parts)
-                        o[kv.Key] = new JObject { ["value"] = kv.Value, ["mesh"] = m.Parts[kv.Key].Mesh, ["shape"] = m.Parts[kv.Key].Shape };
-                    return o;
-                case Blend1DNode b:
-                    return new JObject { ["1d"] = b.Input, ["children"] = new JArray(b.Children.Select(c => new JArray(c.threshold, Node(c.node, m)))) };
-                case Blend2DNode b:
-                    return new JObject { ["2d"] = new JArray(b.InputX, b.InputY), ["children"] = new JArray(b.Children.Select(c => new JArray(new JArray(c.x, c.y), Node(c.node, m)))) };
-                case SwitchNode s:
-                    var cases = new JObject();
-                    foreach (var c in s.Cases) cases[c.state] = Node(c.node, m);
-                    return new JObject { ["switch"] = s.Switch, ["cases"] = cases };
-            }
-            return JValue.CreateNull();
         }
     }
 }

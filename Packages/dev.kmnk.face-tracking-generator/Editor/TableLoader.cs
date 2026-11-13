@@ -10,7 +10,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Reads the avatar table and the input and expression tables it points to, expands left/right pairs,
     // resolves part names to blendshapes, and drops what the device or the avatar does not have (R23).
     //
-    // Left/right pairs: an entry of "inputs", "switches" or "trees" may have
+    // Left/right pairs: an entry of "inputs" may have
     //   "sides": ["Left", "Right"]                              -> "{side}" is replaced
     //   "sides": {"Left": {"s": "L"}, "Right": {"s": "R"}}      -> "{side}" and "{s}" are replaced
     // in the entry name and in every string and property name inside the entry.
@@ -44,7 +44,6 @@ namespace Kmnk.FaceTrackingGenerator
             ParseExpressions(expr, m, exprPath);
 
             Resolve(m, missingKeys, missingParts);
-            StopWrap.Apply(m);
             return m;
         }
 
@@ -185,16 +184,20 @@ namespace Kmnk.FaceTrackingGenerator
             m.Prefab = Ref(a["prefab"], file);
             if (m.Prefab == null) throw new TableException($"{file}: 'prefab' is required");
             m.OutputFolder = OptStr(a, "outputFolder", "Assets/FaceTrackingGeneratorOutput/" + m.AvatarName);
+            m.MenuFolder = m.OutputFolder;
             // The Prefab Variant goes into the output folder unless the table says where.
             m.VariantPath = OptStr(a, "variant", $"{m.OutputFolder}/{m.AvatarName}_FT.prefab");
             m.DefaultMesh = OptStr(a, "mesh", null);
-            m.Gaze = OptStr(a, "gaze", "shared");
-            if (m.Gaze != "shared") throw new TableException($"{file}: 'gaze' supports only \"shared\" for now");
+            Removed(a, file, "gaze", "the eyes move in the Face Tracking section");
+            Removed(a, file, "stopAutoEyes", "the eyelids move in the Face Tracking section");
             m.FaceTrackParameter = OptStr(a, "faceTrackParameter", "FaceTrack");
             m.AfkPlayParameter = OptStr(a, "afkPlayParameter", "AFKPlay");
             m.FaceTrackLabel = OptStr(a, "faceTrackLabel", "FaceTrack");
             m.AfkPlayLabel = OptStr(a, "afkPlayLabel", "AFK");
-            m.StopAutoEyes = a["stopAutoEyes"]?.Value<bool>() ?? false;
+            m.OverwriteFaceTracking = a["overwriteFaceTracking"]?.Value<bool>() ?? false;
+            m.EyeGazeMode = OptStr(a, "eyeGazeMode", "FaceTracking");
+            if (m.EyeGazeMode != "FaceTracking" && m.EyeGazeMode != "Both" && m.EyeGazeMode != "BoneRotation")
+                throw new TableException($"{file}: 'eyeGazeMode' must be \"FaceTracking\", \"Both\" or \"BoneRotation\"");
             m.Menu = Ref(a["menu"], file);
             m.SubMenu = OptStr(a, "subMenu", null);
 
@@ -243,180 +246,155 @@ namespace Kmnk.FaceTrackingGenerator
 
         static void ParseInputs(JObject o, TableModel m, string file)
         {
-            if (o["smoothing"] is JObject sm)
-                foreach (var (name, v) in Expand(sm, file))
-                {
-                    var so = (JObject)v;
-                    m.Smoothings.Add(new SmoothingDef { Name = name, LocalTau = Num(so["localTau"], file), RemoteTau = Num(so["remoteTau"], file) });
-                }
-
+            Removed(o, file, "smoothing", "the Face Tracking section has no smoothing");
             foreach (var (name, v) in Expand(Obj(o, "inputs", file), file))
             {
                 if (!(v is JObject io)) throw new TableException($"{file}: '{v.Path}' must be an object");
+                if (name.Contains(':')) throw new TableException($"{file}: input '{name}': ':' is not allowed in input names (\"{InputDef.TrackPrefix}\" names the tracking keys)");
+                Removed(io, file, "average", "write the average or the maximum as \"expression\"");
+                Removed(io, file, "smoothing", "the Face Tracking section has no smoothing");
                 var def = new InputDef { Name = name };
-                if (io["average"] != null)
+                def.Key = Str(io, "key", file);
+                var expr = OptStr(io, "expression", null);
+                if (expr != null)
                 {
-                    def.Average = StrList(io["average"]);
-                    if (def.Average.Count < 2) throw new TableException($"{file}: input '{name}': 'average' needs two or more inputs");
+                    try { FtExpression.Parse(expr); }
+                    catch (FtExpression.ParseException e) { throw new TableException($"{file}: input '{name}': {e.Message}"); }
+                    def.Expression = expr;
+                    def.ExpressionFromTable = true;
                 }
-                else
-                {
-                    def.Key = Str(io, "key", file);
-                    var expr = OptStr(io, "expression", null);
-                    if (expr != null)
-                    {
-                        try { FtExpression.Parse(expr); }
-                        catch (FtExpression.ParseException e) { throw new TableException($"{file}: input '{name}': {e.Message}"); }
-                        def.Expression = expr;
-                        def.ExpressionFromTable = true;
-                    }
-                    def.Smoothing = OptStr(io, "smoothing", null);
-                    def.Sync = OptStr(io, "sync", "none");
-                    if (def.Sync != "none" && def.Sync != "float8")
-                        throw new TableException($"{file}: input '{name}': sync '{def.Sync}' is not supported yet (use none or float8)");
-                    if (def.Smoothing != null && m.Smoothings.All(s => s.Name != def.Smoothing))
-                        throw new TableException($"{file}: input '{name}': unknown smoothing '{def.Smoothing}'");
-                }
+                def.Sync = OptStr(io, "sync", "none");
+                if (def.Sync != "none" && def.Sync != "float8")
+                    throw new TableException($"{file}: input '{name}': sync '{def.Sync}' is not supported yet (use none or float8)");
                 if (m.Inputs.Any(i => i.Name == name)) throw new TableException($"{file}: duplicate input '{name}'");
                 def.Parameter = NativeInputs.Parameter(name);
                 if (def.Parameter.Length > NativeInputs.MaxParameterLength)
                     throw new TableException($"{file}: input '{name}': the name is too long (the parameter {def.Parameter} is over {NativeInputs.MaxParameterLength} characters)");
                 m.Inputs.Add(def);
             }
-            var synced = m.Inputs.Where(i => !i.IsDerived && i.Sync == "float8").Select(i => i.Name).ToList();
+            var synced = m.Inputs.Where(i => i.Sync == "float8").Select(i => i.Name).ToList();
             if (synced.Count > 0)
                 m.Notes.Add($"input table: sync is ignored: inputs come from the Face Tracking section and are not synced ({string.Join(", ", synced)})");
-            foreach (var d in m.Inputs.Where(i => i.IsDerived))
-                foreach (var src in d.Average)
-                    if (m.Input(src) == null || m.Input(src).IsDerived)
-                        throw new TableException($"{file}: input '{d.Name}': '{src}' must be a non-derived input");
+        }
+
+        // A key that 0.12.0 removed (spec R13): an error that names it and why.
+        static void Removed(JObject o, string file, string key, string why)
+        {
+            if (o[key] != null) throw new TableException($"{file}: '{Join(o.Path, key)}' was removed in 0.12.0 ({why}). Make the tables again from the templates");
         }
 
         // ---- expression layer
 
+        public const string Off = "off";
+
         static void ParseExpressions(JObject o, TableModel m, string file)
         {
+            foreach (var key in new[] { "trees", "switches", "stops" })
+                if (o[key] != null)
+                    throw new TableException($"{file}: '{key}' was removed in 0.12.0: the expression layer is written as \"neutral\" and \"stateMachines\" " +
+                        "(removed: 1D and 2D nodes, curves, smoothing, stops). Make the tables again from the templates");
             m.StopWhileTalking = StrList(o["stopWhileTalking"]);
 
-            if (o["switches"] is JObject sws)
-                foreach (var (name, v) in Expand(sws, file))
-                {
-                    var so = (JObject)v;
-                    var sw = new SwitchDef { Name = name, States = StrList(so["states"]) };
-                    if (sw.States.Count < 2) throw new TableException($"{file}: switch '{name}' needs two or more states");
-                    var defDur = so["duration"] != null ? Num(so["duration"], file) : 0f;
-                    foreach (var t in (so["transitions"] as JArray ?? new JArray()).OfType<JObject>())
-                    {
-                        var td = new TransitionDef { From = Str(t, "from", file), To = Str(t, "to", file), Duration = t["duration"] != null ? Num(t["duration"], file) : defDur };
-                        if (!sw.States.Contains(td.From) || !sw.States.Contains(td.To))
-                            throw new TableException($"{file}: switch '{name}': unknown state in {t.Path}");
-                        foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
-                        {
-                            if (c.Count != 3) throw new TableException($"{file}: '{c.Path}' must be [input, \">\" or \"<\", value]");
-                            var cond = new Condition { Input = (string)c[0], Op = (string)c[1], Value = Num(c[2], file) };
-                            if (cond.Op != ">" && cond.Op != "<") throw new TableException($"{file}: '{c.Path}': operator must be > or <");
-                            if (m.Input(cond.Input) == null) throw new TableException($"{file}: '{c.Path}': unknown input '{cond.Input}'");
-                            td.When.Add(cond);
-                        }
-                        if (td.When.Count == 0) throw new TableException($"{file}: '{t.Path}' needs a 'when' condition");
-                        sw.Transitions.Add(td);
-                    }
-                    if (so["stops"] != null)
-                    {
-                        if (!(so["stops"] is JObject stops)) throw new TableException($"{file}: '{so.Path}.stops' must be an object of state -> expression names");
-                        foreach (var p in stops.Properties())
-                        {
-                            if (!sw.States.Contains(p.Name)) throw new TableException($"{file}: switch '{name}': unknown state '{p.Name}' in stops");
-                            if (!(p.Value is JArray)) throw new TableException($"{file}: '{p.Value.Path}' must be an array of expression names");
-                            foreach (var tree in StrList(p.Value))
-                                m.Stops.Add(new StopDef { Switch = name, State = p.Name, Tree = tree });
-                        }
-                    }
-                    m.Switches.Add(sw);
-                }
-
-            foreach (var (name, v) in Expand(Obj(o, "trees", file), file))
+            if (o["neutral"] != null)
             {
-                var to = (JObject)v;
-                if (to["tree"] == null) throw new TableException($"{file}: tree '{name}' needs 'tree'");
-                m.Trees.Add(new TreeDef { Name = name, Root = ParseNode(to["tree"], m, file) });
+                if (!(o["neutral"] is JObject neutral)) throw new TableException($"{file}: 'neutral' must be an object of region -> {{key: part}}");
+                foreach (var rp in neutral.Properties())
+                {
+                    if (!(rp.Value is JObject rows)) throw new TableException($"{file}: '{rp.Value.Path}' must be an object of tracking key -> part");
+                    m.Neutral[rp.Name] = Rows(rows, rp.Name, false, file);
+                }
             }
 
-            foreach (var s in m.Stops)
-                if (m.Trees.All(t => t.Name != s.Tree))
-                    throw new TableException($"{file}: switch '{s.Switch}': unknown expression '{s.Tree}' in stops of state '{s.State}'");
+            if (o["stateMachines"] != null)
+            {
+                if (!(o["stateMachines"] is JObject sms)) throw new TableException($"{file}: 'stateMachines' must be an object");
+                foreach (var sp in sms.Properties())
+                    m.StateMachines.Add(StateMachine(sp, m, file));
+            }
         }
 
-        static Node ParseNode(JToken t, TableModel m, string file)
+        // Rows of a region: tracking key -> "part", {"part", "strength"} or (override only) null for "Don't move".
+        static List<TrackRow> Rows(JObject rows, string region, bool canSkip, string file)
         {
-            var kind = ExpressionSyntax.KindOf(t);
-            if (kind == ExpressionSyntax.Kind.Other) throw new TableException($"{file}: '{t.Path}' must be an object");
-            if (t == null || t.Type == JTokenType.Null) return new PoseNode();
-            var o = (JObject)t;
-            if (kind == ExpressionSyntax.Kind.Blend1D)
+            var list = new List<TrackRow>();
+            foreach (var p in rows.Properties())
             {
-                var n = new Blend1DNode { Input = ExpressionSyntax.Input1D(o) };
-                if (m.Input(n.Input) == null) throw new TableException($"{file}: '{o.Path}': unknown input '{n.Input}'");
-                foreach (var c in Children(o, file))
+                if (NativeKeys.Index(p.Name) < 0) throw new TableException($"{file}: '{p.Path}': '{p.Name}' is not a tracking key of the Face Tracking section");
+                var row = new TrackRow { Key = p.Name };
+                if (p.Value.Type == JTokenType.Null)
                 {
-                    if (c.Count != 2) throw new TableException($"{file}: '{c.Path}' must be [threshold, node]");
-                    n.Children.Add((Num(c[0], file), ParseNode(c[1], m, file)));
+                    if (!canSkip) throw new TableException($"{file}: '{p.Path}': a neutral row needs a part");
                 }
-                WriteOwnParts(o, n, m, file);
-                return n;
-            }
-            if (kind == ExpressionSyntax.Kind.Blend2D)
-            {
-                var axes = StrList(o[ExpressionSyntax.Key2D]);
-                if (axes.Count != 2) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.Key2D}' must be [inputX, inputY]");
-                var n = new Blend2DNode { InputX = axes[0], InputY = axes[1] };
-                foreach (var a in axes) if (m.Input(a) == null) throw new TableException($"{file}: '{o.Path}': unknown input '{a}'");
-                foreach (var c in Children(o, file))
+                else if (p.Value.Type == JTokenType.String) row.Part = (string)p.Value;
+                else if (p.Value is JObject ro)
                 {
-                    if (c.Count != 2 || !(c[0] is JArray pos) || pos.Count != 2) throw new TableException($"{file}: '{c.Path}' must be [[x, y], node]");
-                    n.Children.Add((Num(pos[0], file), Num(pos[1], file), ParseNode(c[1], m, file)));
+                    row.Part = Str(ro, "part", file);
+                    if (ro["strength"] != null)
+                    {
+                        row.Strength = Num(ro["strength"], file);
+                        if (float.IsNaN(row.Strength) || row.Strength < 0 || row.Strength > 1) throw new TableException($"{file}: '{ro.Path}.strength' must be 0 to 1");
+                    }
                 }
-                WriteOwnParts(o, n, m, file);
-                return n;
+                else throw new TableException($"{file}: '{p.Path}' must be a part name or {{\"part\", \"strength\"}}" + (canSkip ? " or null" : ""));
+                if (row.Part != null)
+                {
+                    if (!PartNames.IsForm(row.Part)) throw new TableException($"{file}: '{p.Path}': '{row.Part}' is not a part name (region[.state].movement)");
+                    if (PartNames.Region(row.Part) != region) throw new TableException($"{file}: '{p.Path}': part {row.Part} is not in region {region}");
+                }
+                list.Add(row);
             }
-            if (kind == ExpressionSyntax.Kind.Switch)
-            {
-                var n = new SwitchNode { Switch = ExpressionSyntax.SwitchOf(o) };
-                var sw = m.Switch(n.Switch) ?? throw new TableException($"{file}: '{o.Path}': unknown switch '{n.Switch}'");
-                if (!(o[ExpressionSyntax.KeyCases] is JObject cases)) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.KeyCases}' must be an object");
-                foreach (var st in sw.States)
-                    n.Cases.Add((st, ParseNode(cases[st], m, file)));
-                foreach (var p in cases.Properties())
-                    if (!sw.States.Contains(p.Name)) throw new TableException($"{file}: '{p.Path}': switch '{sw.Name}' has no state '{p.Name}'");
-                foreach (var p in o.Properties().Where(x => ExpressionSyntax.IsPartKey(x.Name)))
-                    Warn(m, $"{file}: '{p.Path}': a switch node does not use face movements written on it");
-                return n;
-            }
-            var pose = new PoseNode();
-            foreach (var p in o.Properties())
-            {
-                if (!ExpressionSyntax.IsPartKey(p.Name)) throw new TableException($"{file}: '{p.Path}': unknown node key '{p.Name}' (parts are written as region.name)");
-                pose.Parts[p.Name] = Num(p.Value, file);
-            }
-            return pose;
+            return list;
         }
 
-        // A 1D or 2D node's own parts are written while the node is chosen, whatever its input: they are written into
-        // every pose under the node (also under nested nodes and empty positions), so the model keeps only poses. A
-        // node's value wins over the same part below it (written there, or by a node below).
-        static void WriteOwnParts(JObject o, Node n, TableModel m, string file)
+        static StateMachineDef StateMachine(JProperty sp, TableModel m, string file)
         {
-            var own = o.Properties().Where(p => ExpressionSyntax.IsPartKey(p.Name)).Select(p => (part: p.Name, value: Num(p.Value, file))).ToList();
-            if (own.Count == 0) return;
-            var below = new HashSet<string>();
-            foreach (var pose in n.SelfAndDescendants().OfType<PoseNode>())
-                foreach (var (part, value) in own)
+            if (!(sp.Value is JObject so)) throw new TableException($"{file}: '{sp.Path}' must be an object");
+            var sm = new StateMachineDef { Name = sp.Name };
+            if (!(so["states"] is JObject states) || states.Count == 0) throw new TableException($"{file}: '{so.Path}.states' must be an object with one or more states");
+            foreach (var stp in states.Properties())
+            {
+                var st = new StateDef { Name = stp.Name };
+                if (stp.Value.Type != JTokenType.Null)
                 {
-                    if (pose.Parts.ContainsKey(part)) below.Add(part);
-                    pose.Parts[part] = value;
+                    if (!(stp.Value is JObject sto)) throw new TableException($"{file}: '{stp.Path}' must be an object");
+                    st.Menu = sto["menu"]?.Value<bool>() ?? false;
+                    if (sto["regions"] is JObject regions)
+                        foreach (var rp in regions.Properties())
+                        {
+                            if (rp.Value.Type == JTokenType.String && (string)rp.Value == Off) st.Regions[rp.Name] = new RegionDef { Off = true };
+                            else if (rp.Value is JObject ro) st.Regions[rp.Name] = new RegionDef { Rows = Rows(ro, rp.Name, true, file) };
+                            else throw new TableException($"{file}: '{rp.Value.Path}' must be \"off\" or an object of tracking key -> part");
+                        }
+                    else if (sto["regions"] != null) throw new TableException($"{file}: '{sto.Path}.regions' must be an object");
+                    if (sto["fixed"] is JObject fixedParts)
+                        foreach (var fp in fixedParts.Properties())
+                        {
+                            if (!PartNames.IsForm(fp.Name)) throw new TableException($"{file}: '{fp.Path}': '{fp.Name}' is not a part name (region[.state].movement)");
+                            var v = Num(fp.Value, file);
+                            if (float.IsNaN(v) || v < 0 || v > 100) throw new TableException($"{file}: '{fp.Path}' must be 0 to 100");
+                            st.Fixed[fp.Name] = v;
+                        }
+                    else if (sto["fixed"] != null) throw new TableException($"{file}: '{sto.Path}.fixed' must be an object of part -> amount");
                 }
-            foreach (var part in own.Select(x => x.part).Where(below.Contains))
-                Warn(m, $"{file}: '{o.Path}': {part} is also written below this node; the value here is used");
+                sm.States.Add(st);
+            }
+            foreach (var t in (so["transitions"] as JArray ?? new JArray()).OfType<JObject>())
+            {
+                var td = new TransitionDef { From = Str(t, "from", file), To = Str(t, "to", file), Duration = t["duration"] != null ? Num(t["duration"], file) : 0 };
+                if (sm.State(td.From) == null || sm.State(td.To) == null)
+                    throw new TableException($"{file}: state machine '{sm.Name}': unknown state in {t.Path}");
+                foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
+                {
+                    if (c.Count != 3) throw new TableException($"{file}: '{c.Path}' must be [input, \">\" or \"<\", value]");
+                    var cond = new Condition { Input = (string)c[0], Op = (string)c[1], Value = Num(c[2], file) };
+                    if (cond.Op != ">" && cond.Op != "<") throw new TableException($"{file}: '{c.Path}': operator must be > or <");
+                    if (m.Input(cond.Input) == null) throw new TableException($"{file}: '{c.Path}': unknown input '{cond.Input}'");
+                    td.When.Add(cond);
+                }
+                if (td.When.Count == 0) throw new TableException($"{file}: '{t.Path}' needs a 'when' condition");
+                sm.Transitions.Add(td);
+            }
+            return sm;
         }
 
         static void Warn(TableModel m, string msg)
@@ -424,129 +402,91 @@ namespace Kmnk.FaceTrackingGenerator
             if (!m.Warnings.Contains(msg)) m.Warnings.Add(msg);
         }
 
-        static IEnumerable<JArray> Children(JObject o, string file)
-        {
-            if (!(o[ExpressionSyntax.KeyChildren] is JArray a)) throw new TableException($"{file}: '{o.Path}.{ExpressionSyntax.KeyChildren}' must be an array");
-            return a.Select(x => x as JArray ?? throw new TableException($"{file}: '{x.Path}' must be an array"));
-        }
-
         // ---- dropping what the device or avatar does not have (R23)
 
         static void Resolve(TableModel m, List<string> missingKeys, List<string> missingParts)
         {
-            var missing = new HashSet<string>(missingKeys);
+            // "missing" lists keys with or without "v2/" ("v2/JawOpen" and "JawOpen" are the same key).
+            var missing = new HashSet<string>(missingKeys.Select(NativeInputs.NameOf));
             foreach (var i in m.Inputs.ToList())
             {
-                if (!i.IsDerived && i.Expression == null) i.Expression = NativeInputs.Expression(i.Key);
+                if (i.Expression == null) i.Expression = NativeInputs.Expression(i.Key);
                 string why = null;
-                if (i.IsDerived) { if (i.Average.Any(s => m.Input(s) == null)) why = "a source input is not sent"; }
-                else if (missing.Contains(i.Key)) why = "the device does not send " + i.Key;
+                if (missing.Contains(NativeInputs.NameOf(i.Key))) why = "the device does not send " + i.Key;
                 else if (i.Expression == null) why = "no expression for " + i.Key + " (write \"expression\" in the input table)";
+                else
+                {
+                    // An input made from a key the device does not send cannot be made either.
+                    var gone = NativeInputs.NamesIn(i.Expression).FirstOrDefault(missing.Contains);
+                    if (gone != null) why = "its expression uses " + gone + ", which the device does not send";
+                }
                 if (why == null) continue;
                 m.Inputs.Remove(i);
                 m.Dropped.Add($"input {i.Name}: {why}");
             }
 
-            foreach (var sw in m.Switches.ToList())
+            foreach (var sm in m.StateMachines)
             {
-                foreach (var t in sw.Transitions.ToList())
+                foreach (var t in sm.Transitions.ToList())
                     if (t.When.Any(c => m.Input(c.Input) == null))
                     {
-                        sw.Transitions.Remove(t);
-                        m.Dropped.Add($"switch {sw.Name}: transition {t.From} -> {t.To} uses an input that is not sent");
+                        sm.Transitions.Remove(t);
+                        m.Dropped.Add($"state machine {sm.Name}: transition {t.From} -> {t.To} uses an input that is not sent");
                     }
-                var reach = new HashSet<string> { sw.States[0] };
+                var reach = new HashSet<string> { sm.States[0].Name };
+                foreach (var st in sm.MenuStates) reach.Add(st.Name);
                 for (var changed = true; changed;)
                 {
                     changed = false;
-                    foreach (var t in sw.Transitions)
+                    foreach (var t in sm.Transitions)
                         if (reach.Contains(t.From) && reach.Add(t.To)) changed = true;
                 }
-                foreach (var st in sw.States.Where(s => !reach.Contains(s)).ToList())
-                {
-                    sw.States.Remove(st);
-                    m.Dropped.Add($"switch {sw.Name}: state {st} cannot be reached");
-                }
-                sw.Transitions.RemoveAll(t => !reach.Contains(t.From) || !reach.Contains(t.To));
-                if (sw.States.Count < 2)
-                {
-                    m.Switches.Remove(sw);
-                    m.Dropped.Add($"switch {sw.Name}: only the default state is left");
-                }
+                foreach (var st in sm.States.Where(s => !reach.Contains(s.Name)))
+                    Warn(m, $"state machine {sm.Name}: state {st.Name} cannot be reached (no transition into it and not in the menu)");
+                var names = sm.States.SelectMany(st => st.Regions.Keys.Select(r => NativeSets.SetName(sm.Name, st.Name, r)));
+                foreach (var n in names.Where(n => n.Length > NativeSets.MaxNameLength))
+                    throw new TableException($"Blendshapes Set name '{n}' is longer than {NativeSets.MaxNameLength} characters; use shorter state machine, state or region names");
             }
 
+            // Rows of keys the device does not send, and of parts the avatar layer does not set (R23).
             var missingPartSet = new HashSet<string>(missingParts);
-            foreach (var tree in m.Trees.ToList())
+            bool Keep(string where, string part)
             {
-                tree.Root = Simplify(tree.Root, m, missingPartSet, tree.Name);
-                if (IsEmpty(tree.Root))
+                if (part == null || m.Parts.ContainsKey(part)) return true;
+                var msg = $"{where}: part {part} is not in the avatar layer";
+                if (missingPartSet.Contains(part)) { if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg); }
+                else Warn(m, msg);
+                return false;
+            }
+            // A neutral row whose part has no blendshape is left out. An override row's is kept as Don't move: the key moves
+            // nothing in that state (spec R5), rather than falling back to the neutral row.
+            void Filter(List<TrackRow> rows, string where, bool overrides)
+            {
+                foreach (var r in rows.ToList())
                 {
-                    m.Trees.Remove(tree);
-                    m.Dropped.Add($"tree {tree.Name}: nothing is left");
+                    if (missing.Contains(r.Key)) { rows.Remove(r); m.Dropped.Add($"{where}: key {r.Key}: the device does not send it"); continue; }
+                    if (Keep(where, r.Part)) continue;
+                    if (overrides) r.Part = null; else rows.Remove(r);
                 }
             }
-        }
-
-        static Node Simplify(Node n, TableModel m, HashSet<string> missingParts, string where)
-        {
-            switch (n)
-            {
-                case PoseNode p:
+            foreach (var kv in m.Neutral) Filter(kv.Value, "neutral " + kv.Key, false);
+            foreach (var sm in m.StateMachines)
+                foreach (var st in sm.States)
                 {
-                    var r = new PoseNode();
-                    foreach (var kv in p.Parts)
+                    foreach (var kv in st.Regions.Where(x => !x.Value.Off)) Filter(kv.Value.Rows, $"{sm.Name}/{st.Name} {kv.Key}", true);
+                    foreach (var part in st.Fixed.Keys.ToList())
                     {
-                        if (m.Parts.TryGetValue(kv.Key, out var target)) { r.Parts[kv.Key] = kv.Value * target.Scale; continue; }
-                        var msg = $"tree {where}: part {kv.Key} is not in the avatar layer";
-                        if (missingParts.Contains(kv.Key)) { if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg); }
-                        else if (!m.Warnings.Contains(msg)) m.Warnings.Add(msg);
+                        if (!Keep($"{sm.Name}/{st.Name} fixed", part)) { st.Fixed.Remove(part); continue; }
+                        st.Fixed[part] *= m.Parts[part].Scale;
                     }
-                    return r;
                 }
-                case Blend1DNode b:
-                {
-                    if (m.Input(b.Input) == null)  // the input stays 0: keep the child nearest to 0
-                        return Simplify(b.Children.OrderBy(c => Math.Abs(c.threshold)).ThenBy(c => c.threshold).First().node, m, missingParts, where);
-                    var r = new Blend1DNode { Input = b.Input };
-                    foreach (var c in b.Children) r.Children.Add((c.threshold, Simplify(c.node, m, missingParts, where)));
-                    return r.Children.All(c => IsEmpty(c.node)) ? new PoseNode() : (Node)r;
-                }
-                case Blend2DNode b:
-                {
-                    var hasX = m.Input(b.InputX) != null;
-                    var hasY = m.Input(b.InputY) != null;
-                    if (!hasX || !hasY)  // a missing axis stays 0: keep the children on that axis's 0 line
-                    {
-                        var oneD = new Blend1DNode { Input = hasX ? b.InputX : b.InputY };
-                        foreach (var c in b.Children)
-                            if (hasX ? c.y == 0 : c.x == 0) oneD.Children.Add((hasX ? c.x : c.y, c.node));
-                        if (!hasX && !hasY || oneD.Children.Count == 0)
-                        {
-                            var origin = b.Children.FirstOrDefault(c => c.x == 0 && c.y == 0);
-                            return origin.node != null ? Simplify(origin.node, m, missingParts, where) : new PoseNode();
-                        }
-                        oneD.Children.Sort((a, c) => a.threshold.CompareTo(c.threshold));
-                        return Simplify(oneD, m, missingParts, where);
-                    }
-                    var r = new Blend2DNode { InputX = b.InputX, InputY = b.InputY };
-                    foreach (var c in b.Children) r.Children.Add((c.x, c.y, Simplify(c.node, m, missingParts, where)));
-                    return r.Children.All(c => IsEmpty(c.node)) ? new PoseNode() : (Node)r;
-                }
-                case SwitchNode s:
-                {
-                    var sw = m.Switch(s.Switch);
-                    if (sw == null)  // the switch stays in its default state
-                        return Simplify(s.Cases[0].node, m, missingParts, where);
-                    var r = new SwitchNode { Switch = s.Switch };
-                    foreach (var c in s.Cases)
-                        if (sw.States.Contains(c.state)) r.Cases.Add((c.state, Simplify(c.node, m, missingParts, where)));
-                    return r.Cases.All(c => IsEmpty(c.node)) ? new PoseNode() : (Node)r;
-                }
-                default:
-                    throw new InvalidOperationException("unknown node");
-            }
-        }
 
-        public static bool IsEmpty(Node n) => n is PoseNode p && p.Parts.Count == 0;
+            // The tracking keys of the rows that are left, as inputs "key:<key>" (for the settings editor and FaceEval).
+            var keys = m.Neutral.Values.SelectMany(r => r)
+                .Concat(m.StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows)))
+                .Select(r => r.Key).Distinct().OrderBy(k => NativeKeys.Index(k));
+            foreach (var k in keys)
+                m.Inputs.Add(new InputDef { Name = InputDef.TrackPrefix + k, Key = k, IsTrack = true });
+        }
     }
 }

@@ -15,16 +15,23 @@
 
   // Part name -> blendshape. "mesh" is the renderer path from the avatar root. It starts empty: the settings
   // editor's Avatar tab lists each part the expression layer uses as Not set, to choose its blendshape there.
-  // A part is written as "mouth.open": "<blendshape>", or with its own mesh "brow.happy": { "mesh": "Body", "shape": "<blendshape>" }.
-  // "scale" (0 to 1, default 1) multiplies the expression layer's amounts for this avatar, to tone down a strong
-  // blendshape without changing a shared expression layer: "mouth.smile": { "shape": "<blendshape>", "scale": 0.7 }
+  // A part is written as "jaw.jawOpen": "<blendshape>", or with its own mesh "brow.browInnerUp": { "mesh": "Body", "shape": "<blendshape>" }.
+  // "scale" (0 to 1, default 1) corrects the strength of this avatar's blendshape: it multiplies the expression layer's
+  // strengths and fixed amounts, without changing a shared expression layer: "lip.mouthSmileLeft": { "shape": "<blendshape>", "scale": 0.7 }
   "mesh": "Body",
   "parts": {},
   // Parts in the expression layer that this avatar does not have.
   "missingParts": [],
 
-  // "shared": one set of gaze blendshapes for both eyes (driven by the average of both eyes).
-  "gaze": "shared",
+  // The avatar's Face Tracking section (the generator writes the Prefab Variant and the build-time copy, never the
+  // original prefab). The generator writes Blendshapes Sets and Eye Look there. When the avatar already
+  // has its own values there (Blendshapes Sets with tracking rows, Parameter Behaviors that move blendshapes, Eye Look on
+  // Face Tracking), they are kept and the generator's sets are not written, unless this is true. Viseme rows and the
+  // avatar's Forward to Animator behaviors are always kept.
+  "overwriteFaceTracking": false,
+  // Eye Look's Eye Gaze Mode: "FaceTracking" (eye blendshapes from the EyeLook keys), "Both" (also the eye bones) or
+  // "BoneRotation" (eye bones only). Choose Both or BoneRotation for an avatar that looks with its eye bones.
+  "eyeGazeMode": "FaceTracking",
 
   // Menu toggle for FT, and the flag that plays the AFK animation.
   "faceTrackParameter": "FaceTrack",
@@ -40,9 +47,6 @@
   // Wait for the avatar's own AFK layer to restore tracking.
   "afkGroups": [ { "parameters": ["AFK"], "wait": 6 } ],
 
-  // Turn off the eyelids of the avatar's Eye Look (they would close on top of FT's eyelids); FT blinks while it is
-  // not running. Eye Look still moves the eyes.
-  "stopAutoEyes": true,
 
   // Changes to the avatar's own layers in the copied controllers.
   "layers": {

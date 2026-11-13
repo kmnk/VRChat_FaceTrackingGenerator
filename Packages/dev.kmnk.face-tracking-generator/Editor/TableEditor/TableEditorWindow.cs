@@ -17,7 +17,7 @@ namespace Kmnk.FaceTrackingGenerator
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
     public sealed class TableEditorWindow : EditorWindow
     {
-        static readonly string[] Tabs = { "Avatar", "Preview", "Tuning", "Inputs" };
+        static readonly string[] Tabs = { "Avatar", "Preview", "Inputs" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
@@ -49,16 +49,13 @@ namespace Kmnk.FaceTrackingGenerator
         const string DevicePrefKey = "Kmnk.FaceTrackingGenerator.PreviewDevice";
         string captureDevice;  // set by TableEditorChecks.Capture instead of the saved choice
 
-        // tuning: open folds ("<tree>" and "<tree>/<node>"), try values per node, and the node shown in Face view
-        readonly Dictionary<string, bool> tuneOpen = new Dictionary<string, bool>();
-        readonly Dictionary<string, float> tuneTry = new Dictionary<string, float>();
-        string tuneShown;
-        string tuneScrollTo;  // a fold key to scroll to on the next repaint (from the expression graph)
+        // A state shown in Face view by the state machine window (state machine, state), or null.
+        (string sm, string state)? stateShown;
 
         // inputs tab: the search text
         string inputSearch = "";
 
-        // The open settings editor, for the expression graph. Changed is raised after the tables change.
+        // The open settings editor, for the state machine window. Changed is raised after the tables change.
         internal static TableEditorWindow Current { get; private set; }
         internal static event Action Changed;
 
@@ -202,16 +199,9 @@ namespace Kmnk.FaceTrackingGenerator
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
             if (preview.Running) ApplyPreview();
-            else if (tab == 2 && tuneShown != null) ShowTuning(tuneShown);
+            else if (stateShown != null) ShowState(stateShown.Value.sm, stateShown.Value.state);
             else ShowSelected();
             if (Current == this) Changed?.Invoke();
-        }
-
-        // The tooltip of the input a Tuning node moves with (the first side of a left/right pair).
-        string NodeInputTooltip(Tuning.Tree t, string input)
-        {
-            var name = Tuning.Expanded(t, input).FirstOrDefault();
-            return model == null || name == null ? null : ParameterHelp.Tooltip(model, model.Input(name));
         }
 
         // ---- Inputs tab
@@ -300,84 +290,14 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
-        // ---- the expression graph
+        // ---- the state machine window
 
         internal JObject ExpressionJson => doc?.Json(TableDocument.Expression);
+        internal JObject AvatarJson => doc?.Json(TableDocument.Avatar);
         internal JObject InputJson => doc?.Json(TableDocument.Input);
+        internal TableModel Model => model;
 
-        // For the expression graph's lists: the device chosen in Device (null for Settings) and the rows of the Inputs tab.
-        internal (Devices.Device device, InputChoices.Result rows) DeviceInputs()
-        {
-            var device = doc == null ? null : ChosenDevice(Devices.Load());
-            return (device, device == null ? null : InputRows());
-        }
-
-        // Adds a device's input to the input table as the Inputs tab does. Returns whether it was added.
-        internal bool AddDeviceInput(string name)
-        {
-            if (doc == null) return false;
-            var row = InputRows().NotInTable.FirstOrDefault(r => r.Name == name);
-            if (row == null) return false;
-            Edit(TableDocument.Input, "Add FT input", j => InputChoices.Add(j, row, ChosenDevice(Devices.Load())));
-            return true;
-        }
-
-        // Opens the Tuning tab at a node: the tree's fold, the node's fold (1D), and scrolls to it. A null key (a switch)
-        // opens the tree only.
-        // The box selected in the expression graph (for Show: Selected).
-        string graphTree, graphPath;
-        const string ShowSelectedPrefKey = "Kmnk.FaceTrackingGenerator.TuningShowSelected";
-
-        internal void RevealInTuning(string tree, string key, string path = null)
-        {
-            if (doc == null || tree == null) return;
-            graphTree = tree;
-            graphPath = path;
-            tab = 2;
-            tuneOpen[tree] = true;
-            if (key != null)
-            {
-                if (key.IndexOf("/2d/", StringComparison.Ordinal) < 0) tuneOpen[key] = true;  // 1D and switch folds
-                tuneScrollTo = key;
-                ShowTuning(key);
-            }
-            else tuneScrollTo = tree;
-            Repaint();
-        }
-
-        internal string SplitPosition2D(string tree, string path, int row, string inputX, string inputY)
-        {
-            if (doc == null || !ExpressionGraph.CanSplit(ExpressionJson, tree, path, row)) return null;
-            string made = null;
-            Edit(TableDocument.Expression, "Split FT position", e => made = ExpressionGraph.Split2D(e, tree, path, row, inputX, inputY));
-            return made;
-        }
-
-        internal string InsertBoxAbove(string tree, string path, string inputX, string inputY)
-        {
-            if (doc == null || ExpressionGraph.Find(ExpressionJson, tree, path) == null) return null;
-            string made = null;
-            Edit(TableDocument.Expression, "Insert FT box", e => made = ExpressionGraph.InsertAbove(e, tree, path, inputX, inputY));
-            return made;
-        }
-
-        internal string NewTree(string name, string inputX, string inputY, bool sided = false)
-        {
-            if (doc == null || !ExpressionGraph.CanCreateTree(ExpressionJson, name, sided)) return null;
-            string made = null;
-            Edit(TableDocument.Expression, "New FT expression", e => made = ExpressionGraph.NewTree(e, name, inputX, inputY, sided));
-            return made;
-        }
-
-        internal bool RemoveTree(string name)
-        {
-            if (doc == null || !(ExpressionJson?["trees"]?[name] is JObject)) return false;
-            var done = false;
-            Edit(TableDocument.Expression, "Remove FT expression", e => done = ExpressionGraph.RemoveTree(e, name));
-            return done;
-        }
-
-        // One unsaved edit of the expression table that returns a value (for the graph and the switch panel).
+        // One unsaved edit of the expression table that returns a value (for the state machine window).
         internal T EditExpression<T>(string undoName, Func<JObject, T> edit)
         {
             T result = default;
@@ -386,36 +306,28 @@ namespace Kmnk.FaceTrackingGenerator
             return result;
         }
 
-        // Replaces a box with the content of one of its rows (ExpressionGraph.Remove) as an unsaved edit.
-        internal string RemoveBox(string tree, string path, int keepRow)
+        // One unsaved edit of the avatar table (a new part from the state machine window).
+        internal void EditAvatar(string undoName, Action<JObject> edit)
         {
-            if (doc == null || !ExpressionGraph.CanRemove(ExpressionJson, tree, path)) return null;
-            string kept = null;
-            Edit(TableDocument.Expression, "Remove FT box", e => kept = ExpressionGraph.Remove(e, tree, path, keepRow));
-            return kept;
+            if (doc != null) Edit(TableDocument.Avatar, undoName, edit);
         }
 
-        // Splits a position of the tree with 1D (ExpressionGraph.Split) as an unsaved edit. Returns the new box's path.
-        internal string SplitPosition(string tree, string path, int row, string input)
+        // Part names to check new names against: the tables' and the ones added but not yet given a blendshape.
+        internal List<string> AllPartNames() =>
+            doc == null ? new List<string>() : PartNames.Used(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
+
+        // Shows a state's face in Face view: neutral keys at 1 (the face with the tracking at its strongest is not
+        // useful), so the face is the state's fixed amounts and what its overrides turn off (spec R15).
+        internal void ShowState(string sm, string st)
         {
-            if (doc == null || !ExpressionGraph.CanSplit(ExpressionJson, tree, path, row)) return null;
-            string made = null;
-            Edit(TableDocument.Expression, "Split FT position", e => made = ExpressionGraph.Split(e, tree, path, row, input));
-            return made;
+            stateShown = (sm, st);
+            if (model == null || model.StateMachine(sm)?.State(st) == null) { FaceView.Clear(); return; }
+            var weights = FaceEval.Evaluate(model, inputs, new Dictionary<string, string> { [sm] = st });
+            FaceView.Show(model, Prefab(), weights, $"{sm} = {st}");
         }
 
-        // Called right after a fold's header: scrolls to the header when the graph asked for it. Adds nothing to the layout.
-        void ScrollMark(string key)
-        {
-            if (tuneScrollTo != key || Event.current.type != EventType.Repaint) return;
-            var r = GUILayoutUtility.GetLastRect();
-            tuneScrollTo = null;
-            scroll.y = Math.Max(0, r.y - 4);
-            Repaint();
-        }
-
-        // For TableEditorChecks.Capture: the tab and the open folds.
-        internal string TuningState() => $"tab={Tabs[tab]} open={string.Join(",", tuneOpen.Where(kv => kv.Value).Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal))}";
+        // For TableEditorChecks.Capture: the tab.
+        internal string TabState() => $"tab={Tabs[tab]}";
 
         // ---- Face View
 
@@ -504,30 +416,35 @@ namespace Kmnk.FaceTrackingGenerator
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == 0) DrawAvatarTab();
             else if (tab == 1) DrawPreviewTab();
-            else if (tab == 2) DrawTuningTab();
             else DrawInputsTab();
             EditorGUILayout.EndScrollView();
         }
 
         void DrawTop()
         {
-            EditorGUI.BeginChangeCheck();
-            var picked = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("Settings file", "tip.table"), table, typeof(DefaultAsset), false);
-            if (EditorGUI.EndChangeCheck() && picked != table && ConfirmDiscard()) ChooseTable(picked);
+            // The file and what is done to it (Reload, Save, Share) on one row; the windows that show it on the next.
             using (new EditorGUILayout.HorizontalScope())
             {
+                EditorGUI.BeginChangeCheck();
+                var picked = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("Settings file", "tip.table"), table, typeof(DefaultAsset), false);
+                if (EditorGUI.EndChangeCheck() && picked != table && ConfirmDiscard()) ChooseTable(picked);
                 using (new EditorGUI.DisabledScope(table == null))
-                    if (GUILayout.Button("Reload", GUILayout.Width(70)) && ConfirmDiscard()) Load();
+                    if (GUILayout.Button("Reload", GUILayout.Width(60)) && ConfirmDiscard()) Load();
                 using (new EditorGUI.DisabledScope(doc == null || !doc.IsDirty()))
-                    if (GUILayout.Button("Save", GUILayout.Width(70))) Save();
+                    if (GUILayout.Button("Save", GUILayout.Width(50))) Save();
+                using (new EditorGUI.DisabledScope(table == null))
+                    if (EditorGUILayout.DropdownButton(new GUIContent("Share"), FocusType.Passive, GUILayout.Width(60)))
+                        ShareMenu().DropDown(GUILayoutUtility.GetLastRect());
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 if (GUILayout.Button("Face view", GUILayout.Width(80)))
                 {
                     FaceViewWindow.Open();
                     if (preview.Running) ApplyPreview(); else ShowSelected();
                 }
-                using (new EditorGUI.DisabledScope(table == null))
-                    if (EditorGUILayout.DropdownButton(new GUIContent("Share"), FocusType.Passive, GUILayout.Width(70)))
-                        ShareMenu().DropDown(GUILayoutUtility.GetLastRect());
+                using (new EditorGUI.DisabledScope(doc == null))
+                    if (GUILayout.Button("State Machine", GUILayout.Width(105))) StateMachineWindow.Open();
                 if (doc != null && doc.IsDirty())
                 {
                     var old = GUI.contentColor;
@@ -720,32 +637,25 @@ namespace Kmnk.FaceTrackingGenerator
 
             DrawParts(avatar, prefab, mesh);
             DrawLayers(avatar, prefab);
-
-            EditorGUILayout.Space(6);
-            EditorGUI.BeginChangeCheck();
-            var stop = EditorGUILayout.ToggleLeft(EditorText.Label("Turn off Eye Look eyelids (FT blinks while it is off)", "tip.stopAutoEyes"), avatar["stopAutoEyes"]?.Type == JTokenType.Boolean && (bool)avatar["stopAutoEyes"]);
-            if (EditorGUI.EndChangeCheck()) Edit("Set FT stopAutoEyes", a => TableEdits.SetBool(a, "stopAutoEyes", stop));
         }
 
-        // Parts used by the expression layer (also those the avatar layer lacks) and parts in the avatar layer.
+        // Parts used by the expression layer (also those the avatar layer lacks) and parts in the avatar layer, by region:
+        // within a region, "region.movement" first, then the parts with a state in the middle (design.md "設定エディタ").
         List<(string part, bool used)> PartRows(JObject avatar)
         {
-            var used = new HashSet<string>(StringComparer.Ordinal);
-            if (model != null)
-            {
-                foreach (var t in model.Trees) used.UnionWith(t.Root.PartNames());
-                foreach (var m in model.Dropped.Concat(model.Warnings))
-                {
-                    var mm = NotInAvatar.Match(m);
-                    if (mm.Success) used.Add(mm.Groups[1].Value);
-                }
-            }
+            var used = new HashSet<string>(PartNames.InExpression(doc.Json(TableDocument.Expression)), StringComparer.Ordinal);
             var all = new SortedSet<string>(used, StringComparer.Ordinal);
             all.UnionWith(pendingParts);
             if (avatar["parts"] is JObject parts) foreach (var p in parts.Properties()) all.Add(p.Name);
             if (avatar["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) all.Add((string)x);
-            return all.Select(p => (p, used.Contains(p))).ToList();
+            return all.Where(p => p.Contains('.'))
+                .OrderBy(p => PartNames.Region(p), StringComparer.Ordinal)
+                .ThenBy(p => PartNames.IsForm(p) && PartNames.Middle(p) != null ? 1 : 0)
+                .ThenBy(p => p, StringComparer.Ordinal)
+                .Select(p => (p, used.Contains(p))).ToList();
         }
+
+        static GUIStyle regionBand, middleTag;
 
         static List<string> ShapesOf(GameObject prefab, string mesh)
         {
@@ -776,7 +686,7 @@ namespace Kmnk.FaceTrackingGenerator
             Help("help.parts");
             partFilter = EditorGUILayout.TextField(partFilter, EditorStyles.toolbarSearchField);
 
-            const float partW = 150, missW = 60, scaleW = 46;
+            const float partW = 150, missW = 60, scaleW = 130;
             if (scaleHeading == null)
             {
                 scaleHeading = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleRight };
@@ -788,30 +698,55 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
-                GUILayout.Label("Scale", scaleHeading, GUILayout.Width(scaleW));
+                GUILayout.Label("Scale", EditorStyles.miniBoldLabel, GUILayout.Width(scaleW));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
                 GUILayout.Space(24);
             }
             var shapeCache = new Dictionary<string, List<string>>();
             var partUsage = model != null ? PartUsage.Of(model) : null;
             var i = 0;
+            if (regionBand == null)
+            {
+                regionBand = new GUIStyle(EditorStyles.boldLabel) { padding = new RectOffset(6, 4, 2, 2) };
+                middleTag = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter, padding = new RectOffset(4, 4, 0, 0) };
+            }
+            string lastRegion = null;
             foreach (var (part, used) in rows)
             {
                 if (!string.IsNullOrEmpty(partFilter) && part.IndexOf(partFilter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                // A band with the region's name before its first part (only regions with a part shown under the filter).
+                var region = PartNames.Region(part);
+                if (region != lastRegion)
+                {
+                    lastRegion = region;
+                    EditorGUILayout.Space(2);
+                    var band = GUILayoutUtility.GetRect(new GUIContent(region), regionBand, GUILayout.ExpandWidth(true));
+                    if (Event.current.type == EventType.Repaint) EditorGUI.DrawRect(band, new Color(1, 1, 1, 0.06f));
+                    GUI.Label(band, region, regionBand);
+                    // + at the right end: a new face movement with "<region>." typed.
+                    var plus = new Rect(band.xMax - 24, band.y + 1, 22, band.height - 2);
+                    if (Event.current.type == EventType.Repaint && region == newPartRegionCapture) newPartRegionRect = plus;
+                    if (GUI.Button(plus, new GUIContent("+", string.Format(EditorText.Get("part.addIn"), region)), EditorStyles.miniButton))
+                        ShowNewPart(plus, null, region + ".");
+                }
                 var isMissing = TableEdits.IsMissing(avatar, part);
                 var shape = TableEdits.PartShape(avatar, part);
                 var mesh = TableEdits.PartMesh(avatar, part) ?? defaultMesh;
                 if (!shapeCache.TryGetValue(mesh ?? "", out var shapes)) shapeCache[mesh ?? ""] = shapes = ShapesOf(prefab, mesh);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (used) GUILayout.Label(part, GUILayout.Width(partW));
-                    else
+                    using (new EditorGUILayout.HorizontalScope(GUILayout.Width(partW)))
                     {
-                        using (new EditorGUILayout.HorizontalScope(GUILayout.Width(partW)))
+                        // A part with a state in the middle ("eye.joy.tear") shows the state as a tag.
+                        var middle = PartNames.IsForm(part) ? PartNames.Middle(part) : null;
+                        if (middle != null)
                         {
-                            GUILayout.Label(part, GUILayout.ExpandWidth(false));
-                            GUILayout.Label("unused", EditorStyles.miniLabel);
+                            var tag = GUILayoutUtility.GetRect(new GUIContent(middle), middleTag, GUILayout.ExpandWidth(false));
+                            if (Event.current.type == EventType.Repaint) EditorGUI.DrawRect(tag, new Color(0.5f, 0.5f, 0.5f, 0.35f));
+                            GUI.Label(tag, middle, middleTag);
                         }
+                        GUILayout.Label(part, GUILayout.ExpandWidth(false));
+                        if (!used) GUILayout.Label("unused", EditorStyles.miniLabel);
                     }
 
                     GUIContent content;
@@ -845,7 +780,7 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         var scale = TableEdits.PartScale(avatar, part);
                         EditorGUI.BeginChangeCheck();
-                        var s = EditorGUILayout.DelayedFloatField(scale, scale == 1f ? scaleOne : scaleField, GUILayout.Width(scaleW));
+                        var s = (float)Math.Round(EditorGUILayout.Slider(scale, 0, 1, GUILayout.Width(scaleW)), 2);
                         if (EditorGUI.EndChangeCheck() && s != scale) { var p = part; Edit("Set FT part scale", a => TableEdits.SetPartScale(a, p, s)); }
                     }
                     else GUILayout.Space(scaleW + 4);
@@ -895,16 +830,15 @@ namespace Kmnk.FaceTrackingGenerator
                 i++;
             }
 
-            // + Add Face Movement: a name (and left/right) as in Tuning, then the row opens its blendshape list.
+            // + Add Face Movement: a name, then the row opens its blendshape list.
             var addRect = GUILayoutUtility.GetRect(new GUIContent("+ Add Face Movement"), EditorStyles.miniButton, GUILayout.ExpandWidth(false));
             if (Event.current.type == EventType.Repaint) addPartRect = addRect;
             if (GUI.Button(addRect, "+ Add Face Movement", EditorStyles.miniButton)) ShowNewPart(addRect, null);
         }
 
-        void ShowNewPart(Rect at, string typed)
+        void ShowNewPart(Rect at, string typed, string prefix = "")
         {
-            var names = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
-            var popup = new NewPartPopup(names, "s", AddPendingPart);
+            var popup = new NewPartPopup(AllPartNames(), AddPendingPart, prefix);
             if (typed != null) popup.SetNameForCapture(typed);
             PopupWindow.Show(at, popup);
         }
@@ -914,13 +848,14 @@ namespace Kmnk.FaceTrackingGenerator
         Rect renameRect;
         string newPartCapture;  // for TableEditorChecks.Capture: open "+ Add Face Movement" with this name typed
         Rect addPartRect;
+        string newPartRegionCapture;  // for TableEditorChecks.Capture: open the + of this region's band
+        Rect newPartRegionRect;
 
         void ShowRenamePart(string part, Rect at)
         {
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
-            var all = Tuning.AllPartNames(avatar, expression).Concat(pendingParts).ToList();
-            var popup = new RenamePartPopup(part, PartRename.Partner(all, part),
+            var popup = new RenamePartPopup(part,
                 (to, together) => PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), part, to, together, pendingParts),
                 (to, together) => RenamePart(part, to, together));
             if (renameCapture != null) popup.SetNameForCapture(renameCapture);
@@ -930,8 +865,7 @@ namespace Kmnk.FaceTrackingGenerator
         // Renames in both tables (PartRename); rows still waiting for a blendshape are renamed here only.
         internal void RenamePart(string from, string to, bool together)
         {
-            var all = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression)).Concat(pendingParts).ToList();
-            var map = PartRename.Map(all, from, to, together);
+            var map = PartRename.Map(null, from, to, together);
             foreach (var kv in map.Where(kv => pendingParts.Contains(kv.Key)).ToList()) { pendingParts.Remove(kv.Key); pendingParts.Add(kv.Value); }
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
@@ -945,10 +879,10 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
-        // Adds "name" (or "name_L" and "name_R" for "name_{s}") as rows waiting for a blendshape, and opens the first.
+        // Adds "name" as a row waiting for a blendshape, and opens its list.
         internal void AddPendingPart(string written)
         {
-            var parts = written.EndsWith("_{s}") ? new[] { written.Replace("_{s}", "_L"), written.Replace("_{s}", "_R") } : new[] { written };
+            var parts = new[] { written };
             foreach (var p in parts) pendingParts.Add(p);
             partFilter = "";
             openPickerFor = parts[0];
@@ -1105,7 +1039,7 @@ namespace Kmnk.FaceTrackingGenerator
             Help("help.inputs");
             var device = deviceIndex == 0 ? null : devices[deviceIndex - 1];
             var partsOf = InputParts.Of(model);
-            foreach (var input in model.Inputs.Where(x => !x.IsDerived))
+            foreach (var input in model.Inputs)
             {
                 var (lo, hi, label, sent) = PreviewSlider(input, device);
                 var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
@@ -1117,11 +1051,27 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
             }
-            foreach (var input in model.Inputs.Where(x => x.IsDerived))
+
+            // Menu: a state chosen as the menu does; the transitions stop until None (design.md "設定エディタ").
+            var withMenu = model.StateMachines.Where(sm => sm.MenuStates.Any()).ToList();
+            if (withMenu.Count > 0)
             {
-                var v = input.Average.Average(s => inputs.TryGetValue(s, out var x) ? x : 0f);
-                var (lo, hi, label, _) = PreviewSlider(input, device);
-                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.Slider(new GUIContent(label + " (average)", ParameterHelp.Tooltip(model, input)), v, lo, hi);
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField("Menu", EditorStyles.boldLabel);
+                Help("help.previewMenu");
+                foreach (var sm in withMenu)
+                {
+                    var options = new List<string> { "None" };
+                    options.AddRange(sm.MenuStates.Select(x => x.Name));
+                    var index = switches.Pinned.TryGetValue(sm.Name, out var pin) ? options.IndexOf(pin) : 0;
+                    EditorGUI.BeginChangeCheck();
+                    index = EditorGUILayout.Popup(sm.Name, Math.Max(0, index), options.ToArray());
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        switches.Choose(sm.Name, index == 0 ? null : options[index]);
+                        changed = true;
+                    }
+                }
             }
             if (device != null)
             {
@@ -1140,7 +1090,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (changed && preview.Running) ApplyPreview(states);
 
             // Overlaps under the sliders, so that a warning that comes and goes does not move the slider in use.
-            foreach (var o in Overlaps.Find(CurveEval.EvaluateParts(model, inputs, states)))
+            foreach (var o in Overlaps.Find(FaceEval.EvaluateParts(model, inputs, states)))
             {
                 EditorGUILayout.HelpBox(Overlaps.Message(o, usage), MessageType.Warning);
                 foreach (var (part, _) in o.Parts)
@@ -1180,9 +1130,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var (mesh, shape) = FacePreview.Split(row.Key);
                 var name = mesh == model.DefaultMesh ? shape : row.Key;
                 if (notOnAvatar.Contains(row.Key)) name += " " + EditorText.Get("msg.notOnAvatar");
-                var sourceInputs = model.Parts.Where(p => p.Value.Mesh + "/" + p.Value.Shape == row.Key)
-                    .SelectMany(p => usage.TryGetValue(p.Key, out var u) ? u.Inputs : new List<string>()).Distinct().ToList();
-                var source = sourceInputs.Count > 0 ? string.Join(", ", sourceInputs.Select(PartUsage.Source)) : string.Join(", ", row.From);
+                var source = string.Join(", ", row.From);
                 var old = GUI.contentColor;
                 if (notOnAvatar.Contains(row.Key)) GUI.contentColor = Color.gray;
                 else if (row.Amount > 100) GUI.contentColor = new Color(1f, 0.42f, 0.42f);
@@ -1196,41 +1144,25 @@ namespace Kmnk.FaceTrackingGenerator
                 RowBackground(i++);
             }
 
-            // Switching expressions (folded)
-            if (model.Switches.Count > 0)
+            // The states now (folded)
+            if (model.StateMachines.Count > 0)
             {
                 EditorGUILayout.Space(6);
                 showSwitches = EditorGUILayout.Foldout(showSwitches, EditorText.Heading("switches.title"), true, EditorStyles.foldoutHeader);
+                if (showSwitches) Help("help.switches");
                 if (showSwitches)
-                {
-                    Help("help.switches");
-                    var switchChanged = false;
-                    foreach (var sw in model.Switches)
+                    foreach (var sm in model.StateMachines)
                     {
-                        var options = new List<string> { string.Format(EditorText.Get("switches.auto"), switches.Current(sw.Name) ?? sw.States[0]) };
-                        options.AddRange(sw.States);
-                        var index = switches.Pinned.TryGetValue(sw.Name, out var pin) ? sw.States.IndexOf(pin) + 1 : 0;
-                        EditorGUI.BeginChangeCheck();
-                        index = EditorGUILayout.Popup(sw.Name, index, options.ToArray());
-                        if (EditorGUI.EndChangeCheck())
-                        {
-                            if (index == 0) switches.Pinned.Remove(sw.Name); else switches.Pinned[sw.Name] = sw.States[index - 1];
-                            switchChanged = true;
-                        }
+                        var byMenu = switches.Pinned.ContainsKey(sm.Name);
+                        var now = states.TryGetValue(sm.Name, out var st) ? st : sm.States[0].Name;
+                        EditorGUILayout.LabelField($"{sm.Name}: {now}  " + EditorText.Get(byMenu ? "switches.byMenu" : "switches.byValue"));
                     }
-                    if (switchChanged)
-                    {
-                        states = switches.Update(model, inputs);
-                        if (preview.Running) ApplyPreview(states);
-                        Repaint();
-                    }
-                }
             }
             EditorGUILayout.Space(6);
             EditorGUILayout.HelpBox(EditorText.Get("note.preview"), MessageType.Info);
         }
 
-        // The slider range: thresholds and positions that use the input, also through averages of it.
+        // The slider range: the values the transitions compare the input with (0 to 1 at least).
         (float, float) SliderRange(string input) => Devices.ThresholdRange(model, input);
 
         // A slider of the preview: the thresholds' range fitted to what the device sends (design.md "Preview").
@@ -1248,421 +1180,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (model == null || !preview.Running) return;
             states = states ?? switches.Update(model, inputs);
-            var weights = CurveEval.Evaluate(model, inputs, states);
+            var weights = FaceEval.Evaluate(model, inputs, states);
             notOnAvatar = preview.Apply(model, weights);
             nothingApplied = FacePreview.Targets(model, weights).All(notOnAvatar.Contains);
             FaceView.Show(model, Prefab(), weights, "Preview");
-        }
-
-        // ---- Tuning tab
-
-        static readonly Color[] CurveColors =
-        {
-            new Color(0.31f, 0.64f, 1f), new Color(1f, 0.63f, 0.25f), new Color(0.4f, 0.8f, 0.4f), new Color(0.75f, 0.5f, 1f),
-            new Color(1f, 0.45f, 0.55f), new Color(0.35f, 0.85f, 0.85f),
-        };
-
-        void DrawTuningTab()
-        {
-            if (model == null) return;
-            var expression = doc.Json(TableDocument.Expression);
-            var trees = Tuning.Trees(expression);
-            var allNames = Tuning.AllPartNames(doc.Json(TableDocument.Avatar), expression);
-
-            var selectedOnly = captureShowSelected ?? EditorPrefs.GetBool(ShowSelectedPrefKey, false);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Label("Show", GUILayout.ExpandWidth(false));
-                EditorGUI.BeginChangeCheck();
-                var pick = GUILayout.Toolbar(selectedOnly ? 1 : 0, new[] { "All", "Selected" }, GUILayout.Width(140));
-                if (EditorGUI.EndChangeCheck()) { captureShowSelected = null; EditorPrefs.SetBool(ShowSelectedPrefKey, pick == 1); selectedOnly = pick == 1; }
-            }
-            EditorGUILayout.Space(4);
-            if (selectedOnly) { DrawTuningSelected(expression, trees, allNames); return; }
-
-            EditorGUILayout.LabelField("Expressions", EditorStyles.boldLabel);
-            Help("help.thresholds");
-            var shown = trees.Where(t => t.Nodes.Count > 0 || t.Has2D || t.Switches.Count > 0).ToList();
-            if (shown.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.no1d"), EditorStyles.wordWrappedLabel);
-            var firstNode = true;
-            foreach (var t in shown)
-            {
-                tuneOpen.TryGetValue(t.Name, out var open);
-                if (!tuneOpen.ContainsKey(t.Name)) open = t == shown[0];
-                tuneOpen[t.Name] = open = EditorGUILayout.Foldout(open, Tuning.TreeTitle(t), true, EditorStyles.foldoutHeader);
-                ScrollMark(t.Name);
-                if (!open) { firstNode = false; continue; }
-                EditorGUI.indentLevel++;
-                for (int i = 0; i < t.Nodes.Count; i++)
-                {
-                    var key = t.Name + "/" + i;
-                    if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
-                    firstNode = false;
-                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], new GUIContent(Tuning.NodeTitle(t.Nodes[i]), NodeInputTooltip(t, t.Nodes[i].Input)), true);
-                    ScrollMark(key);
-                    if (tuneOpen[key]) DrawTuningNode(t, i, key, allNames);
-                }
-                for (int k = 0; k < t.Nodes2D.Count; k++) DrawTuningNode2D(t, k, allNames);
-                for (int k = 0; k < t.Switches.Count; k++)
-                {
-                    var key = $"{t.Name}/sw/{k}";
-                    if (!tuneOpen.ContainsKey(key)) tuneOpen[key] = firstNode;
-                    firstNode = false;
-                    tuneOpen[key] = EditorGUILayout.Foldout(tuneOpen[key], Tuning.SwitchTitle(t.Switches[k]), true);
-                    ScrollMark(key);
-                    if (tuneOpen[key]) DrawTuningNodeSwitch(t, k, allNames);
-                }
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.Space(6);
-            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
-            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
-            EditorGUILayout.Space(4);
-
-            EditorGUILayout.LabelField("Smoothing", EditorStyles.boldLabel);
-            Help("help.smoothing");
-            var smoothings = Tuning.Smoothings(doc.Json(TableDocument.Input));
-            if (smoothings.Count == 0) EditorGUILayout.LabelField(EditorText.Get("tune.noSmoothing"));
-            foreach (var (name, def) in smoothings)
-            {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    GUILayout.Label(name, EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
-                    SideNote(Tuning.Uses(model.Inputs.Where(x => x.Smoothing == name).Select(x => x.Name)), 0);
-                }
-                EditorGUI.indentLevel++;
-                foreach (var local in new[] { true, false })
-                {
-                    var field = local ? "localTau" : "remoteTau";
-                    var ms = Tuning.Ms(def[field]?.Value<float>() ?? 0);
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        EditorGUI.BeginChangeCheck();
-                        var v = EditorGUILayout.DelayedIntField(EditorText.Get(local ? "tune.local" : "tune.remote"), ms, GUILayout.Width(260));
-                        GUILayout.Label("ms", GUILayout.ExpandWidth(false));
-                        if (EditorGUI.EndChangeCheck() && v != ms)
-                        {
-                            var n = name; var l = local;
-                            Edit(TableDocument.Input, "Set FT smoothing", j => Tuning.SetMs(Tuning.Smoothings(j).First(x => x.name == n).def, l, v));
-                        }
-                    }
-                }
-                var syncNote = EditorText.Help("help.syncDelay");
-                if (syncNote != null) PartsLine(syncNote);
-                EditorGUI.indentLevel--;
-            }
-            DrawSwitchList(expression);
-        }
-
-        bool? captureShowSelected;  // set by TableEditorChecks.Capture instead of the saved choice
-        readonly HashSet<string> switchOpen = new HashSet<string>();
-
-        // Show: All, at the bottom: every switch in the table, with its users; open one to edit it; unused ones can go.
-        void DrawSwitchList(JObject expression)
-        {
-            EditorGUILayout.Space(6);
-            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
-            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Switches", EditorStyles.boldLabel);
-            Help("help.switches");
-            var ja = EditorText.Current == EditorText.Language.Japanese;
-            foreach (var name in SwitchEdit.Written(expression))
-            {
-                var users = SwitchEdit.Users(expression, name);
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    var title = ExpressionGraph.InputText(name);
-                    var titleWidth = EditorStyles.foldout.CalcSize(new GUIContent(title)).x + 16;
-                    var foldRect = GUILayoutUtility.GetRect(titleWidth, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(false));
-                    var open = EditorGUI.Foldout(foldRect, switchOpen.Contains(name), title, true);
-                    if (open) switchOpen.Add(name); else switchOpen.Remove(name);
-                    GUILayout.Label(users.Count > 0 ? string.Format(EditorText.Get("inputs.usedBy"), string.Join(ja ? "・" : ", ", users)) : EditorText.Get("switch.unused"), PartsStyle, GUILayout.ExpandWidth(false));
-                    GUILayout.FlexibleSpace();
-                    if (TrashButton(users.Count > 0, EditorText.Get("switch.cannotRemove")))
-                        {
-                            var n = name;
-                            EditExpression("Set FT switch", e => SwitchEdit.Remove(e, n));
-                            GUIUtility.ExitGUI();
-                        }
-                }
-                if (switchOpen.Contains(name))
-                {
-                    EditorGUI.indentLevel++;
-                    DrawSwitchPanel(expression, name, null);
-                    EditorGUI.indentLevel--;
-                    EditorGUILayout.Space(4);
-                }
-            }
-            if (GUILayout.Button("+ New Switch", GUILayout.ExpandWidth(false)))
-            {
-                var first = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, null).FirstOrDefault();
-                var made = EditExpression("Set FT switch", e => SwitchEdit.NewSwitch(e, false, first));
-                if (made != null) switchOpen.Add(made);
-                GUIUtility.ExitGUI();
-            }
-        }
-
-        // Show: Selected. Only the node of the box selected in the expression graph, under the path to it.
-        void DrawTuningSelected(JObject expression, List<Tuning.Tree> trees, ICollection<string> allNames)
-        {
-            var pathText = graphTree != null ? ExpressionGraph.PathText(expression, graphTree, graphPath) : null;
-            if (pathText == null)
-            {
-                EditorGUILayout.LabelField(EditorText.Get("tune.selectBox"), EditorStyles.wordWrappedLabel);
-                if (GUILayout.Button("Open Expression Graph", GUILayout.ExpandWidth(false))) ExpressionGraphWindow.Open();
-                return;
-            }
-            EditorGUILayout.LabelField(pathText, EditorStyles.boldLabel);
-            var box = ExpressionGraph.Build(expression, graphTree).FirstOrDefault(b => b.Path == graphPath);
-            var t = trees.FirstOrDefault(x => x.Name == graphTree);
-            if (box != null && box.Kind == "switch")
-            {
-                // The states' face movements of this box, then the switch itself (shared by the expressions that use it).
-                var swAt = box.TuningKey?.IndexOf("/sw/", StringComparison.Ordinal) ?? -1;
-                if (t != null && swAt >= 0 && int.TryParse(box.TuningKey.Substring(swAt + 4), out var sk) && sk < t.Switches.Count)
-                {
-                    EditorGUI.indentLevel++;
-                    EditorGUILayout.Foldout(true, Tuning.SwitchTitle(t.Switches[sk]), true);  // always open here
-                    DrawTuningNodeSwitch(t, sk, allNames);
-                    EditorGUI.indentLevel--;
-                    SeparatorLine();
-                }
-                DrawSwitchPanel(expression, ExpressionGraph.Find(expression, graphTree, graphPath) is JObject swBox ? ExpressionSyntax.SwitchOf(swBox) : null, graphTree);
-                return;
-            }
-            if (box == null || t == null || box.TuningKey == null) return;
-            var key = box.TuningKey;
-            var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
-            EditorGUI.indentLevel++;
-            if (at2d >= 0 && int.TryParse(key.Substring(at2d + 4), out var k) && k < t.Nodes2D.Count) DrawTuningNode2D(t, k, allNames);
-            else if (int.TryParse(key.Substring(key.LastIndexOf('/') + 1), out var i) && i < t.Nodes.Count)
-            {
-                EditorGUILayout.Foldout(true, new GUIContent(Tuning.NodeTitle(t.Nodes[i]), NodeInputTooltip(t, t.Nodes[i].Input)), true);  // always open here
-                tuneOpen[key] = true;
-                DrawTuningNode(t, i, key, allNames);
-            }
-            EditorGUI.indentLevel--;
-        }
-
-        // The switch of the selected switch box, or of a row of Switches: its name, states and transitions (SwitchEdit).
-        void DrawSwitchPanel(JObject expression, string reference, string tree)
-        {
-            if (reference == null || SwitchEdit.Defs(expression, reference).Count == 0) return;
-            const string undo = "Set FT switch";
-            var ja = EditorText.Current == EditorText.Language.Japanese;
-            EditorGUI.BeginChangeCheck();
-            var name = EditorGUILayout.DelayedTextField("Switch", Tuning.Label(reference));
-            if (EditorGUI.EndChangeCheck() && name != Tuning.Label(reference))
-            {
-                if (SwitchEdit.CanRename(expression, reference, name))
-                {
-                    var newRef = name.Trim() + (reference.Contains("{side}") ? "{side}" : "");
-                    EditExpression(undo, e => SwitchEdit.Rename(e, reference, name));
-                    reference = newRef;
-                }
-                GUIUtility.ExitGUI();
-            }
-            var users = SwitchEdit.Users(expression, reference);
-            var note = EditorText.Help("tune.switchNote");
-            if (note != null) PartsLine(string.Format(note, string.Join(ja ? "・" : ", ", users)));
-
-            var states = SwitchEdit.States(expression, reference);
-            EditorGUILayout.LabelField("States", EditorStyles.miniBoldLabel);
-            for (int i = 0; i < states.Count; i++)
-            {
-                var st = states[i];
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var v = EditorGUILayout.DelayedTextField(st, GUILayout.Width(200));
-                    if (EditorGUI.EndChangeCheck() && v != st) { EditExpression(undo, e => SwitchEdit.RenameState(e, reference, st, v)); GUIUtility.ExitGUI(); }
-                    if (i == 0) GUILayout.Label("(default)", PartsStyle, GUILayout.ExpandWidth(false));
-                    GUILayout.FlexibleSpace();
-                    using (new EditorGUI.DisabledScope(states.Count <= 2))
-                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
-                        { EditExpression(undo, e => SwitchEdit.RemoveState(e, reference, st)); GUIUtility.ExitGUI(); }
-                }
-            }
-            if (GUILayout.Button("+ Add State", GUILayout.ExpandWidth(false))) { EditExpression(undo, e => SwitchEdit.AddState(e, reference)); GUIUtility.ExitGUI(); }
-
-            // Stopped Expressions: per state, the expressions that add nothing while the switch is in it (SwitchEdit.Stops).
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Stopped Expressions", EditorStyles.miniBoldLabel);
-            var stopsNote = EditorText.Help("tune.switchStops");
-            if (stopsNote != null) PartsLine(stopsNote);
-            foreach (var (st, stopped) in SwitchEdit.Stops(expression, reference))
-            {
-                var state = st;
-                for (int k = 0; k <= stopped.Count; k++)
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Space(EditorGUI.indentLevel * 15);
-                        GUILayout.Label(k == 0 ? state : "", PartsStyle, GUILayout.Width(100));
-                        if (k < stopped.Count)
-                        {
-                            var tr = stopped[k];
-                            GUILayout.Label(SwitchEdit.StopLabel(tr), GUILayout.MinWidth(0), GUILayout.ExpandWidth(true));
-                            if (GUILayout.Button("\u00D7", EditorStyles.miniButton, GUILayout.Width(20)))
-                            { EditExpression(undo, e => SwitchEdit.RemoveStop(e, reference, state, tr)); GUIUtility.ExitGUI(); }
-                            continue;
-                        }
-                        var choices = SwitchEdit.StopChoices(expression, reference, state);
-                        using (new EditorGUI.DisabledScope(choices.Count == 0))
-                            if (EditorGUILayout.DropdownButton(new GUIContent("+ Add Expression"), FocusType.Passive, GUILayout.ExpandWidth(false)))
-                            {
-                                var menu = new GenericMenu();
-                                foreach (var c in choices)
-                                {
-                                    var pick = c;
-                                    menu.AddItem(new GUIContent(SwitchEdit.StopLabel(pick)), false, () => EditExpression(undo, e => SwitchEdit.AddStop(e, reference, state, pick)));
-                                }
-                                menu.DropDown(GUILayoutUtility.GetLastRect());
-                            }
-                        GUILayout.FlexibleSpace();
-                    }
-            }
-
-            var inputs = ExpressionGraph.SplitInputs(doc.Json(TableDocument.Input), expression, tree, reference.Contains("{side}"));
-            var inputTexts = inputs.Select(ExpressionGraph.InputText).ToArray();
-            var stateArray = states.ToArray();
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Transitions", EditorStyles.miniBoldLabel);
-            var view = SwitchEdit.View(expression, reference);
-            for (int i = 0; i < view.Count; i++)
-            {
-                var tr = view[i];
-                var ti = i;
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        EditorGUI.BeginChangeCheck();
-                        var from = EditorGUILayout.Popup(Math.Max(0, states.IndexOf(tr.From)), stateArray, GUILayout.Width(100));
-                        GUILayout.Label("\u2192", GUILayout.ExpandWidth(false));
-                        var to = EditorGUILayout.Popup(Math.Max(0, states.IndexOf(tr.To)), stateArray, GUILayout.Width(100));
-                        GUILayout.FlexibleSpace();
-                        GUILayout.Label("Duration", GUILayout.ExpandWidth(false));
-                        var dur = EditorGUILayout.DelayedFloatField((float)tr.Duration, GUILayout.Width(50));
-                        GUILayout.Label("s", GUILayout.ExpandWidth(false));
-                        if (EditorGUI.EndChangeCheck())
-                            EditExpression(undo, e => { SwitchEdit.SetTransition(e, reference, ti, stateArray[from], stateArray[to], Math.Max(0, Math.Round(dur, 3))); return true; });
-                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
-                        { EditExpression(undo, e => { SwitchEdit.RemoveTransition(e, reference, ti); return true; }); GUIUtility.ExitGUI(); }
-                    }
-                    for (int j = 0; j < tr.When.Count; j++)
-                    {
-                        var (input, op, value) = tr.When[j];
-                        var cj = j;
-                        using (new EditorGUILayout.HorizontalScope())
-                        {
-                            GUILayout.Space(16);
-                            var choices = inputs.Contains(input) ? inputTexts : inputTexts.Concat(new[] { ExpressionGraph.InputText(input) }).ToArray();
-                            var names = inputs.Contains(input) ? inputs : inputs.Concat(new[] { input }).ToList();
-                            EditorGUI.BeginChangeCheck();
-                            var ii = EditorGUILayout.Popup(names.IndexOf(input), choices, GUILayout.Width(170));
-                            var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
-                            var vv = EditorGUILayout.DelayedFloatField((float)value, GUILayout.Width(60));
-                            if (EditorGUI.EndChangeCheck())
-                                EditExpression(undo, e => { SwitchEdit.SetCondition(e, reference, ti, cj, names[ii], oi == 1 ? "<" : ">", Math.Round(vv, 3)); return true; });
-                            using (new EditorGUI.DisabledScope(tr.When.Count <= 1))
-                                if (GUILayout.Button("\u00D7", EditorStyles.miniButton, GUILayout.Width(20)))
-                                { EditExpression(undo, e => SwitchEdit.RemoveCondition(e, reference, ti, cj)); GUIUtility.ExitGUI(); }
-                        }
-                    }
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Space(16);
-                        if (GUILayout.Button("+ Add Condition", GUILayout.ExpandWidth(false)) && inputs.Count > 0)
-                        { EditExpression(undo, e => { SwitchEdit.AddCondition(e, reference, ti, inputs[0]); return true; }); GUIUtility.ExitGUI(); }
-                    }
-                }
-            }
-            if (GUILayout.Button("+ Add Transition", GUILayout.ExpandWidth(false)) && inputs.Count > 0)
-            { EditExpression(undo, e => { SwitchEdit.AddTransition(e, reference, inputs[0]); return true; }); GUIUtility.ExitGUI(); }
-        }
-
-        // Edits the expression table at a tree found again by name (the trees are made again after each edit).
-        void EditTree(string undoName, string tree, Action<Tuning.Tree> edit) =>
-            Edit(TableDocument.Expression, undoName, e => edit(Tuning.Trees(e).First(x => x.Name == tree)));
-
-        void DrawTuningNode(Tuning.Tree t, int index, string key, ICollection<string> allNames)
-        {
-            var n = t.Nodes[index];
-            var (lo, hi) = Tuning.InputRange(n);
-            var name = t.Name;
-
-            // Graph: amount of each face movement (0-100) along the input, positions as dotted lines, the try value as a line.
-            var rect = EditorGUI.IndentedRect(GUILayoutUtility.GetRect(100, 104, GUILayout.ExpandWidth(true)));
-            tuneTry.TryGetValue(key, out var tryValue);
-            if (Event.current.type == EventType.Repaint) DrawTuningGraph(rect, n, lo, hi, tryValue);
-
-            DrawAllPositions(t, n.Node, key, allNames, x => x.Nodes[index].Node);
-            var own1 = ExpressionSyntax.OwnParts(n.Node).Keys.ToList();
-            for (int i = 0; i < n.Children.Count; i++)
-            {
-                var (plo, phi) = Tuning.PositionRange(n, i);
-                var j = i;
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var v = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.position"), i + 1), n.Position(i), plo, phi);
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        tuneShown = key;
-                        EditTree("Set FT position", name, x => Tuning.SetPosition(x.Nodes[index], j, v));
-                    }
-                    using (new EditorGUI.DisabledScope(!Tuning.CanRemovePosition(n)))
-                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
-                        {
-                            tuneShown = key;
-                            EditTree("Remove FT position", name, x => Tuning.RemovePosition(x.Nodes[index], j));
-                            GUIUtility.ExitGUI();
-                        }
-                }
-                DrawPose(t, n.Child(i), key, allNames, (x, edit) => edit(Tuning.PoseObject(x.Nodes[index].Children, j)), own1);
-            }
-
-            EditorGUI.BeginChangeCheck();
-            var tv = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.Input)), tryValue, lo, hi);
-            if (EditorGUI.EndChangeCheck())
-            {
-                tuneTry[key] = (float)Math.Round(tv, 2);
-                ShowTuning(key);
-            }
-            var note = EditorText.Help("help.tuneTry");
-            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(EditorGUI.indentLevel * 15);
-                using (new EditorGUI.DisabledScope(!Tuning.CanAddPosition(n, tryValue)))
-                    if (GUILayout.Button(string.Format(EditorText.Get("tune.addPosition"), tryValue.ToString("0.##")), GUILayout.ExpandWidth(false)))
-                    {
-                        var x0 = tryValue;
-                        tuneShown = key;
-                        EditTree("Add FT position", name, x => Tuning.AddPosition(x.Nodes[index], x0));
-                        GUIUtility.ExitGUI();
-                    }
-            }
-            EditorGUILayout.Space(4);
-        }
-
-        // The states of a switch node with poses: per state its name, then its face movements (as at a 1D position).
-        void DrawTuningNodeSwitch(Tuning.Tree t, int k, ICollection<string> allNames)
-        {
-            var n = t.Switches[k];
-            var key = $"{t.Name}/sw/{k}";
-            EditorGUI.indentLevel++;
-            Help("help.switchPoses");
-            for (int i = 0; i < n.States.Count; i++)
-            {
-                var state = n.States[i];
-                EditorGUILayout.LabelField(i == 0 ? state + " (default)" : state);
-                DrawPose(t, n.Case(state), key + "/" + state, allNames, (tree, edit) => edit(Tuning.CasePose(tree.Switches[k], state)));
-            }
-            EditorGUI.indentLevel--;
-            EditorGUILayout.Space(4);
         }
 
         static void SeparatorLine()
@@ -1694,362 +1215,6 @@ namespace Kmnk.FaceTrackingGenerator
             return icon?.image != null ? new GUIContent(icon.image, EditorText.Get("tip.removePosition")) : new GUIContent("Del", EditorText.Get("tip.removePosition"));
         }
 
-        readonly Dictionary<string, Vector2> tuneTry2D = new Dictionary<string, Vector2>();
-
-        void DrawTuningNode2D(Tuning.Tree t, int k, ICollection<string> allNames)
-        {
-            var n = t.Nodes2D[k];
-            var name = t.Name;
-            var key = $"{t.Name}/2d/{k}";
-            var (rx, ry) = Tuning.InputRange(n);
-            if (t.Nodes2D.Count > 1 || t.Nodes.Count > 0) EditorGUILayout.LabelField(Tuning.Label(n.InputX) + " × " + Tuning.Label(n.InputY), EditorStyles.miniBoldLabel);
-            ScrollMark(key);
-            PartsLine(string.Format(EditorText.Get("tune.2d"), Tuning.Label(n.InputX), Tuning.Label(n.InputY)));
-            tuneTry2D.TryGetValue(key, out var tryPoint);
-
-            // Square graph: positions as numbered points, Try as a ring. Click or drag inside to move Try.
-            const float size = 220;
-            var area = GUILayoutUtility.GetRect(size + 60, size + 46, GUILayout.ExpandWidth(false));
-            area.x += EditorGUI.indentLevel * 15;
-            var plot = new Rect(area.x + 28, area.y + 26, size, size);
-            var e = Event.current;
-            var id = GUIUtility.GetControlID(FocusType.Passive);
-            float X(float v) => plot.x + (rx.hi > rx.lo ? (v - rx.lo) / (rx.hi - rx.lo) : 0) * plot.width;
-            float Y(float v) => plot.yMax - (ry.hi > ry.lo ? (v - ry.lo) / (ry.hi - ry.lo) : 0) * plot.height;
-            Vector2 ToValue(Vector2 m) => new Vector2(
-                (float)Math.Round(Mathf.Lerp(rx.lo, rx.hi, Mathf.Clamp01((m.x - plot.x) / plot.width)), 2),
-                (float)Math.Round(Mathf.Lerp(ry.lo, ry.hi, Mathf.Clamp01((plot.yMax - m.y) / plot.height)), 2));
-            switch (e.GetTypeForControl(id))
-            {
-                case EventType.MouseDown when e.button == 0 && plot.Contains(e.mousePosition):
-                    GUIUtility.hotControl = id;
-                    tuneTry2D[key] = tryPoint = ToValue(e.mousePosition);
-                    ShowTuning(key); e.Use();
-                    break;
-                case EventType.MouseDrag when GUIUtility.hotControl == id:
-                    tuneTry2D[key] = tryPoint = ToValue(e.mousePosition);
-                    ShowTuning(key); e.Use();
-                    break;
-                case EventType.MouseUp when GUIUtility.hotControl == id:
-                    GUIUtility.hotControl = 0; e.Use();
-                    break;
-                case EventType.Repaint:
-                    DrawGraph2D(plot, n, rx, ry, tryPoint, X, Y);
-                    break;
-            }
-
-            // Try
-            EditorGUI.BeginChangeCheck();
-            var tx = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.InputX)), tryPoint.x, rx.lo, rx.hi);
-            var ty = EditorGUILayout.Slider(string.Format(EditorText.Get("tune.try"), Tuning.Label(n.InputY)), tryPoint.y, ry.lo, ry.hi);
-            if (EditorGUI.EndChangeCheck())
-            {
-                tuneTry2D[key] = tryPoint = new Vector2((float)Math.Round(tx, 2), (float)Math.Round(ty, 2));
-                ShowTuning(key);
-            }
-            var note = EditorText.Help("help.tuneTry");
-            if (note != null) { EditorGUI.indentLevel++; PartsLine(note); EditorGUI.indentLevel--; }
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(EditorGUI.indentLevel * 15);
-                using (new EditorGUI.DisabledScope(!Tuning.CanAddPosition2D(n, tryPoint.x, tryPoint.y)))
-                    if (GUILayout.Button(string.Format(EditorText.Get("tune.addPosition"), $"{tryPoint.x:0.##}, {tryPoint.y:0.##}"), GUILayout.ExpandWidth(false)))
-                    {
-                        var p0 = tryPoint;
-                        EditTreeAndShow("Add FT position", name, key, x => Tuning.AddPosition2D(x.Nodes2D[k], p0.x, p0.y));
-                        GUIUtility.ExitGUI();
-                    }
-            }
-
-            DrawAllPositions(t, n.Node, key, allNames, x => x.Nodes2D[k].Node);
-            var own2 = ExpressionSyntax.OwnParts(n.Node).Keys.ToList();
-
-            // Positions
-            for (int i = 0; i < n.Children.Count; i++)
-            {
-                var (px, py) = n.Position(i);
-                var j = i;
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.LabelField(string.Format(EditorText.Get("tune.position"), i + 1));
-                    GUILayout.FlexibleSpace();
-                    EditorGUI.BeginChangeCheck();
-                    var lw = EditorGUIUtility.labelWidth;
-                    EditorGUIUtility.labelWidth = 14;
-                    var indent = EditorGUI.indentLevel;
-                    EditorGUI.indentLevel = 0;
-                    var nx = EditorGUILayout.DelayedFloatField("X", px, GUILayout.Width(74));
-                    var ny = EditorGUILayout.DelayedFloatField("Y", py, GUILayout.Width(74));
-                    EditorGUI.indentLevel = indent;
-                    EditorGUIUtility.labelWidth = lw;
-                    if (EditorGUI.EndChangeCheck())
-                        EditTreeAndShow("Set FT position", name, key + "/" + j, x => Tuning.SetPosition2D(x.Nodes2D[k], j, nx, ny));
-                    using (new EditorGUI.DisabledScope(!Tuning.CanRemovePosition2D(n)))
-                        if (GUILayout.Button(TrashContent(), TrashStyle, GUILayout.Width(20), GUILayout.Height(18)))
-                        {
-                            EditTreeAndShow("Remove FT position", name, key, x => Tuning.RemovePosition2D(x.Nodes2D[k], j));
-                            GUIUtility.ExitGUI();
-                        }
-                }
-                DrawPose(t, n.Child(i), key + "/" + i, allNames, (tree, edit) => edit(Tuning.PoseObject(tree.Nodes2D[k].Children, j)), own2);
-            }
-            EditorGUILayout.Space(4);
-        }
-
-        void DrawGraph2D(Rect plot, Tuning.Blend2D n, (float lo, float hi) rx, (float lo, float hi) ry, Vector2 tryPoint, Func<float, float> X, Func<float, float> Y)
-        {
-            var pro = EditorGUIUtility.isProSkin;
-            EditorGUI.DrawRect(plot, pro ? new Color(0.165f, 0.165f, 0.165f) : new Color(0.85f, 0.85f, 0.85f));
-            var label = new GUIStyle(EditorStyles.miniLabel);
-            label.normal.textColor = pro ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
-            Handles.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            if (rx.lo < 0 && rx.hi > 0) Handles.DrawLine(new Vector3(X(0), plot.y), new Vector3(X(0), plot.yMax));
-            if (ry.lo < 0 && ry.hi > 0) Handles.DrawLine(new Vector3(plot.x, Y(0)), new Vector3(plot.xMax, Y(0)));
-            Handles.DrawLine(new Vector3(plot.x, plot.yMax), new Vector3(plot.xMax, plot.yMax));
-            Handles.DrawLine(new Vector3(plot.x, plot.y), new Vector3(plot.x, plot.yMax));
-            var center = new GUIStyle(label) { alignment = TextAnchor.UpperCenter };
-            foreach (var v in new[] { rx.lo, 0f, rx.hi }.Distinct().Where(v => v >= rx.lo && v <= rx.hi))
-                GUI.Label(new Rect(X(v) - 14, plot.yMax + 1, 28, 14), v.ToString("0.##"), center);
-            GUI.Label(new Rect(plot.x, plot.yMax + 13, plot.width, 14), Tuning.Label(n.InputX), center);
-            var right = new GUIStyle(label) { alignment = TextAnchor.MiddleRight };
-            foreach (var v in new[] { ry.lo, 0f, ry.hi }.Distinct().Where(v => v >= ry.lo && v <= ry.hi))
-                GUI.Label(new Rect(plot.x - 28, Y(v) - 7, 25, 14), v.ToString("0.##"), right);
-            GUI.Label(new Rect(plot.x - 28, plot.y - 26, 120, 14), Tuning.Label(n.InputY), label);
-            for (int i = 0; i < n.Children.Count; i++)
-            {
-                var (px, py) = n.Position(i);
-                var c = new Vector2(X(px), Y(py));
-                Handles.color = new Color(0.82f, 0.82f, 0.82f);
-                Handles.DrawSolidDisc(c, Vector3.forward, 4);
-                GUI.Label(new Rect(c.x + 5, c.y - 15, 20, 14), (i + 1).ToString(), label);
-            }
-            var t = new Vector2(X(tryPoint.x), Y(tryPoint.y));
-            Handles.color = pro ? Color.white : Color.black;
-            Handles.DrawWireDisc(t, Vector3.forward, 6);
-            Handles.DrawLine(new Vector3(t.x - 4, t.y), new Vector3(t.x + 4, t.y));
-            Handles.DrawLine(new Vector3(t.x, t.y - 4), new Vector3(t.x, t.y + 4));
-        }
-
-        // The face movement rows of a position, and "+ Add face movement". locate finds the pose again in a tree made
-        // after the edit and passes it to an edit.
-        void DrawPose(Tuning.Tree t, JToken child, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate,
-                      ICollection<string> hidden = null)
-        {
-            EditorGUI.indentLevel++;
-            var pose = ExpressionSyntax.Pose(child);
-            if (pose == null) { PartsLine(Tuning.ChildText(child)); EditorGUI.indentLevel--; return; }
-            if (pose.Count == 0) PartsLine(Tuning.ChildText(child));
-            DrawPartRows(t, pose, showKey, allNames, locate, hidden, null, null);
-            EditorGUI.indentLevel--;
-        }
-
-        // The face movements of a 1D or 2D node itself (All positions), above its positions. nodeOf finds the node again
-        // in a tree made after the edit.
-        void DrawAllPositions(Tuning.Tree t, JObject node, string showKey, ICollection<string> allNames, Func<Tuning.Tree, JObject> nodeOf)
-        {
-            EditorGUILayout.LabelField("All positions");
-            EditorGUI.indentLevel++;
-            var note = EditorText.Help("help.allPositions");
-            if (note != null) PartsLine(note);
-            var expression = ExpressionJson;
-            var top = Tuning.SameAtEveryPosition(node)
-                .Select(kv => (label: $"Same at every position/{Tuning.Label(kv.Key)} ({Math.Round(kv.Value).ToString(System.Globalization.CultureInfo.InvariantCulture)})",
-                               edit: (Action<Tuning.Tree>)(x => Tuning.MakeAllPositions(nodeOf(x), kv.Key))))
-                .ToList();
-            DrawPartRows(t, ExpressionSyntax.OwnParts(node), showKey, allNames, (x, edit) => edit(nodeOf(x)), Tuning.PartsBelow(node),
-                part => (new GUIContent("To positions", EditorText.Get("tip.toPositions")),
-                         x => Tuning.ToPositions(nodeOf(x), part, sw => SwitchEdit.States(expression, sw))),
-                top);
-            EditorGUI.indentLevel--;
-        }
-
-        // Face movement rows (slider, amount, an optional button, ×) and "+ Add face movement". hidden: parts the menu does
-        // not offer. top: menu items before the face movements (with their group in the label).
-        void DrawPartRows(Tuning.Tree t, Dictionary<string, float> parts, string showKey, ICollection<string> allNames, Action<Tuning.Tree, Action<JObject>> locate,
-                          ICollection<string> hidden, Func<string, (GUIContent content, Action<Tuning.Tree> edit)> rowButton, List<(string label, Action<Tuning.Tree> edit)> top)
-        {
-            var name = t.Name;
-            foreach (var kv in parts)
-            {
-                var part = kv.Key;
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var v = EditorGUILayout.IntSlider(Tuning.Label(part), (int)Math.Round(kv.Value), 0, 100);
-                    if (EditorGUI.EndChangeCheck())
-                        EditTreeAndShow("Set FT amount", name, showKey, tree => locate(tree, p => Tuning.SetAmount(p, part, v)));
-                    if (rowButton != null)
-                    {
-                        var (content, edit) = rowButton(part);
-                        if (GUILayout.Button(content, EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
-                        {
-                            EditTreeAndShow("Move FT face movement", name, showKey, edit);
-                            GUIUtility.ExitGUI();
-                        }
-                    }
-                    if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removePart")), EditorStyles.miniButton, GUILayout.Width(20)))
-                    {
-                        EditTreeAndShow("Remove FT face movement", name, showKey, tree => locate(tree, p => Tuning.RemovePart(p, part)));
-                        GUIUtility.ExitGUI();
-                    }
-                }
-            }
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(EditorGUI.indentLevel * 15);
-                var content = new GUIContent("+ Add face movement");
-                if (EditorGUILayout.DropdownButton(content, FocusType.Passive, GUILayout.ExpandWidth(false)))
-                {
-                    var r = GUILayoutUtility.GetLastRect();
-                    var menu = new GenericMenu();
-                    if (top != null && top.Count > 0)
-                    {
-                        foreach (var (label, edit) in top)
-                        {
-                            var e = edit;
-                            menu.AddItem(new GUIContent(label), false, () => EditTreeAndShow("Move FT face movement", name, showKey, e));
-                        }
-                        menu.AddSeparator("");
-                    }
-                    foreach (var (label, write) in Tuning.Choices(t, allNames))
-                    {
-                        if (hidden != null && hidden.Contains(write)) continue;
-                        var dot = label.IndexOf('.');
-                        var path = (dot > 0 ? label.Substring(0, dot) + "/" : "") + label;
-                        var w = write;
-                        if (parts.ContainsKey(write)) menu.AddDisabledItem(new GUIContent(path));
-                        else menu.AddItem(new GUIContent(path), false, () => EditTreeAndShow("Add FT face movement", name, showKey, tree => locate(tree, p => Tuning.AddPart(p, w))));
-                    }
-                    if (menu.GetItemCount() > 0) menu.AddSeparator("");
-                    var pairVar = Tuning.PairVariable(t);
-                    menu.AddItem(new GUIContent("New face movement…"), false, () =>
-                        PopupWindow.Show(r, new NewPartPopup(allNames, pairVar, part => EditTreeAndShow("Add FT face movement", name, showKey, tree => locate(tree, p => Tuning.AddPart(p, part))))));
-                    menu.DropDown(r);
-                }
-            }
-        }
-
-        void EditTreeAndShow(string undoName, string tree, string showKey, Action<Tuning.Tree> edit)
-        {
-            tuneShown = showKey;
-            EditTree(undoName, tree, edit);
-            Repaint();
-        }
-
-        // How many legend items go on each row: as many as fit in the width, at least one per row.
-        static List<int> LegendRows(List<float> widths, float width)
-        {
-            var rows = new List<int>();
-            float used = 0;
-            foreach (var w in widths)
-            {
-                if (rows.Count == 0 || used + w > width) { rows.Add(1); used = w; }
-                else { rows[rows.Count - 1]++; used += w; }
-            }
-            return rows;
-        }
-
-        void DrawTuningGraph(Rect r, Tuning.Blend1D n, float lo, float hi, float tryValue)
-        {
-            var pro = EditorGUIUtility.isProSkin;
-            EditorGUI.DrawRect(r, pro ? new Color(0.165f, 0.165f, 0.165f) : new Color(0.85f, 0.85f, 0.85f));
-            var label = new GUIStyle(EditorStyles.miniLabel);
-            label.normal.textColor = pro ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.35f, 0.35f, 0.35f);
-
-            const int steps = 64;
-            var xs = Enumerable.Range(0, steps + 1).Select(k => lo + (hi - lo) * k / steps).ToArray();
-            var curves = Tuning.Curve(n, xs);
-            // The legend gets its own band above the plot (right-aligned rows, wrapped to the plot's width), so its text
-            // does not lie on the lines at 100.
-            var texts = curves.Keys.Select(Tuning.Label).ToList();
-            var widths = texts.Select(t => label.CalcSize(new GUIContent(t)).x + 14).ToList();
-            var legendRows = LegendRows(widths, r.width - 40);
-            const float legendLine = 14;
-            var plotTop = r.y + 8 + legendRows.Count * legendLine;
-            var plot = new Rect(r.x + 28, plotTop, r.width - 40, r.yMax - 16 - plotTop);
-            float X(float v) => plot.x + (hi > lo ? (v - lo) / (hi - lo) : 0) * plot.width;
-            float Y(float amount) => plot.yMax - Mathf.Clamp(amount, 0, 100) / 100f * plot.height;
-
-            Handles.color = new Color(0.5f, 0.5f, 0.5f, 0.6f);
-            Handles.DrawLine(new Vector3(plot.x, plot.yMax), new Vector3(plot.xMax, plot.yMax));
-            for (int i = 0; i < n.Children.Count; i++)
-            {
-                var x = X(n.Position(i));
-                Handles.DrawDottedLine(new Vector3(x, plot.y), new Vector3(x, plot.yMax), 3);
-            }
-            GUI.Label(new Rect(r.x + 2, plot.y - 7, 26, 14), "100", label);
-            GUI.Label(new Rect(r.x + 2, plot.yMax - 7, 26, 14), "0", label);
-            var mid = (lo + hi) / 2;
-            foreach (var v in new[] { lo, mid, hi })
-                GUI.Label(new Rect(X(v) - 14, plot.yMax + 1, 28, 14), v.ToString("0.##"), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
-
-            var c = 0;
-            foreach (var kv in curves)
-            {
-                var color = CurveColors[c % CurveColors.Length];
-                Handles.color = color;
-                Handles.DrawAAPolyLine(2f, xs.Select((x, k) => new Vector3(X(x), Y(kv.Value[k]))).ToArray());
-                c++;
-            }
-            // Legend in the order of the lines.
-            for (int row = 0, k = 0; row < legendRows.Count; row++)
-            {
-                var y = r.y + 2 + row * legendLine;
-                var legendX = plot.xMax - Enumerable.Range(k, legendRows[row]).Sum(i => widths[i]);
-                for (int end = k + legendRows[row]; k < end; k++)
-                {
-                    EditorGUI.DrawRect(new Rect(legendX, y + 3, 8, 8), CurveColors[k % CurveColors.Length]);
-                    GUI.Label(new Rect(legendX + 10, y - 2, widths[k] - 10, 14), texts[k], label);
-                    legendX += widths[k];
-                }
-            }
-            Handles.color = pro ? Color.white : Color.black;
-            var tx = X(Mathf.Clamp(tryValue, lo, hi));
-            Handles.DrawLine(new Vector3(tx, plot.y), new Vector3(tx, plot.yMax));
-        }
-
-        // Face view for the try value of a node ("<tree>/<node>"), with the other inputs at the Preview tab's values.
-        void ShowTuning(string key)
-        {
-            if (model == null || doc == null) return;
-            tuneShown = key;
-            var atSw = key.IndexOf("/sw/", StringComparison.Ordinal);
-            if (atSw >= 0)
-            {
-                // "<tree>/sw/<k>/<state>": the face with the switch held in that state. Without a state, nothing to show.
-                var rest = key.Substring(atSw + 4);
-                var cut = rest.IndexOf('/');
-                var ts = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, atSw));
-                if (ts == null || cut < 0 || !int.TryParse(rest.Substring(0, cut), out var ks) || ks >= ts.Switches.Count) return;
-                var sn = ts.Switches[ks];
-                var state = rest.Substring(cut + 1);
-                FaceView.Show(model, Prefab(), Tuning.TryWeightsSwitch(model, ts, sn, state, inputs), $"{Tuning.Label(sn.Switch)} = {state} ({Tuning.Label(ts.Name)})");
-                return;
-            }
-            var at2d = key.IndexOf("/2d/", StringComparison.Ordinal);
-            if (at2d >= 0)
-            {
-                var rest = key.Substring(at2d + 4).Split('/');
-                var t2 = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, at2d));
-                if (t2 == null || !int.TryParse(rest[0], out var k2) || k2 >= t2.Nodes2D.Count) return;
-                if (rest.Length == 1)
-                {
-                    tuneTry2D.TryGetValue(key, out var tp);
-                    FaceView.Show(model, Prefab(), Tuning.TryWeights2D(model, t2, t2.Nodes2D[k2], tp.x, tp.y, inputs), $"Try ({tp.x:0.##}, {tp.y:0.##}) ({Tuning.Label(t2.Name)})");
-                    return;
-                }
-                if (!int.TryParse(rest[1], out var c) || c >= t2.Nodes2D[k2].Children.Count) return;
-                var (px, py) = t2.Nodes2D[k2].Position(c);
-                FaceView.Show(model, Prefab(), Tuning.TryWeights2D(model, t2, t2.Nodes2D[k2], c, inputs), $"({px:0.##}, {py:0.##}) ({Tuning.Label(t2.Name)})");
-                return;
-            }
-            var k = key.LastIndexOf('/');
-            var t = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Name == key.Substring(0, k));
-            if (t == null || !int.TryParse(key.Substring(k + 1), out var i) || i >= t.Nodes.Count) return;
-            tuneTry.TryGetValue(key, out var value);
-            var weights = Tuning.TryWeights(model, t, t.Nodes[i], value, inputs);
-            FaceView.Show(model, Prefab(), weights, $"{Tuning.Label(t.Nodes[i].Input)} = {value:0.##} ({Tuning.Label(t.Name)})");
-        }
 
         // ---- TableEditorChecks.Capture
 
@@ -2076,51 +1241,13 @@ namespace Kmnk.FaceTrackingGenerator
             var chooseAvatar = CliArgs.Get("-ftChooseAvatar");
             if (chooseAvatar != null) ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
             var tabArg = CliArgs.Get("-ftTab");
-            tab = tabArg == "preview" ? 1 : tabArg == "tuning" ? 2 : tabArg == "inputs" ? 3 : 0;
-            var tuneSet = CliArgs.Get("-ftTuneSet");
-            if (tuneSet != null && doc != null)
-                foreach (var item in tuneSet.Split(';').Where(x => x.Contains("=")))
-                {
-                    var k = item.LastIndexOf('=');
-                    var key = item.Substring(0, k).Split('/');
-                    var value = float.Parse(item.Substring(k + 1), System.Globalization.CultureInfo.InvariantCulture);
-                    Edit(TableDocument.Expression, "Capture", e =>
-                    {
-                        var t = Tuning.Trees(e).First(x => x.Name == key[0]);
-                        Tuning.SetPosition(t.Nodes[int.Parse(key[1])], int.Parse(key[2]), value);
-                    });
-                }
-            var tuneOpenArg = CliArgs.Get("-ftTuneOpen");
-            // "<fold>;!<fold>": open, or close with "!"
-            if (tuneOpenArg != null) foreach (var o in tuneOpenArg.Split(';')) { if (o.StartsWith("!")) tuneOpen[o.Substring(1)] = false; else tuneOpen[o] = true; }
-            var tuneTry2DArg = CliArgs.Get("-ftTuneTry2D");
-            if (tuneTry2DArg != null && doc != null)
-            {
-                var kk = tuneTry2DArg.IndexOf('=');
-                var head = tuneTry2DArg.Substring(0, kk).Split('/');
-                var xy = tuneTry2DArg.Substring(kk + 1).Split(',');
-                var key2 = $"{head[0]}/2d/{head[1]}";
-                tuneTry2D[key2] = new Vector2(float.Parse(xy[0], System.Globalization.CultureInfo.InvariantCulture), float.Parse(xy[1], System.Globalization.CultureInfo.InvariantCulture));
-                ShowTuning(key2);
-            }
-            var tuneTryArg = CliArgs.Get("-ftTuneTry");
-            if (tuneTryArg != null && doc != null)
-            {
-                var t = Tuning.Trees(doc.Json(TableDocument.Expression)).FirstOrDefault(x => x.Nodes.Count > 0);
-                if (t != null)
-                {
-                    tuneTry[t.Name + "/0"] = float.Parse(tuneTryArg, System.Globalization.CultureInfo.InvariantCulture);
-                    ShowTuning(t.Name + "/0");
-                }
-            }
-            var tuneShowKey = CliArgs.Get("-ftTuneShowKey");  // a Tuning key to show in Face View, e.g. "<tree>/sw/<k>/<state>"
-            if (tuneShowKey != null && doc != null) ShowTuning(tuneShowKey);
+            tab = tabArg == "preview" ? 1 : tabArg == "inputs" ? 2 : 0;
             scroll.y = CliArgs.GetFloat("-ftScroll", 0);
             if (st.Contains("dirty") && doc != null)
             {
                 var a = doc.Json(TableDocument.Avatar);
-                var stop = a["stopAutoEyes"]?.Type == JTokenType.Boolean && (bool)a["stopAutoEyes"];
-                Edit("Capture", x => TableEdits.SetBool(x, "stopAutoEyes", !stop));
+                var over = a["overwriteFaceTracking"]?.Type == JTokenType.Boolean && (bool)a["overwriteFaceTracking"];
+                Edit("Capture", x => TableEdits.SetBool(x, "overwriteFaceTracking", !over));
             }
             if (st.Contains("picker"))
             {
@@ -2132,15 +1259,12 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
             captureDevice = CliArgs.Get("-ftDevice");
-            var openSw = CliArgs.Get("-ftSwitchOpen");  // "<switch>;..." open rows of Switches
-            if (openSw != null) foreach (var n in openSw.Split(';').Where(x => x != "")) switchOpen.Add(n);
             var renameArg = CliArgs.Get("-ftAvatarRename");  // "<part>=<new name>": open the rename panel with the name typed
             if (renameArg != null && renameArg.Contains("=")) { renameAt = renameArg.Substring(0, renameArg.IndexOf('=')); renameCapture = renameArg.Substring(renameArg.IndexOf('=') + 1); selectedPart = renameAt; }
             newPartCapture = CliArgs.Get("-ftAvatarNewPart");  // "<name>": open "+ Add Face Movement" with the name typed
-            var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>" or "<name>_{s}": as + Add Face Movement
+            newPartRegionCapture = CliArgs.Get("-ftAvatarNewPartIn");  // "<region>": press the + of the region's band
+            var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>": as + Add Face Movement
             if (addPart != null && doc != null) AddPendingPart(addPart);
-            var showArg = CliArgs.Get("-ftTuneShow");  // all | selected
-            if (showArg != null) captureShowSelected = showArg == "selected";
             // "-ftInputAdd <name>;...": check rows of "Not in the settings" (names as written, e.g. "BrowInnerUp{side}")
             var inputAdd = CliArgs.Get("-ftInputAdd");
             if (inputAdd != null && doc != null)
@@ -2152,6 +1276,11 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             inputSearch = CliArgs.Get("-ftInputSearch") ?? inputSearch;
             if (CliArgs.Get("-ftShowSwitches") == "1") showSwitches = true;
+            // "-ftPreviewMenu <state machine>=<state>,...": choose in the Preview's Menu
+            var menuArg = CliArgs.Get("-ftPreviewMenu");
+            if (menuArg != null)
+                foreach (var kv in menuArg.Split(',').Select(x => x.Split('=')).Where(x => x.Length == 2))
+                    switches.Choose(kv[0].Trim(), kv[1].Trim() == "None" ? null : kv[1].Trim());
             if (CliArgs.Get("-ftFaceView") == "1") FaceViewWindow.Open();
             var select = CliArgs.Get("-ftSelectPart");
             if (select != null) { selectedPart = select; ShowSelected(); }
@@ -2180,6 +1309,7 @@ namespace Kmnk.FaceTrackingGenerator
             // Opens the rename panel after the windows have their places (a popup closes when focus moves).
             if (frame == 40 && renameAt != null && renameRect.height > 0) { var p = renameAt; renameAt = null; ShowRenamePart(p, renameRect); }
             if (frame == 40 && newPartCapture != null && addPartRect.height > 0) { var n = newPartCapture; newPartCapture = null; ShowNewPart(addPartRect, n); }
+            if (frame == 40 && newPartRegionCapture != null && newPartRegionRect.height > 0) { var r = newPartRegionCapture; newPartRegionCapture = null; ShowNewPart(newPartRegionRect, null, r + "."); }
         }
 
         // For the capture of the picker: the open picker window, if any.

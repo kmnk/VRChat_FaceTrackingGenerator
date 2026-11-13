@@ -17,7 +17,7 @@ namespace Kmnk.FaceTrackingGenerator
 {
     // Plays the avatar's Playable Layers (Base, Additive, Gesture, Action, FX) in the same order as VRChat
     // in Play Mode, and writes blendshape values, layer states and weights per snapshot as JSON Lines.
-    // Not reproduced: viseme / auto eye look / auto blink blendshapes, sync (remote value steps and interval),
+    // Not reproduced: viseme / auto eye look / auto blink blendshapes (also through the Face Tracking section), sync (remote value steps and interval),
     // Base and Additive locomotion, IK. VRChat state behaviours (Animator Layer Control, Playable Layer Control,
     // Animator Tracking Control, Avatar Parameter Driver Set and Add) are run by this tool when a layer enters
     // a new state (at the start of the transition), also on layers with weight 0.
@@ -30,6 +30,10 @@ namespace Kmnk.FaceTrackingGenerator
     //   fps <n>                 frame rate (default 60). Write before scenario. -ftFps overrides it
     //   scenario <name>         re-create the avatar and reset parameters to defaults
     //   set <param> <value>     set a value (Bool 0/1, Int and Float numbers). Kept until changed
+    //                           A tracking key name (e.g. set EyeClosedLeft 1) is the key's value for the Face Tracking
+    //                           section's Blendshapes Sets, which this tool runs: weight x value x Multiplier x 100, the
+    //                           largest row per blendshape, and the larger of that and the Animator's value. The sets'
+    //                           weights follow VRC Animator Face Tracking Blendshapes Set behaviours (Value type, lerp speed).
     //   wait <seconds>          advance that many seconds
     //   frames <n>              advance n frames
     //   watch <param>           include the parameter's value in snaps
@@ -253,6 +257,10 @@ namespace Kmnk.FaceTrackingGenerator
             readonly List<string> watched = new List<string>();
             string eyes = "Tracking", mouth = "Tracking";
             int frame;
+            // The Face Tracking section's Blendshapes Sets (design.md "まねる計算"): weight now, goal and speed.
+            readonly List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet> ftSets = new List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet>();
+            readonly Dictionary<string, (float w, float goal, float speed)> setWeights = new Dictionary<string, (float, float, float)>();
+            readonly List<SkinnedMeshRenderer> ftMeshes = new List<SkinnedMeshRenderer>();
 
             public Sim(string avatarPath, string meshName, float dt, string name, bool ndmf = false)
             {
@@ -277,6 +285,12 @@ namespace Kmnk.FaceTrackingGenerator
                 }
 
                 var desc = avatar.GetComponent<VRCAvatarDescriptor>();
+                if (desc.enableFaceTracking)
+                {
+                    foreach (var fs in desc.faceTrackingBlendshapesSetList ?? new List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet>())
+                        if (fs != null && !string.IsNullOrEmpty(fs.setName)) { ftSets.Add(fs); setWeights[fs.setName] = (fs.setWeight, fs.setWeight, 0); }
+                    ftMeshes.AddRange((desc.faceTrackingMeshes ?? new List<SkinnedMeshRenderer>()).Where(x => x != null && x.sharedMesh != null));
+                }
                 var animator = avatar.GetComponent<Animator>();
                 animator.runtimeAnimatorController = null;
                 animator.applyRootMotion = false;
@@ -415,6 +429,14 @@ namespace Kmnk.FaceTrackingGenerator
                         if (e0 != eyes || m0 != mouth) events.Add($"{T()} {where}: tracking eyes={eyes} mouth={mouth}");
                         break;
                     }
+                    case VRC_AnimatorFaceTrackingBlendshapesSet s:
+                        foreach (var e in s.blendSets.Take(64))
+                        {
+                            if (e.type != VRC_AnimatorFaceTrackingBlendshapesSet.SourceType.Value || !setWeights.TryGetValue(e.blendshapesSetName, out var cur)) continue;
+                            setWeights[e.blendshapesSetName] = (cur.w, Mathf.Clamp01(e.weight), e.lerpSpeed);
+                            events.Add($"{T()} {where}: set-weight {e.blendshapesSetName} -> {e.weight.ToString(CultureInfo.InvariantCulture)} at {e.lerpSpeed.ToString(CultureInfo.InvariantCulture)}/s");
+                        }
+                        break;
                     case VRC_AvatarParameterDriver s:
                         foreach (var p in s.parameters)
                         {
@@ -496,10 +518,62 @@ namespace Kmnk.FaceTrackingGenerator
                         else playables[b.Playable].Value.SetLayerWeight(b.Layer, w);
                         if (b.T >= b.Duration) blends.Remove(b);
                     }
+                    ClearNative();
                     graph.Evaluate(dt);
                     frame++;
                     CheckEntries();
+                    StepWeights();
+                    ApplyNative();
                 }
+            }
+
+            // Blendshapes the sets move are set to 0 before the Animator runs, so that the Animator's own value is read.
+            void ClearNative()
+            {
+                foreach (var smr in ftMeshes)
+                    foreach (var fs in ftSets)
+                        foreach (var shape in fs.faceTrackingBlendshapeNames ?? new string[0])
+                        {
+                            if (string.IsNullOrEmpty(shape)) continue;
+                            var i = smr.sharedMesh.GetBlendShapeIndex(shape);
+                            if (i >= 0) smr.SetBlendShapeWeight(i, 0);
+                        }
+            }
+
+            void StepWeights()
+            {
+                foreach (var k in setWeights.Keys.ToList())
+                {
+                    var (w, goal, speed) = setWeights[k];
+                    w = speed <= 0 ? goal : Mathf.MoveTowards(w, goal, speed * dt);
+                    setWeights[k] = (w, goal, speed);
+                }
+            }
+
+            // Each row: set weight x key value (set <key> <value>) x Multiplier x 100; a blendshape takes the largest row
+            // and the larger of that and the Animator's value.
+            void ApplyNative()
+            {
+                if (ftSets.Count == 0) return;
+                var best = new Dictionary<string, float>(StringComparer.Ordinal);
+                foreach (var fs in ftSets)
+                {
+                    var w = setWeights[fs.setName].w;
+                    var names = fs.faceTrackingBlendshapeNames ?? new string[0];
+                    for (int i = 0; i < names.Length; i++)
+                    {
+                        if (string.IsNullOrEmpty(names[i])) continue;
+                        var key = ((VRCAvatarDescriptor.FaceTrackingKey)i).ToString();
+                        var v = w * (set.TryGetValue(key, out var x) ? x : 0) * fs.faceTrackingBlendshapeMultipliers[i] * 100;
+                        best[names[i]] = Math.Max(best.TryGetValue(names[i], out var b) ? b : 0, v);
+                    }
+                }
+                foreach (var smr in ftMeshes)
+                    foreach (var kv in best)
+                    {
+                        var i = smr.sharedMesh.GetBlendShapeIndex(kv.Key);
+                        if (i >= 0) smr.SetBlendShapeWeight(i, Mathf.Max(smr.GetBlendShapeWeight(i), kv.Value));
+                    }
             }
 
             public string Snap(string label)
@@ -534,6 +608,8 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                 }
                 sb.Append(string.Join(",", ls)).Append("}");
+                if (setWeights.Count > 0)
+                    sb.Append(",\"sets\":{").Append(string.Join(",", setWeights.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => Q(k.Key) + ":" + N1(k.Value.w)))).Append("}");
                 sb.Append(",\"shapes\":{");
                 var shp = new List<string>();
                 var m = mesh.sharedMesh;

@@ -55,24 +55,14 @@ namespace Kmnk.FaceTrackingGenerator
             return keysLine == "" ? text : text + "\n" + keysLine;
         }
 
-        // The tooltip of an input of the model: an average input says what it averages, then the first source's description.
+        // The tooltip of an input of the model: the description of its key, then its expression.
         public static string Tooltip(TableModel m, InputDef input)
         {
             if (input == null) return null;
-            if (!input.IsDerived)
-            {
-                var t = Tooltip(new[] { input.Key });
-                if (input.Expression == null) return t;
-                var e = string.Format(EditorText.Get(input.ExpressionFromTable ? "inputs.expressionTable" : "inputs.expression"), input.Expression);
-                return t == null ? e : t + "\n" + e;
-            }
-            var ja = EditorText.Current == EditorText.Language.Japanese;
-            var head = ja ? string.Join("・", input.Average) + " の平均。" : "The average of " + string.Join(" and ", input.Average) + ". ";
-            var first = m.Input(input.Average.FirstOrDefault());
-            var key = first?.Key;
-            if (key != null && key.Contains("Left") && input.Average.Count == 2) key = key.Replace("Left", "{side}");  // a left/right average
-            var rest = key != null ? Describe(key) : null;
-            return EditorText.Current == EditorText.Language.Off ? null : head + (rest ?? "");
+            var t = Tooltip(new[] { input.Key });
+            if (input.IsTrack || input.Expression == null) return t;
+            var e = string.Format(EditorText.Get(input.ExpressionFromTable ? "inputs.expressionTable" : "inputs.expression"), input.Expression);
+            return t == null ? e : t + "\n" + e;
         }
     }
 }

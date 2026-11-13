@@ -1,107 +1,79 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Renaming a face movement (part) in both tables: the avatar table's "parts" and "missingParts", and every pose of
-    // the expression table. A left/right pair ("x_L" and "x_R") can be renamed together; then "x_{s}" in left/right
-    // trees follows. The blendshapes and the generated weights do not change.
+    // Renaming a face movement (part) in both tables: the avatar table's "parts" and "missingParts", and the expression
+    // table's neutral rows, override rows (values) and fixed amounts (keys). The blendshapes and the generated weights
+    // do not change.
     public static class PartRename
     {
-        public enum Problem { None, Form, Used, NeedsSide, PairWritten }
+        public enum Problem { None, Form, Used, Region }
 
-        static string Base(string name) => name.EndsWith("_L") || name.EndsWith("_R") ? name.Substring(0, name.Length - 2) : null;
-        static string Side(string name) => name.EndsWith("_L") ? "_L" : name.EndsWith("_R") ? "_R" : null;
+        // The old -> new names this rename writes. (The "together" of left/right pairs was removed in 0.12.0.)
+        public static Dictionary<string, string> Map(IEnumerable<string> allNames, string from, string to, bool together = false) =>
+            new Dictionary<string, string> { [from] = to };
 
-        // The other side of a pair, when the table has it: "eye.close_L" -> "eye.close_R".
-        public static string Partner(IEnumerable<string> allNames, string name)
+        public static Problem Check(JObject avatar, JObject expression, string from, string to, bool together = false, ICollection<string> extraNames = null)
         {
-            var b = Base(name);
-            if (b == null) return null;
-            var other = b + (Side(name) == "_L" ? "_R" : "_L");
-            return allNames.Contains(other) ? other : null;
-        }
-
-        static readonly Regex PairForm = new Regex(@"^(.*)_\{(\w+)\}$");
-
-        // The objects of the expression table's trees with part names (poses, and nodes with their own parts), with "_{s}"
-        // forms as written.
-        static IEnumerable<JObject> Poses(JToken trees) =>
-            (trees as JObject)?.Properties().SelectMany(p => ExpressionSyntax.Walk(p.Value?["tree"])).Select(x => x.obj)
-                .Where(o => o.Properties().Any(p => ExpressionSyntax.IsPartKey(p.Name))) ?? Enumerable.Empty<JObject>();
-
-        // Is the part used in a left/right tree as "<base>_{var}"?
-        static bool WrittenAsPair(JObject expression, string name)
-        {
-            var b = Base(name);
-            if (b == null) return false;
-            return Poses(expression?["trees"]).Any(o => o.Properties().Any(p => { var m = PairForm.Match(p.Name); return m.Success && m.Groups[1].Value == b; }));
-        }
-
-        // The old -> new names this rename writes (the pair's partner too when "together").
-        public static Dictionary<string, string> Map(IEnumerable<string> allNames, string from, string to, bool together)
-        {
-            var map = new Dictionary<string, string> { [from] = to };
-            var partner = together ? Partner(allNames, from) : null;
-            if (partner != null && Side(to) != null)
-                map[partner] = Base(to) + Side(partner);
-            return map;
-        }
-
-        public static Problem Check(JObject avatar, JObject expression, string from, string to, bool together, ICollection<string> extraNames = null)
-        {
-            var all = Tuning.AllPartNames(avatar, expression).Concat(extraNames ?? new string[0]).ToList();
-            var partner = together ? Partner(all, from) : null;
-            if (partner != null && Side(to) == null) return Problem.NeedsSide;
-            if (partner == null && WrittenAsPair(expression, from)) return Problem.PairWritten;
-            var map = Map(all, from, to, together);
-            var others = all.Where(n => !map.ContainsKey(n)).ToList();
-            foreach (var n in map.Values)
+            var others = PartNames.Used(avatar, expression).Concat(extraNames ?? new string[0]).Where(n => n != from);
+            switch (PartNames.Check(to, others))
             {
-                // The name rule has no capitals, so a side's "_L" / "_R" is checked as the name before it.
-                var p = Tuning.CheckName(Base(n) ?? n, false, new string[0]);
-                if (p == Tuning.NameProblem.Form) return Problem.Form;
-                if (others.Contains(n) || others.Contains((Base(n) ?? n) + "_{s}")) return Problem.Used;
+                case PartNames.Problem.Form: return Problem.Form;
+                case PartNames.Problem.Used: return Problem.Used;
             }
-            if (map.Values.Distinct().Count() != map.Count) return Problem.Used;
+            // A part in rows of neutral or an override must stay in that region (the rows are written per region).
+            if (PartNames.IsForm(from) && PartNames.Region(to) != PartNames.Region(from) && InRows(expression, from)) return Problem.Region;
             return Problem.None;
         }
 
+        // Whether a part is the part of a row of neutral or of a state's override.
+        static bool InRows(JObject expression, string part)
+        {
+            bool In(JObject rows) => rows != null && rows.Properties().Any(p =>
+                p.Value.Type == JTokenType.String && (string)p.Value == part || p.Value is JObject ro && (string)ro["part"] == part);
+            if (expression?["neutral"] is JObject neutral && neutral.Properties().Any(r => In(r.Value as JObject))) return true;
+            if (expression?["stateMachines"] is JObject sms)
+                foreach (var st in sms.Properties().SelectMany(sm => (sm.Value["states"] as JObject)?.Properties() ?? Enumerable.Empty<JProperty>()).Select(x => x.Value as JObject).Where(x => x != null))
+                    if (st["regions"] is JObject regions && regions.Properties().Any(r => In(r.Value as JObject))) return true;
+            return false;
+        }
+
         // Renames in both tables. Returns the map of names it wrote, or null when Check finds a problem.
-        public static Dictionary<string, string> Apply(JObject avatar, JObject expression, string from, string to, bool together, ICollection<string> extraNames = null)
+        public static Dictionary<string, string> Apply(JObject avatar, JObject expression, string from, string to, bool together = false, ICollection<string> extraNames = null)
         {
             if (Check(avatar, expression, from, to, together, extraNames) != Problem.None) return null;
-            var all = Tuning.AllPartNames(avatar, expression).Concat(extraNames ?? new string[0]).ToList();
-            var map = Map(all, from, to, together);
-            var pairMap = new Dictionary<string, string>();
-            if (map.Count == 2) pairMap[Base(from)] = Base(to);
-
-            string New(string key)
+            void RenameKey(JObject o)
             {
-                if (map.TryGetValue(key, out var n)) return n;
-                var m = PairForm.Match(key);
-                if (m.Success && pairMap.TryGetValue(m.Groups[1].Value, out var b)) return b + "_{" + m.Groups[2].Value + "}";
-                return null;
+                var p = o?.Property(from);
+                if (p == null) return;
+                p.AddBeforeSelf(new JProperty(to, p.Value));
+                p.Remove();
             }
-            void RenameKeys(JObject o)
+            void RenameValues(JObject rows)
             {
-                foreach (var p in o.Properties().ToList())
+                if (rows == null) return;
+                foreach (var p in rows.Properties())
                 {
-                    var n = New(p.Name);
-                    if (n == null || n == p.Name) continue;
-                    p.AddBeforeSelf(new JProperty(n, p.Value));
-                    p.Remove();
+                    if (p.Value.Type == JTokenType.String && (string)p.Value == from) p.Value = to;
+                    else if (p.Value is JObject ro && (string)ro["part"] == from) ro["part"] = to;
                 }
             }
-            if (avatar["parts"] is JObject parts) RenameKeys(parts);
+            RenameKey(avatar["parts"] as JObject);
             if (avatar["missingParts"] is JArray missing)
                 for (int i = 0; i < missing.Count; i++)
-                    if (missing[i].Type == JTokenType.String && New((string)missing[i]) is string n) missing[i] = n;
-            foreach (var pose in Poses(expression?["trees"]).ToList()) RenameKeys(pose);
-            return map;
+                    if (missing[i].Type == JTokenType.String && (string)missing[i] == from) missing[i] = to;
+            if (expression?["neutral"] is JObject neutral)
+                foreach (var r in neutral.Properties()) RenameValues(r.Value as JObject);
+            if (expression?["stateMachines"] is JObject sms)
+                foreach (var st in sms.Properties().SelectMany(sm => (sm.Value["states"] as JObject)?.Properties() ?? Enumerable.Empty<JProperty>()).Select(x => x.Value as JObject).Where(x => x != null))
+                {
+                    if (st["regions"] is JObject regions) foreach (var r in regions.Properties()) RenameValues(r.Value as JObject);
+                    RenameKey(st["fixed"] as JObject);
+                }
+            return Map(null, from, to);
         }
     }
 }

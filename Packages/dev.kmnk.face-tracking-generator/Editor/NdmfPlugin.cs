@@ -28,7 +28,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var r = Generator.Generate(model, writeVariant: false);
                 var desc = ctx.AvatarRootObject.GetComponent<VRCAvatarDescriptor>();
                 Generator.Assign(desc, r);
-                foreach (var l in r.Log.Where(l => l.StartsWith("note:") || l.StartsWith("notice:"))) Debug.Log("[FTG] ndmf: " + l);
+                foreach (var l in r.Log.Where(l => l.StartsWith("note:") || l.StartsWith("notice:") || l.StartsWith("face tracking: kept") || l.StartsWith("face tracking: replaced the avatar's own"))) Debug.Log("[FTG] ndmf: " + l);
                 Object.DestroyImmediate(settings);
                 Debug.Log("[FTG] ndmf: generated face tracking for " + ctx.AvatarRootObject.name + " into " + model.OutputFolder);
             });

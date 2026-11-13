@@ -10,8 +10,9 @@ namespace Kmnk.FaceTrackingGenerator
     // without drawing the window. Exit code 0: done / passed, 1: a check failed, 2: error. Results are [FTG] lines.
     public static partial class TableEditorChecks
     {
-        // Opens the tables, applies the edits (-ftEdits, JSON Lines of TableEdits.Apply operations) to the avatar
-        // table, and saves. -ftAll saves all three tables even when they are unchanged.
+        // Opens the tables, applies the edits (-ftEdits, JSON Lines of TableEdits.Apply operations on the avatar table,
+        // or StateMachineEdit.Apply operations on the expression table with "table": "expression"), and saves. -ftAll
+        // saves all three tables even when they are unchanged.
         public static void Edit() => Cli.Run(() =>
         {
             var doc = TableDocument.Open(CliArgs.Require("-ftTable"));
@@ -21,12 +22,14 @@ namespace Kmnk.FaceTrackingGenerator
             if (editsPath != null)
                 foreach (var line in File.ReadAllLines(editsPath).Where(l => !string.IsNullOrWhiteSpace(l)))
                 {
-                    TableEdits.Apply(doc.Json(TableDocument.Avatar), JObject.Parse(line), removed);
+                    var op = JObject.Parse(line);
+                    if ((string)op["table"] == "expression") StateMachineEdit.Apply(doc.Json(TableDocument.Expression), op);
+                    else TableEdits.Apply(doc.Json(TableDocument.Avatar), op, removed);
                     n++;
                 }
             var model = doc.Model();  // the edited tables must still load
             var written = doc.Save(CliArgs.Get("-ftAll") == "1");
-            Debug.Log($"[FTG] table-editor edit: applied={n} written={written.Count} parts={model.Parts.Count} dropped={model.Dropped.Count}");
+            Debug.Log($"[FTG] table-editor edit: applied={n} written={written.Count} parts={model.Parts.Count} dropped={model.Dropped.Count} stateMachines={model.StateMachines.Count} states={model.StateMachines.Sum(x => x.States.Count)} transitions={model.StateMachines.Sum(x => x.Transitions.Count)}");
             foreach (var w in written) Debug.Log("[FTG] wrote " + w);
             return 0;
         });

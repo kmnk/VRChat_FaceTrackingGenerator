@@ -49,7 +49,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         public void Dispose() => Stop();
 
-        // weights: "mesh/shape" -> weight (CurveEval). Returns the keys that the avatar does not have.
+        // weights: "mesh/shape" -> weight (FaceEval). Returns the keys that the avatar does not have.
         public HashSet<string> Apply(TableModel model, IDictionary<string, float> weights)
         {
             var missing = new HashSet<string>();
@@ -103,15 +103,23 @@ namespace Kmnk.FaceTrackingGenerator
         public static List<Row> Rows(TableModel model, IDictionary<string, float> inputs, IDictionary<string, string> states)
         {
             var rows = new Dictionary<string, Row>();
-            var total = CurveEval.Evaluate(model, inputs, states);
-            foreach (var tree in CurveEval.EvaluateTrees(model, inputs, states))
-                foreach (var kv in tree.Value)
-                {
-                    if (Math.Abs(kv.Value) < 0.05f) continue;
-                    if (!rows.TryGetValue(kv.Key, out var r)) rows[kv.Key] = r = new Row { Key = kv.Key, Amount = total[kv.Key] };
-                    r.From.Add(tree.Key);
-                }
+            var total = FaceEval.Evaluate(model, inputs, states);
+            foreach (var src in FaceEval.Sources(model, inputs, states))
+            {
+                if (Math.Abs(src.Value) < 0.05f) continue;
+                if (!rows.TryGetValue(src.Shape, out var r)) rows[src.Shape] = r = new Row { Key = src.Shape, Amount = total[src.Shape] };
+                var from = SourceText(src);
+                if (!r.From.Contains(from)) r.From.Add(from);
+            }
             return rows.Values.Where(r => Math.Abs(r.Amount) >= 0.05f).OrderByDescending(r => r.Amount).ThenBy(r => r.Key, StringComparer.Ordinal).ToList();
+        }
+
+        // "EyeClosedLeft (neutral)", "EyeClosedLeft (Emotion=joy)" or "joy fixed" (design.md "設定エディタ").
+        public static string SourceText(FaceEval.Source s)
+        {
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            if (s.Key == null) return ja ? $"{s.State} の固定" : $"{s.State} fixed";
+            return s.StateMachine == null ? $"{s.Key} (neutral)" : $"{s.Key} ({s.StateMachine}={s.State})";
         }
     }
 }
