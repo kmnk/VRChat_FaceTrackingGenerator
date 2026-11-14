@@ -166,7 +166,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             string HierarchyPath(Transform t) => t.parent == null ? t.name : HierarchyPath(t.parent) + "/" + t.name;
             var avatar = sceneAvatar != null ? HierarchyPath(sceneAvatar.transform) : "none";
-            return $"table={TablePath ?? "none"} avatar={avatar} source={avatarSource} preview={preview.Running.ToString().ToLower()}";
+            return $"table={TablePath ?? "none"} avatar={avatar} source={avatarSource} preview={preview.Running.ToString().ToLower()} folded={(FoldedRegionsState() == "" ? "none" : FoldedRegionsState())}";
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
@@ -578,7 +578,21 @@ namespace Kmnk.FaceTrackingGenerator
                 .Select(p => (p, used.Contains(p))).ToList();
         }
 
-        static GUIStyle regionBand, middleTag;
+        static GUIStyle regionBand, regionFold, middleTag;
+
+        // The folded regions of Face movements, per project and settings file. Kept in EditorPrefs (on this PC, outside
+        // the project), so it is never in the table or in the project's git, whatever the project's .gitignore says.
+        string FoldedRegionsKey => "Kmnk.FaceTrackingGenerator.FoldedRegions:" + Application.dataPath + "|" + (TablePath ?? "");
+        string FoldedRegionsState() => EditorPrefs.GetString(FoldedRegionsKey, "");
+        HashSet<string> FoldedRegions() =>
+            new HashSet<string>(FoldedRegionsState().Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+        void SetRegionFolded(string region, bool folded)
+        {
+            var set = FoldedRegions();
+            if (folded) set.Add(region); else set.Remove(region);
+            if (set.Count == 0) EditorPrefs.DeleteKey(FoldedRegionsKey);
+            else EditorPrefs.SetString(FoldedRegionsKey, string.Join(";", set.OrderBy(x => x, StringComparer.Ordinal)));
+        }
 
         static List<string> ShapesOf(GameObject prefab, string mesh)
         {
@@ -631,27 +645,48 @@ namespace Kmnk.FaceTrackingGenerator
             if (regionBand == null)
             {
                 regionBand = new GUIStyle(EditorStyles.boldLabel) { padding = new RectOffset(6, 4, 2, 2) };
+                regionFold = new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold };
                 middleTag = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter, padding = new RectOffset(4, 4, 0, 0) };
             }
             string lastRegion = null;
+            var regionFolded = false;
+            var filtering = !string.IsNullOrEmpty(partFilter);
             foreach (var (part, used) in rows)
             {
-                if (!string.IsNullOrEmpty(partFilter) && part.IndexOf(partFilter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (filtering && part.IndexOf(partFilter, StringComparison.OrdinalIgnoreCase) < 0) continue;
                 // A band with the region's name before its first part (only regions with a part shown under the filter).
                 var region = PartNames.Region(part);
                 if (region != lastRegion)
                 {
                     lastRegion = region;
+                    // A region opens again when one of its rows is to be shown (a picker to open, a row to scroll to).
+                    var folded = FoldedRegions();
+                    if (folded.Contains(region) && rows.Any(r => PartNames.Region(r.part) == region && (r.part == openPickerFor || r.part == partScrollTo)))
+                        SetRegionFolded(region, false);
                     EditorGUILayout.Space(2);
                     var band = GUILayoutUtility.GetRect(new GUIContent(region), regionBand, GUILayout.ExpandWidth(true));
                     if (Event.current.type == EventType.Repaint) EditorGUI.DrawRect(band, new Color(1, 1, 1, 0.06f));
-                    GUI.Label(band, region, regionBand);
+                    if (filtering)
+                    {
+                        // While the filter has text, every region is open and the band has no arrow.
+                        regionFolded = false;
+                        GUI.Label(band, region, regionBand);
+                    }
+                    else
+                    {
+                        // The arrow and the name fold the region's rows; the + stays outside the clickable part.
+                        regionFolded = FoldedRegions().Contains(region);
+                        var foldRect = new Rect(band.x + 6, band.y, band.width - 36, band.height);
+                        var open = EditorGUI.Foldout(foldRect, !regionFolded, region, true, regionFold);
+                        if (open == regionFolded) { SetRegionFolded(region, !open); regionFolded = !open; }
+                    }
                     // + at the right end: a new face movement with "<region>." typed.
                     var plus = new Rect(band.xMax - 24, band.y + 1, 22, band.height - 2);
                     if (Event.current.type == EventType.Repaint && region == newPartRegionCapture) newPartRegionRect = plus;
                     if (GUI.Button(plus, new GUIContent("+", string.Format(EditorText.Get("part.addIn"), region)), EditorStyles.miniButton))
                         ShowNewPart(plus, null, region + ".");
                 }
+                if (regionFolded) continue;
                 var isMissing = TableEdits.IsMissing(avatar, part);
                 var shape = TableEdits.PartShape(avatar, part);
                 var mesh = TableEdits.PartMesh(avatar, part) ?? defaultMesh;
@@ -1188,6 +1223,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (renameArg != null && renameArg.Contains("=")) { renameAt = renameArg.Substring(0, renameArg.IndexOf('=')); renameCapture = renameArg.Substring(renameArg.IndexOf('=') + 1); selectedPart = renameAt; }
             newPartCapture = CliArgs.Get("-ftAvatarNewPart");  // "<name>": open "+ Add Face Movement" with the name typed
             newPartRegionCapture = CliArgs.Get("-ftAvatarNewPartIn");  // "<region>": press the + of the region's band
+            // "-ftAvatarFold <region>;...": click the arrow of each region's band (folds an open one).
+            foreach (var r in (CliArgs.Get("-ftAvatarFold") ?? "").Split(';').Where(x => x != "")) SetRegionFolded(r, !FoldedRegions().Contains(r));
             var addPart = CliArgs.Get("-ftAvatarAddPart");  // "<name>": as + Add Face Movement
             if (addPart != null && doc != null) AddPendingPart(addPart);
             if (CliArgs.Get("-ftShowSwitches") == "1") showSwitches = true;

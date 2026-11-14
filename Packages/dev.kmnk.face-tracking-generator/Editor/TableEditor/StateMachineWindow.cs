@@ -27,6 +27,7 @@ namespace Kmnk.FaceTrackingGenerator
         string machine;          // the state machine shown
         string selState;         // the selected state, or null
         int selTransition = -1;  // the selected transition's index, or -1
+        Vector2? captureContextAt;  // -ftSmContextAt: a right-click on the graph to make (graph-area pixels)
         string linkFrom;         // "Make Transition": the state the new transition starts from
         string dragState;
         Vector2 dragStart, dragOffset;
@@ -136,21 +137,24 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 using (new EditorGUI.DisabledScope(machine == null))
                     if (GUILayout.Button("+ State", EditorStyles.toolbarButton, GUILayout.Width(70)))
-                    {
-                        var existing = StateMachineEdit.StateNames(e, machine);
-                        var n = 1;
-                        while (existing.Contains("state" + n)) n++;
-                        var name = "state" + n;
-                        var at = (new Vector2(position.width - InspectorWidth, position.height) / 2 - pan) / zoom;
-                        Edit("Add FT state", x => StateMachineEdit.AddState(x, machine, name, at.x, at.y));
-                        Select(name, -1);
-                    }
+                        AddState(e, (new Vector2(position.width - InspectorWidth, position.height) / 2 - pan) / zoom);
                 using (new EditorGUI.DisabledScope(machine == null))
                     if (GUILayout.Button("Frame All", EditorStyles.toolbarButton, GUILayout.Width(70))) FrameAll(e);
                 GUILayout.FlexibleSpace();
             }
             var help = EditorText.Help("sm.help");
             if (help != null) EditorGUILayout.LabelField(linkFrom != null ? EditorText.Get("sm.pickTarget") : help, EditorStyles.miniLabel);
+        }
+
+        // Add a state named state<n> at 'at' (graph space) and select it.
+        void AddState(JObject e, Vector2 at)
+        {
+            var existing = StateMachineEdit.StateNames(e, machine);
+            var n = 1;
+            while (existing.Contains("state" + n)) n++;
+            var name = "state" + n;
+            Edit("Add FT state", x => StateMachineEdit.AddState(x, machine, name, at.x, at.y));
+            Select(name, -1);
         }
 
         GenericMenu MachineMenu(JObject e, List<string> names, Rect at)
@@ -318,7 +322,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (menuStates.Count > 0) Node(menuRect, "Menu", MenuFill, false, zoom);
             for (int i = 0; i < states.Count; i++) Node(rects[states[i]], states[i], i == 0 ? DefaultFill : StateFill, states[i] == selState, zoom);
 
-            HandleGraphInput(e, local, rects, segments);
+            HandleGraphInput(e, local, rects, menuStates.Count > 0 ? menuRect : Rect.zero, segments);
             GUI.EndClip();
         }
 
@@ -349,10 +353,18 @@ namespace Kmnk.FaceTrackingGenerator
             return Vector2.Distance(p, a + ab * t);
         }
 
-        void HandleGraphInput(JObject e, Rect local, Dictionary<string, Rect> rects, List<(Vector2 a, Vector2 b, int index)> segments)
+        void HandleGraphInput(JObject e, Rect local, Dictionary<string, Rect> rects, Rect menuRect, List<(Vector2 a, Vector2 b, int index)> segments)
         {
             var ev = Event.current;
             var hit = rects.FirstOrDefault(kv => kv.Value.Contains(ev.mousePosition)).Key;
+            if (captureContextAt is Vector2 cp && ev.type == EventType.Repaint)
+            {
+                // -ftSmContextAt: as right-clicking at cp and choosing Create State, when cp is empty space.
+                captureContextAt = null;
+                var empty = !rects.Values.Any(r => r.Contains(cp)) && local.Contains(cp) && !menuRect.Contains(cp);
+                Debug.Log($"[FTG] capture: context click at {cp.x:0},{cp.y:0} empty={empty.ToString().ToLowerInvariant()}");
+                if (empty) { var at = (cp - pan) / zoom; EditorApplication.delayCall += () => { AddState(Expr, at); Repaint(); }; }
+            }
             switch (ev.type)
             {
                 case EventType.MouseDown when ev.button == 0 && local.Contains(ev.mousePosition):
@@ -404,6 +416,16 @@ namespace Kmnk.FaceTrackingGenerator
                     menu.AddItem(new GUIContent("Make Transition"), false, () => { linkFrom = st; Repaint(); });
                     menu.AddItem(new GUIContent("Set as Default"), false, () => Edit("Set FT default state", x => StateMachineEdit.SetDefault(x, machine, st)));
                     menu.AddItem(new GUIContent("Delete State"), false, () => DeleteState(st));
+                    menu.ShowAsContext();
+                    ev.Use();
+                    break;
+                }
+                case EventType.ContextClick when hit == null && local.Contains(ev.mousePosition) && !menuRect.Contains(ev.mousePosition):
+                {
+                    // Empty space: add a state where the pointer is.
+                    var at = (ev.mousePosition - pan) / zoom;
+                    var menu = new GenericMenu();
+                    menu.AddItem(new GUIContent("Create State"), false, () => AddState(Expr ?? e, at));
                     menu.ShowAsContext();
                     ev.Use();
                     break;
@@ -791,6 +813,12 @@ namespace Kmnk.FaceTrackingGenerator
             // -ftSmZoom <factor>: the mouse wheel at the middle of the graph area.
             if (float.TryParse(CliArgs.Get("-ftSmZoom"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var z))
                 ZoomAt(new Vector2(position.width - InspectorWidth, position.height - ToolbarH - 18) / 2, zoom * z);
+            // -ftSmContextAt <x>,<y>: right-click at that point of the graph area (pixels from its top-left, after Frame All
+            // and -ftSmZoom) and choose Create State, as on empty space; a point on a state or the Menu box does nothing.
+            var ctx = (CliArgs.Get("-ftSmContextAt") ?? "").Split(',');
+            if (ctx.Length == 2 && float.TryParse(ctx[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var cx)
+                && float.TryParse(ctx[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var cy))
+                captureContextAt = new Vector2(cx, cy);
         }
 
         internal string CaptureState()
