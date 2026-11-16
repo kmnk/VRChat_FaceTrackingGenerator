@@ -15,7 +15,7 @@ namespace Kmnk.FaceTrackingGenerator
 {
     // Tools/Kmnk/Face Tracking Settings Editor (the settings editor): edits the avatar table and shows the tables' weights on an avatar in
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
-    public sealed class TableEditorWindow : EditorWindow
+    public sealed partial class TableEditorWindow : EditorWindow
     {
         static readonly string[] Tabs = { "Avatar", "Preview" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
@@ -95,6 +95,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnDisable()
         {
+            StopLive();
             preview.Stop();
             if (Current == this) { Current = null; Changed?.Invoke(); }
             Undo.undoRedoPerformed -= OnUndoRedo;
@@ -106,7 +107,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnPlayMode(PlayModeStateChange change)
         {
-            if (change == PlayModeStateChange.ExitingEditMode) preview.Stop();
+            if (change == PlayModeStateChange.ExitingEditMode) { StopLive(); preview.Stop(); }
             Repaint();
         }
 
@@ -175,6 +176,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         void Load()
         {
+            // The Live input stops with the preview: the inputs belong to the table, and without one its row is not drawn.
+            StopLive();
             preview.Stop();
             doc = null; model = null; error = null;
             pendingParts.Clear();
@@ -197,6 +200,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             try { model = doc.Model(); error = null; }
             catch (Exception e) { model = null; error = e.Message; }
+            if (model == null) StopLive();  // the Preview (and the Live input row) is not drawn without a model
             if (preview.Running) ApplyPreview();
             else if (stateShown != null) ShowState(stateShown.Value.sm, stateShown.Value.state);
             else ShowSelected();
@@ -211,6 +215,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         internal void StopPreviewForBuild()
         {
+            StopLive();
             preview.Stop();
             Repaint();
         }
@@ -260,6 +265,7 @@ namespace Kmnk.FaceTrackingGenerator
         void ShowSelected()
         {
             if (model == null) { FaceView.Clear(); return; }
+            if (ShowLiveFace()) return;
             var avatar = doc.Json(TableDocument.Avatar);
             var shape = selectedPart != null ? TableEdits.PartShape(avatar, selectedPart) : null;
             if (shape == null || TableEdits.IsMissing(avatar, selectedPart)) { FaceView.Show(model, Prefab(), NoWeights, "Neutral"); return; }
@@ -941,6 +947,8 @@ namespace Kmnk.FaceTrackingGenerator
             else if (FacePreview.Busy) EditorGUILayout.LabelField(EditorText.Get("msg.animBusy"), EditorStyles.wordWrappedMiniLabel);
             if (model == null) return;
 
+            DrawLiveInput();
+
             var changed = false;
             var usage = PartUsage.Of(model);
 
@@ -958,7 +966,13 @@ namespace Kmnk.FaceTrackingGenerator
                 var w = EditorStyles.miniButton.CalcSize(content).x + 8;
                 if (rowWidth + w > width && rowWidth > 0) { EditorGUILayout.EndHorizontal(); EditorGUILayout.BeginHorizontal(); rowWidth = 0; }
                 rowWidth += w + 4;
-                if (GUILayout.Button(content, EditorStyles.miniButton, GUILayout.Width(w)))
+                bool pressed;
+                // miniButton looks the same when disabled; draw it faint as TrashButton does, so Live input's lock shows.
+                var oldColor = GUI.color;
+                if (LiveRunning) GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, 0.5f);
+                using (new EditorGUI.DisabledScope(LiveRunning)) pressed = GUILayout.Button(content, EditorStyles.miniButton, GUILayout.Width(w));
+                GUI.color = oldColor;
+                if (pressed)
                 {
                     inputs.Clear();
                     foreach (var kv in values) inputs[kv.Key] = kv.Value;
@@ -987,6 +1001,7 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUI.BeginChangeCheck();
                 deviceIndex = EditorGUILayout.Popup(deviceIndex, deviceNames.ToArray(), GUILayout.Width(150));
                 if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); }
+                using (new EditorGUI.DisabledScope(LiveRunning))
                 if (GUILayout.Button("Reset", GUILayout.Width(60)))
                 {
                     inputs.Clear();
@@ -995,6 +1010,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             Help("help.inputs");
+            if (LiveRunning) Help("help.liveInputs");
             var device = deviceIndex == 0 ? null : devices[deviceIndex - 1];
             var partsOf = InputParts.Of(model);
             // The tracking keys ("key:<key>"). The keys forwarded for the transitions are the same values, so they are not
@@ -1003,7 +1019,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var (lo, hi, label, sent) = PreviewSlider(input, device);
                 var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
-                using (new EditorGUI.DisabledScope(!sent))
+                using (new EditorGUI.DisabledScope(!sent || LiveRunning))
                 {
                     EditorGUI.BeginChangeCheck();
                     v = EditorGUILayout.Slider(new GUIContent(label, ParameterHelp.Tooltip(model, input)), v, lo, hi);
@@ -1041,8 +1057,13 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var k in unused)
                     {
                         var name = Devices.NameOf(k.key);
+                        if (LiveRunning) unusedInputs[name] = LiveValueOf(k.key);
                         var v = unusedInputs.TryGetValue(name, out var x) ? x : 0f;
-                        unusedInputs[name] = (float)Math.Round(EditorGUILayout.Slider(new GUIContent(name, ParameterHelp.Tooltip(new[] { k.key })), v, k.min, k.max), 2);
+                        using (new EditorGUI.DisabledScope(LiveRunning))
+                        {
+                            var nv = EditorGUILayout.Slider(new GUIContent(name, ParameterHelp.Tooltip(new[] { k.key })), v, k.min, k.max);
+                            if (!LiveRunning) unusedInputs[name] = (float)Math.Round(nv, 2);
+                        }
                     }
             }
 
@@ -1234,6 +1255,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in menuArg.Split(',').Select(x => x.Split('=')).Where(x => x.Length == 2))
                     switches.Choose(kv[0].Trim(), kv[1].Trim() == "None" ? null : kv[1].Trim());
             if (CliArgs.Get("-ftFaceView") == "1") FaceViewWindow.Open();
+            ApplyLiveCaptureArgs();
             var select = CliArgs.Get("-ftSelectPart");
             if (select != null) { selectedPart = select; ShowSelected(); }
             var hoverShape = CliArgs.Get("-ftHoverShape");

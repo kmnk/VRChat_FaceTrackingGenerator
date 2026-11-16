@@ -16,6 +16,10 @@ namespace Kmnk.FaceTrackingGenerator
         //   the edits are StateMachineEdit operations, as TableEditorChecks.Edit takes them, made before drawing)
         //   -ftSize 560x1000               window size in points
         //   -ftOpenScene <scene path>      opens the scene before the window opens
+        //   -ftLive <port>                 starts the Preview's Live input; "[FTG] capture: live state=..." is printed before the grab
+        //   -ftLiveEnd close|reload|build  with -ftLive: closes the settings editor (close), reads the table again as Reload does
+        //                                  (reload) or relies on -ftBuildBegin 1 (build),
+        //                                  prints "[FTG] capture: live end=... port-free=<bool>" at frame 45 and exits without a grab
         // After drawing it prints "[FTG] capture: selection window=<generator|table> table=... avatar=... source=... preview=..."
         // (what the window shows of this project's saved choices, ProjectSelection).
         // Other arguments are passed to the window (see TableEditorWindow.ApplyCaptureArgs).
@@ -84,6 +88,7 @@ namespace Kmnk.FaceTrackingGenerator
                         if (window is GeneratorWindow gen) Debug.Log($"[FTG] capture: selection window=generator {gen.SelectionState()}");
                         var shown = window as TableEditorWindow ?? TableEditorWindow.Current;
                         if (shown != null) Debug.Log($"[FTG] capture: selection window=table {shown.SelectionState()}");
+                        if (shown != null) Debug.Log($"[FTG] capture: live {shown.LiveCaptureState()}");
                         var face = FaceViewWindow.Find();
                         if (face != null)
                         {
@@ -124,6 +129,18 @@ namespace Kmnk.FaceTrackingGenerator
         static void CommonTick(int frame)
         {
             TableEditorWindow.Current?.Repaint();
+            // "-ftLive <port> -ftLiveEnd close|build": close the settings editor at frame 40 (build: -ftBuildBegin 1 calls the
+            // SDK's build dispatcher at frame 25), then print whether another socket can open the port, and exit.
+            var liveEnd = CliArgs.Get("-ftLiveEnd");
+            if (liveEnd != null && frame == 40 && liveEnd == "close") TableEditorWindow.Current?.Close();
+            if (liveEnd != null && frame == 40 && liveEnd == "reload") TableEditorWindow.Current?.ReloadForCapture();
+            if (liveEnd != null && frame == 45)
+            {
+                var port = int.Parse(CliArgs.Require("-ftLive"), System.Globalization.CultureInfo.InvariantCulture);
+                var te = TableEditorWindow.Current;
+                Debug.Log($"[FTG] capture: live end={liveEnd} window-open={(te != null).ToString().ToLower()} live-running={(te != null && te.LiveRunning).ToString().ToLower()} port-free={TableEditorWindow.PortFree(port).ToString().ToLower()}");
+                EditorApplication.Exit(0);
+            }
             if (frame == 30)
             {
                 // "-ftHelpAfter en|ja|off": change the language after the window is open, as the settings editor's Help does.
