@@ -156,9 +156,10 @@ Writes the version into `package.json` of the development copy, copies `Packages
 
 ### Releasing
 
-1. Commit and push, then the user runs `gh release create v<version> build/dev.kmnk.face-tracking-generator-<version>.zip` (development versions: `--prerelease --title "<version> (development version)"`). Creating a release publishes it, so the user runs it
-2. The user rebuilds the listing: `gh workflow run build-listing.yml -R kmnk/vpm-repos`. It reads every release of this repository and adds zips that have `package.json` at their root
-3. Check: `curl -s https://kmnk.github.io/vpm-repos/index.json` lists the version
+1. Commit and push the work branch, then fast-forward `main` to it: `git push origin <work branch>:main`. `main` is the default branch and holds only released commits, so the repository page shows the README of the latest release; work between releases stays on the work branch
+2. The user runs `gh release create v<version> build/dev.kmnk.face-tracking-generator-<version>.zip` (development versions: `--prerelease --title "<version> (development version)"`). The tag goes to `main` (the default target). Creating a release publishes it, so the user runs it
+3. The user rebuilds the listing: `gh workflow run build-listing.yml -R kmnk/vpm-repos`. It reads every release of this repository and adds zips that have `package.json` at their root
+4. Check: `curl -s https://kmnk.github.io/vpm-repos/index.json` lists the version
 
 ### Evidence
 
