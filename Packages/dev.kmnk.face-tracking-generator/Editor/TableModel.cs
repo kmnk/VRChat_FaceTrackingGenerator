@@ -23,7 +23,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Input;
         public string Op;     // ">" or "<"
-        public float Value;
+        public float Value;     // the main side's value; Thresholds gives the other side's (spec R9)
     }
 
     public sealed class TransitionDef
@@ -136,6 +136,8 @@ namespace Kmnk.FaceTrackingGenerator
         public AssetRef Menu;
         public string SubMenu;   // when set, the toggles go into a submenu of this name inside Menu
         public AfkClips AfkClips = new AfkClips();
+        // ft-measure recordings assigned to VR and desktop ("measurements"); empty when there are none.
+        public Measurements Measurements = new Measurements();
 
         // Input layer
         public List<InputDef> Inputs = new List<InputDef>();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 
@@ -142,6 +143,41 @@ namespace Kmnk.FaceTrackingGenerator
             else avatar[key] = new JObject { ["guid"] = guid ?? "", ["path"] = path };
         }
 
+        // Copies an ft-measure recording to <tableDir>/Measurements/ (a number is added to the name when one is there) and
+        // adds it to "measurements" with its side (spec R1, R2). Returns the path written in the table.
+        public static string AddMeasurement(JObject avatar, string tableDir, string source, string side)
+        {
+            if (!Measurements.Sides.Contains(side)) throw new ArgumentException("side must be vr or desktop: " + side);
+            if (!File.Exists(source)) throw new TableLoader.TableException("recording not found: " + source);
+            var folder = Path.Combine(tableDir, Measurements.Folder);
+            Directory.CreateDirectory(folder);
+            var name = Path.GetFileNameWithoutExtension(source);
+            var ext = Path.GetExtension(source);
+            var file = name + ext;
+            for (var n = 2; File.Exists(Path.Combine(folder, file)); n++) file = $"{name}-{n}{ext}";
+            File.Copy(source, Path.Combine(folder, file));
+            var rel = Measurements.Folder + "/" + file;
+            if (!(avatar["measurements"] is JArray list)) avatar["measurements"] = list = new JArray();
+            list.Add(new JObject { ["file"] = rel, ["side"] = side });
+            return rel;
+        }
+
+        // Takes a recording out of "measurements" (the copied file stays); the key goes when the list is empty.
+        public static void RemoveMeasurement(JObject avatar, int index)
+        {
+            if (!(avatar["measurements"] is JArray list) || index < 0 || index >= list.Count) return;
+            list.RemoveAt(index);
+            if (list.Count == 0) avatar.Remove("measurements");
+        }
+
+        // The side the tables are written for (spec R6): "vr" is the default, so it removes the key.
+        public static void SetMeasurementsMain(JObject avatar, string side)
+        {
+            if (!Measurements.Sides.Contains(side)) throw new ArgumentException("side must be vr or desktop: " + side);
+            if (side == Measurements.Vr) avatar.Remove("measurementsMain");
+            else avatar["measurementsMain"] = side;
+        }
+
         public static void SetString(JObject avatar, string key, string value) => avatar[key] = value;
 
         public static void SetBool(JObject avatar, string key, bool value) => avatar[key] = value;
@@ -154,7 +190,10 @@ namespace Kmnk.FaceTrackingGenerator
         //   {"op": "setString", "key": "mesh", "value": "Body"}
         //   {"op": "setBool", "key": "stopAutoEyes", "value": true}
         //   {"op": "setAssetRef", "key": "prefab", "guid": "...", "path": "Assets/..."}
-        public static void Apply(JObject avatar, JObject op, IDictionary<string, JToken> removed = null)
+        //   {"op": "addMeasurement", "source": "<path>", "side": "vr"}        copies the file to Measurements/ (tableDir)
+        //   {"op": "removeMeasurement", "index": 0}
+        //   {"op": "setMeasurementsMain", "side": "desktop"}
+        public static void Apply(JObject avatar, JObject op, IDictionary<string, JToken> removed = null, string tableDir = null)
         {
             var name = (string)op["op"];
             switch (name)
@@ -165,6 +204,9 @@ namespace Kmnk.FaceTrackingGenerator
                 case "setLayer": SetLayer(avatar, (string)op["controller"], (string)op["list"], (string)op["layer"], (bool)op["on"]); break;
                 case "setString": SetString(avatar, (string)op["key"], (string)op["value"]); break;
                 case "setBool": SetBool(avatar, (string)op["key"], (bool)op["value"]); break;
+                case "addMeasurement": AddMeasurement(avatar, tableDir ?? throw new ArgumentException("addMeasurement needs the table's folder"), (string)op["source"], (string)op["side"]); break;
+                case "removeMeasurement": RemoveMeasurement(avatar, (int)op["index"]); break;
+                case "setMeasurementsMain": SetMeasurementsMain(avatar, (string)op["side"]); break;
                 case "setAssetRef": SetAssetRef(avatar, (string)op["key"], (string)op["guid"], (string)op["path"]); break;
                 default: throw new ArgumentException("unknown op: " + name);
             }

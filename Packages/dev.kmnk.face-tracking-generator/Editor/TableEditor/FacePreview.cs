@@ -100,11 +100,11 @@ namespace Kmnk.FaceTrackingGenerator
             public List<string> From = new List<string>();
         }
 
-        public static List<Row> Rows(TableModel model, IDictionary<string, float> inputs, IDictionary<string, string> states)
+        public static List<Row> Rows(TableModel model, IDictionary<string, float> inputs, IDictionary<string, string> states, bool desktop = false)
         {
             var rows = new Dictionary<string, Row>();
-            var total = FaceEval.Evaluate(model, inputs, states);
-            foreach (var src in FaceEval.Sources(model, inputs, states))
+            var total = FaceEval.Evaluate(model, inputs, states, desktop);
+            foreach (var src in FaceEval.Sources(model, inputs, states, desktop))
             {
                 if (Math.Abs(src.Value) < 0.05f) continue;
                 if (!rows.TryGetValue(src.Shape, out var r)) rows[src.Shape] = r = new Row { Key = src.Shape, Amount = total[src.Shape] };

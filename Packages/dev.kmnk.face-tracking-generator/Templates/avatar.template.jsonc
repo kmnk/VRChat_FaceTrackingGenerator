@@ -23,6 +23,14 @@
   // Parts in the expression layer that this avatar does not have.
   "missingParts": [],
 
+  // ft-measure recordings (https://github.com/kmnk/ft-measure), relative to this file, each for "vr" or "desktop":
+  // "measurements": [{ "file": "Measurements/vr_20261116-195154.jsonl", "side": "vr" }, { "file": "...", "side": "desktop" }]
+  // "measurementsMain": "vr" or "desktop" (default "vr"): the device the expression table's values and strengths are for.
+  // The settings editor's Devices tab adds recordings (copied to Measurements/) and chooses the main device. With
+  // recordings for both sides the generator makes Blendshapes Sets for the other device whose strength is scaled by each
+  // key's range (main's / the other's), and computes its transitions' values from the recordings, switched by VRMode.
+  // Without them, or with one side only, nothing changes.
+
   // The avatar's Face Tracking section (the generator writes the Prefab Variant and the build-time copy, never the
   // original prefab). The generator writes Blendshapes Sets and Eye Look there. When the avatar already
   // has its own values there (Blendshapes Sets with tracking rows, Parameter Behaviors that move blendshapes, Eye Look on

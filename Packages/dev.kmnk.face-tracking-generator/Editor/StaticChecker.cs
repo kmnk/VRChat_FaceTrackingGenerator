@@ -159,7 +159,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         static void States(TableModel m, List<string> f)
         {
-            var sets = NativeSets.Build(m);
+            // One side's sets: the desktop copies would repeat the same findings.
+            var sets = NativeSets.Build(m).Where(x => NativeSets.On(x, false)).ToList();
             foreach (var sm in m.StateMachines)
             {
                 var n = sm.MenuStates.Count();

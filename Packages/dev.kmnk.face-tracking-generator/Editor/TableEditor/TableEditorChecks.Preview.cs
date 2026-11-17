@@ -111,12 +111,15 @@ namespace Kmnk.FaceTrackingGenerator
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
             var tracker = new SwitchTracker();
             var inputs = new Dictionary<string, float>();
+            // -ftDevice <id>: the Preview's device, which decides the side as the Preview does (spec R20).
+            var desktop = Devices.IsDesktop(model, CliArgs.Get("-ftDevice"));
+            Debug.Log($"[FTG] table-editor switches device={CliArgs.Get("-ftDevice") ?? "Settings"} side={(desktop ? Kmnk.FaceTrackingGenerator.Measurements.Desktop : Kmnk.FaceTrackingGenerator.Measurements.Vr)}");
             foreach (var line in File.ReadAllLines(CliArgs.Require("-ftSteps")).Where(l => !string.IsNullOrWhiteSpace(l)))
             {
                 var o = JObject.Parse(line);
                 foreach (var p in ((JObject)o["set"] ?? new JObject()).Properties()) inputs[p.Name] = p.Value.Value<float>();
                 foreach (var p in ((JObject)o["menu"] ?? new JObject()).Properties()) tracker.Choose(p.Name, p.Value.Type == JTokenType.Null ? null : (string)p.Value);
-                var states = tracker.Update(model, inputs);
+                var states = tracker.Update(model, inputs, desktop);
                 Debug.Log($"[FTG] table-editor switches {(string)o["label"]}: " + string.Join(" ", states.Select(kv => kv.Key + "=" + kv.Value)));
             }
             return 0;

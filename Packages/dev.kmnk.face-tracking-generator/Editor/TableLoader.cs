@@ -36,6 +36,7 @@ namespace Kmnk.FaceTrackingGenerator
             var expr = read(exprPath);
             ParseExpressions(expr, m, exprPath);
 
+            m.Measurements = Measurements.Load(dir, avatar["measurements"], m.Warnings, avatar["measurementsMain"]);
             Resolve(m, missingParts);
             return m;
         }
@@ -344,9 +345,12 @@ namespace Kmnk.FaceTrackingGenerator
                     throw new TableException($"{file}: state machine '{sm.Name}': unknown state in {t.Path}");
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
                 {
-                    if (c.Count != 3) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");
+                    if (c.Count != 3 && c.Count != 4) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");
                     // The Face Tracking section's key ("v2/" may be written, as in neutral).
                     var cond = new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = Num(c[2], file) };
+                    // The desktop value of 0.13.x development builds (spec R7): the other side's value is computed now.
+                    if (c.Count == 4)
+                        Warn(m, $"{file}: '{c[3].Path}' is not used: the other side's value is computed from the recordings (remove the fourth element)");
                     if (cond.Op != ">" && cond.Op != "<") throw new TableException($"{file}: '{c.Path}': operator must be > or <");
                     if (NativeKeys.Index(cond.Input) < 0)
                         throw new TableException($"{file}: '{c.Path}': '{c[0]}' is not a tracking key of the Face Tracking section " +
@@ -387,8 +391,19 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var st in sm.States.Where(s => !reach.Contains(s.Name)))
                     Warn(m, $"state machine {sm.Name}: state {st.Name} cannot be reached (no transition into it and not in the menu)");
                 var names = sm.States.SelectMany(st => st.Regions.Keys.Select(r => NativeSets.SetName(sm.Name, st.Name, r)));
+                if (m.Measurements.HasBoth) names = names.Select(NativeSets.DesktopName);
                 foreach (var n in names.Where(n => n.Length > NativeSets.MaxNameLength))
                     throw new TableException($"Blendshapes Set name '{n}' is longer than {NativeSets.MaxNameLength} characters; use shorter state machine, state or region names");
+            }
+
+            // With recordings for both sides, a desktop set's name must not be another set's name (a state machine named
+            // "desktop" could have one).
+            if (m.Measurements.HasBoth)
+            {
+                var plain = new HashSet<string>(m.Neutral.Keys.Select(NativeSets.NeutralSetName)
+                    .Concat(m.StateMachines.SelectMany(sm => sm.States.SelectMany(st => st.Regions.Where(r => !r.Value.Off).Select(r => NativeSets.SetName(sm.Name, st.Name, r.Key))))));
+                foreach (var n in plain.Select(NativeSets.DesktopName).Where(plain.Contains).OrderBy(x => x, StringComparer.Ordinal))
+                    throw new TableException($"Blendshapes Set name '{n}' is both a set of the tables and the desktop copy of another set; rename the state machine 'desktop' (recordings for VR and desktop make desktop copies)");
             }
 
             // Rows of parts the avatar layer does not set (R23).

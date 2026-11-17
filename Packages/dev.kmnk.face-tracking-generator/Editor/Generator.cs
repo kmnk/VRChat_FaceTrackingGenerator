@@ -44,6 +44,39 @@ namespace Kmnk.FaceTrackingGenerator
             d.expressionParameters = r.ExpressionParameters;
         }
 
+        // What the recordings change (spec R13): the other side's sets, the keys whose strength they scale above 1, and
+        // the conditions whose other side's value cannot be computed.
+        public static List<string> SideLog(TableModel m, List<NativeSets.SetDef> sets)
+        {
+            var log = new List<string>();
+            var ms = m.Measurements;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (ms.Any)
+                log.Add($"measurements: main {Measurements.Label(ms.Main)}, VR {ms.VrSide?.Files.Count ?? 0} files, desktop {ms.DesktopSide?.Files.Count ?? 0} files");
+            var other = sets.Count(x => x.Side == ms.OtherSide);
+            if (other > 0)
+            {
+                var over = sets.Where(x => x.Side == ms.OtherSide).SelectMany(x => x.Rows).Select(x => x.Key).Distinct()
+                    .Where(k => ms.Factor(k, ms.OtherSide) > 1).OrderBy(NativeKeys.Index)
+                    .Select(k => k + " x" + ms.Factor(k, ms.OtherSide).ToString("0.##", inv)).ToList();
+                log.Add($"measurements: {Measurements.Label(ms.OtherSide)} sets {other} (VRMode), strength over x1: {(over.Count > 0 ? string.Join(", ", over) : "none")}");
+            }
+            else if (ms.Any) log.Add($"measurements: no {Measurements.Label(ms.OtherSide)} sets (recordings for both VR and desktop are needed)");
+            var split = m.StateMachines.Sum(sm => sm.Transitions.Count(t => Thresholds.Splits(ms, t)));
+            if (split > 0) log.Add($"transitions: {split} with other values on {Measurements.Label(ms.OtherSide)}, one per side (VRMode)");
+            foreach (var sm in m.StateMachines)
+                foreach (var t in sm.Transitions)
+                    foreach (var c in t.When)
+                    {
+                        var r = Thresholds.For(ms, c, ms.OtherSide);
+                        if (r.Kind == Thresholds.Kind.Unusable)
+                            log.Add($"transition {sm.Name}: {t.From} -> {t.To}: {c.Input} {(r.NotSent ? "is not sent" : "moves too little")} on {Measurements.Label(r.Side)}; {Measurements.Label(ms.OtherSide)} uses {c.Value.ToString("0.###", inv)}");
+                        else if (r.Kind == Thresholds.Kind.OutOfRange)
+                            log.Add($"transition {sm.Name}: {t.From} -> {t.To}: {c.Input} {c.Op} {c.Value.ToString("0.###", inv)} is outside {Measurements.Label(ms.Main)}'s range; {(r.Never ? "never holds" : "always holds")} on {Measurements.Label(ms.OtherSide)} ({r.Value.Value.ToString("0.###", inv)})");
+                    }
+            return log;
+        }
+
         public static Result Generate(TableModel m, bool writeVariant = true)
         {
             var r = new Result();
@@ -112,6 +145,7 @@ namespace Kmnk.FaceTrackingGenerator
             r.Controllers = outputs;
             r.ExpressionParameters = expr;
             r.FaceTracking = NativeFtWriter.Build(m);
+            r.Log.AddRange(SideLog(m, r.FaceTracking.Sets));
             foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
 
             if (writeVariant && m.VariantPath != null)

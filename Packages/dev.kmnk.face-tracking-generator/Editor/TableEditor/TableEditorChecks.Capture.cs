@@ -89,6 +89,7 @@ namespace Kmnk.FaceTrackingGenerator
                         var shown = window as TableEditorWindow ?? TableEditorWindow.Current;
                         if (shown != null) Debug.Log($"[FTG] capture: selection window=table {shown.SelectionState()}");
                         if (shown != null) Debug.Log($"[FTG] capture: live {shown.LiveCaptureState()}");
+                        if (shown != null) foreach (var line in shown.DevicesCaptureLines()) Debug.Log(line);
                         var face = FaceViewWindow.Find();
                         if (face != null)
                         {

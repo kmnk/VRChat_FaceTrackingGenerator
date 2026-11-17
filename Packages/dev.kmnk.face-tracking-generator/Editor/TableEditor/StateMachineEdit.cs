@@ -165,6 +165,7 @@ namespace Kmnk.FaceTrackingGenerator
             w.Add(Condition(input, op, value));
         }
 
+        // A fourth element (the desktop value of 0.13.x development builds, spec R7) is dropped.
         public static void SetCondition(JObject e, string sm, int index, int cond, string input, string op, float value) =>
             ((JArray)Transitions(e, sm)[index]["when"])[cond] = Condition(input, op, value);
 

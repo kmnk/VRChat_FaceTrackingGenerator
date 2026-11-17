@@ -19,6 +19,9 @@
 // or the right side). Different values for entering and leaving keep the state from flickering. The generator forwards
 // the keys the conditions compare to the Animator (Forward to Animator, FT/In/<key>). While a state is chosen in the
 // menu the transitions do not run; leaving the menu goes back to the default state.
+// The values are for the avatar table's main device ("measurementsMain", VR by default). With ft-measure recordings for
+// both VR and desktop, the generator computes the other device's values and makes such a transition once per device,
+// switched by VRChat's VRMode (the settings editor's Devices tab lists them).
 //
 // This template moves the 52 perfect sync (ARKit) blendshapes in neutral. Parts are "<region>.<ARKit name>", regions as
 // in VRCFaceTracking's Unified Expressions groups (gaze, eye, brow, nose, cheek, jaw, lip, tongue). Which keys move which

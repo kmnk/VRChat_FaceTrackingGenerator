@@ -743,10 +743,14 @@ namespace Kmnk.FaceTrackingGenerator
             if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
             LoadKeys();
             var when = t["when"] as JArray ?? new JArray();
+            var ms = Editor?.Model?.Measurements ?? new Measurements();
+            // The values are the main side's; the other side's are computed (spec R18).
+            var otherHelp = ms.HasBoth ? EditorText.Help("sm.other") : null;
+            if (otherHelp != null) EditorGUILayout.LabelField(string.Format(otherHelp, Measurements.Label(ms.Main), Measurements.Label(ms.OtherSide)), EditorStyles.wordWrappedMiniLabel);
             for (int c = 0; c < when.Count; c++)
             {
                 var cond = when[c] as JArray;
-                if (cond == null || cond.Count != 3) continue;
+                if (cond == null || (cond.Count != 3 && cond.Count != 4)) continue;
                 var input = (string)cond[0]; var op = (string)cond[1]; var value = cond[2].Value<float>();
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -759,14 +763,45 @@ namespace Kmnk.FaceTrackingGenerator
                     var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
                     var nv = EditorGUILayout.DelayedFloatField(value, GUILayout.Width(60));
                     if (EditorGUI.EndChangeCheck()) { var ci = c; var ni = names[ii]; var no = oi == 1 ? "<" : ">"; Edit("Set FT condition", x => StateMachineEdit.SetCondition(x, machine, index, ci, ni, no, nv)); }
+                    if (ms.HasBoth)
+                    {
+                        // The other side's value: text only, no frame, so that it does not look like a button.
+                        var cd = new Condition { Input = NativeInputs.NameOf(input), Op = op, Value = value };
+                        // A fixed width (the longest value, 3 places), so that the row does not move as the digits change.
+                        var w = EditorStyles.miniLabel.CalcSize(new GUIContent(Measurements.Label(ms.OtherSide) + " 0.000")).x;
+                        GUILayout.Label(new GUIContent(ThresholdText.Other(ms, cd), string.Join("\n", ThresholdText.Notes(ms, cd))), EditorStyles.miniLabel, GUILayout.Width(w));
+                    }
                     using (new EditorGUI.DisabledScope(when.Count <= 1))
                         if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var ci = c; Edit("Remove FT condition", x => StateMachineEdit.RemoveCondition(x, machine, index, ci)); GUIUtility.ExitGUI(); }
                 }
+                // How far the key moves on the main device (spec R18a).
+                var mainSide = ms.Of(ms.Main);
+                if (mainSide != null)
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(12);
+                        GUILayout.Label(RangeText(mainSide, NativeInputs.NameOf(input), compareItem, true), RangeStyle);
+                    }
             }
-            if (GUILayout.Button("+ Add Condition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+            using (new EditorGUILayout.HorizontalScope())
             {
-                var k = DefaultKey();
-                Edit("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, k));
+                if (GUILayout.Button("+ Add Condition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
+                {
+                    var k = DefaultKey();
+                    Edit("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, k));
+                }
+                // A recorded face whose range is added to the lines above.
+                var side = ms.Of(ms.Main);
+                if (side != null)
+                {
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label("Compare with", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                    var ids = new List<string> { null };
+                    ids.AddRange(CompareIds(side));
+                    var ci = Math.Max(0, ids.IndexOf(compareItem));
+                    ci = EditorGUILayout.Popup(ci, ids.Select(x => x ?? "(none)").ToArray(), GUILayout.Width(140));
+                    compareItem = ids[ci];
+                }
             }
             EditorGUILayout.Space(8);
             if (GUILayout.Button("Remove Transition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
@@ -777,6 +812,53 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
+        // ---- the main device's ranges (spec R18a)
+
+        string compareItem;
+
+        static GUIStyle rangeStyle;
+        static GUIStyle RangeStyle => rangeStyle ?? (rangeStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel) { richText = true });
+
+        static readonly (string id, string text)[] RangeItems =
+            { (Measurements.NeutralId, "range.neutral"), (Measurements.ReadNeutralId, "range.talk"), (Measurements.ReadSmileId, "range.smile") };
+
+        // The faces to compare with: the recorded ones other than those always shown.
+        static IEnumerable<string> CompareIds(Measurements.Side s) => s.Items.Select(i => i.Id).Where(id => !RangeItems.Any(r => r.id == id));
+
+        // "VR: 真顔 0.00〜0.00 ・ 真顔で喋る 0.00〜0.02 ・ 笑顔で喋る 0.15〜0.40 ・ mouth_frown 0.71〜1.00".
+        internal static string RangeText(Measurements.Side s, string key, string compare, bool rich)
+        {
+            var ja = EditorText.Current == EditorText.Language.Japanese;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            string R((float min, float max) r) => r.min.ToString("0.00", inv) + (ja ? "〜" : "–") + r.max.ToString("0.00", inv);
+            var label = Measurements.Label(s.Name);
+            if (!s.Key(key).Sent) return string.Format(EditorText.Get("range.notSent"), label);
+            var sep = ja ? " ・ " : " · ";
+            var parts = RangeItems.Select(x => (item: s.ItemOf(x.id), x.text)).Where(x => x.item != null)
+                .Select(x => EditorText.Get(x.text) + " " + R(x.item.Of(key))).ToList();
+            var text = label + ": " + string.Join(sep, parts);
+            var c = compare == null ? null : s.ItemOf(compare);
+            if (c != null)
+            {
+                var t = c.Id + " " + R(c.Of(key));
+                text += sep + (rich ? $"<color=#{(EditorGUIUtility.isProSkin ? "b0b0b0" : "404040")}>{t}</color>" : t);
+            }
+            return text;
+        }
+
+        // The other side's values of a transition's conditions, for the capture output (spec R18).
+        internal string OtherState(int index)
+        {
+            var e = Expr;
+            var ms = Editor?.Model?.Measurements;
+            if (e == null || machine == null || ms == null || !ms.Any) return "other=- ranges=-";
+            var t = StateMachineEdit.Transitions(e, machine)?[index] as JObject;
+            var when = (t?["when"] as JArray ?? new JArray()).OfType<JArray>().Where(x => x.Count >= 3);
+            var main = ms.Of(ms.Main);
+            var ranges = main == null ? "-" : string.Join(",", when.Select(c => NativeInputs.NameOf((string)c[0]) + ":\"" + RangeText(main, NativeInputs.NameOf((string)c[0]), compareItem, false) + "\""));
+            return "other=" + (!ms.HasBoth ? "-" : string.Join(",", when.Select(c => ThresholdText.Other(ms, new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = c[2].Value<float>() }).Replace(" ", ":")))) + " ranges=" + ranges;
+        }
+
         // ---- TableEditorChecks.Capture
 
         // -ftSmMachine <name>, -ftSmEdits <JSON Lines of StateMachineEdit operations>, -ftSmSelect <state>|<from>-><to>,
@@ -784,6 +866,7 @@ namespace Kmnk.FaceTrackingGenerator
         internal void ApplyCaptureArgs()
         {
             machine = CliArgs.Get("-ftSmMachine") ?? machine;
+            compareItem = CliArgs.Get("-ftSmCompare") ?? compareItem;
             var edits = CliArgs.Get("-ftSmEdits");
             if (edits != null)
                 foreach (var line in System.IO.File.ReadAllLines(edits).Where(l => !string.IsNullOrWhiteSpace(l)))
@@ -828,7 +911,7 @@ namespace Kmnk.FaceTrackingGenerator
             var states = StateMachineEdit.StateNames(e, machine);
             var trs = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().Select(t => $"{t["from"]}->{t["to"]}") ?? Enumerable.Empty<string>();
             var menu = states.Where(n => (StateMachineEdit.States(e, machine)[n] as JObject)?["menu"]?.Value<bool>() == true);
-            return $"machine={machine} states={string.Join(",", states)} transitions={string.Join(",", trs)} menu={string.Join(",", menu)} selected={(selState ?? (selTransition >= 0 ? "transition " + selTransition : "-"))} inspector={InspectorWidth:0} zoom={zoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}";
+            return $"machine={machine} states={string.Join(",", states)} transitions={string.Join(",", trs)} menu={string.Join(",", menu)} selected={(selState ?? (selTransition >= 0 ? "transition " + selTransition : "-"))} {(selTransition >= 0 ? OtherState(selTransition) : "other=-")} inspector={InspectorWidth:0} zoom={zoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}";
         }
     }
 }

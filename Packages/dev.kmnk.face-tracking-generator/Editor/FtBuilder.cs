@@ -57,6 +57,9 @@ namespace Kmnk.FaceTrackingGenerator
         // The condition on the face tracking source, in one place so that it can be changed alone.
         void WhenSource(AnimatorStateTransition t, bool present) => u.When(t, SourceParameter, present);
 
+        // Whether the FX needs VRMode: sets and transitions are split by side only with recordings for both sides.
+        public static bool UsesSide(TableModel model) => model.Measurements.HasBoth;
+
         // State machines that have states in the menu (they get FT/Menu/<name> and a submenu).
         public static IEnumerable<StateMachineDef> WithMenu(TableModel model) => model.StateMachines.Where(sm => sm.MenuStates.Any());
 
@@ -80,6 +83,7 @@ namespace Kmnk.FaceTrackingGenerator
             u.EnsureParameter(SourceParameter, AnimatorControllerParameterType.Bool);
             foreach (var p in afkGroups.SelectMany(g => g.Parameters))
                 u.EnsureParameter(p, p == AfkBuilder.Playing ? AnimatorControllerParameterType.Float : AnimatorControllerParameterType.Bool);
+            if (UsesSide(m)) u.EnsureParameter(NativeSets.SideParameter, AnimatorControllerParameterType.Int);
             foreach (var i in NativeFtWriter.AnimatorInputs(m))
                 u.EnsureParameter(m.Input(i).Parameter, AnimatorControllerParameterType.Float);
             foreach (var sm in m.StateMachines)
@@ -222,10 +226,19 @@ namespace Kmnk.FaceTrackingGenerator
             asm.defaultState = states[sm.States[0].Name];
             foreach (var t in sm.Transitions)
             {
-                var tr = AnimUtil.Transition(states[t.From], states[t.To], t.Duration);
-                foreach (var c in t.When)
-                    tr.AddCondition(c.Op == ">" ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, c.Value, InputParam(c.Input));
-                if (menu) tr.AddCondition(AnimatorConditionMode.Equals, 0, menuParam);
+                // A transition whose values differ on the other side: one for VR (VRMode > 0.5) and one for desktop, or
+                // none on a side where it never happens (spec R9, R10).
+                foreach (var side in Thresholds.Splits(m.Measurements, t) ? new bool?[] { false, true } : new bool?[] { null })
+                {
+                    var values = side == null ? t.When.Select(c => c.Value).ToList()
+                        : Thresholds.Values(m.Measurements, t, side.Value ? Measurements.Desktop : Measurements.Vr);
+                    if (values == null) continue;
+                    var tr = AnimUtil.Transition(states[t.From], states[t.To], t.Duration);
+                    for (var i = 0; i < t.When.Count; i++)
+                        tr.AddCondition(t.When[i].Op == ">" ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, values[i], InputParam(t.When[i].Input));
+                    if (side != null) tr.AddCondition(side.Value ? AnimatorConditionMode.Less : AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
+                    if (menu) tr.AddCondition(AnimatorConditionMode.Equals, 0, menuParam);
+                }
             }
             if (!menu) return;
             var dur = sm.MaxDuration;

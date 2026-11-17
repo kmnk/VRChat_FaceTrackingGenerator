@@ -41,6 +41,9 @@ namespace Kmnk.FaceTrackingGenerator
         public const string NeutralName = "neutral";
         public const int MaxNameLength = 100;
         public const float MaxLerpSpeed = 100;
+        // VRChat's built-in parameter: 1 in VR, 0 on desktop. The sets of each side are on only on that side (spec R10).
+        public const string SideParameter = "VRMode";
+        public const string DesktopPrefix = Prefix + "desktop/";
 
         public sealed class Row
         {
@@ -68,12 +71,19 @@ namespace Kmnk.FaceTrackingGenerator
             public List<Row> Rows = new List<Row>();
             public List<Cond> Conditions = new List<Cond>();
             public float LerpSpeed;
+            // null: one set for both sides (no recordings for both); else Measurements.Vr or Measurements.Desktop.
+            public string Side;
             // Conditions and lerp speed as one string: sets with the same signature share a weight layer.
             public string Signature => string.Join(" & ", Conditions.Select(c => c.ToString())) + " @" + LerpSpeed.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public static string SetName(string stateMachine, string state, string region) => Prefix + stateMachine + "/" + state + "/" + region;
         public static string NeutralSetName(string region) => Prefix + NeutralName + "/" + region;
+        // The desktop set's name: FTG/desktop/ before the rest of the name (after, it could be a state named "desktop").
+        public static string DesktopName(string name) => DesktopPrefix + name.Substring(Prefix.Length);
+
+        // Whether a set has weight 1 on a side (FaceEval, the static checks): a set of both sides, or of that side.
+        public static bool On(SetDef set, bool desktop) => set.Side == null || set.Side == (desktop ? Measurements.Desktop : Measurements.Vr);
 
         public static string Region(string part) => PartNames.Region(part);
 
@@ -142,7 +152,32 @@ namespace Kmnk.FaceTrackingGenerator
                         set.LerpSpeed = Lerp(new[] { sm });
                         sets.Add(set);
                     }
-            return sets;
+            return m.Measurements.HasBoth ? BySide(m, sets) : sets;
+        }
+
+        // With recordings for both sides (spec R8): each set for VR (VRMode > 0.5) and a copy for desktop (VRMode < 0.5).
+        // The other side's rows' multipliers are scaled by Measurements.Factor (1 on the main side). Each side's sets in
+        // the same order.
+        static List<SetDef> BySide(TableModel m, List<SetDef> sets)
+        {
+            var result = new List<SetDef>();
+            foreach (var desktop in new[] { false, true })
+                foreach (var x in sets)
+                {
+                    var set = new SetDef
+                    {
+                        Name = desktop ? DesktopName(x.Name) : x.Name,
+                        Region = x.Region,
+                        StateMachine = x.StateMachine,
+                        State = x.State,
+                        LerpSpeed = x.LerpSpeed,
+                        Side = desktop ? Measurements.Desktop : Measurements.Vr,
+                        Rows = x.Rows.Select(r => new Row { Key = r.Key, Part = r.Part, Mesh = r.Mesh, Shape = r.Shape, Multiplier = r.Multiplier * m.Measurements.Factor(r.Key, desktop ? Measurements.Desktop : Measurements.Vr) }).ToList(),
+                    };
+                    set.Conditions = new SortedSet<Cond>(x.Conditions) { new Cond { Param = SideParameter, High = !desktop } }.ToList();
+                    result.Add(set);
+                }
+            return result;
         }
     }
 }

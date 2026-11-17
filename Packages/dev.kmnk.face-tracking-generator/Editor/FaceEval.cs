@@ -20,19 +20,19 @@ namespace Kmnk.FaceTrackingGenerator
 
         // inputs: "key:<key>" -> the key's value (other names are ignored; missing = 0). states: state machine ->
         // state (missing = default state). Returns "mesh/shape" -> weight.
-        public static SortedDictionary<string, float> Evaluate(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
+        public static SortedDictionary<string, float> Evaluate(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null, bool desktop = false)
         {
             var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
-            foreach (var s in Sources(m, inputs, states))
+            foreach (var s in Sources(m, inputs, states, desktop))
                 result[s.Shape] = Math.Max(result.TryGetValue(s.Shape, out var v) ? v : 0, s.Value);
             return result;
         }
 
         // The same before the parts become blendshapes: part -> value.
-        public static SortedDictionary<string, float> EvaluateParts(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null)
+        public static SortedDictionary<string, float> EvaluateParts(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null, bool desktop = false)
         {
             var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
-            foreach (var s in Sources(m, inputs, states))
+            foreach (var s in Sources(m, inputs, states, desktop))
                 result[s.Part] = Math.Max(result.TryGetValue(s.Part, out var v) ? v : 0, s.Value);
             return result;
         }
@@ -47,13 +47,15 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // Every value that moves a blendshape, with where it comes from (the Preview tab's Source column).
-        public static List<Source> Sources(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states)
+        // desktop: the desktop side's sets (the VR side's when false), when the sets are split by side.
+        public static List<Source> Sources(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states, bool desktop = false)
         {
             var st = States(m, states);
             float Key(string k) => inputs != null && inputs.TryGetValue(InputDef.TrackPrefix + k, out var v) ? v : 0;
             var list = new List<Source>();
             foreach (var set in NativeSets.Build(m))
             {
+                if (!NativeSets.On(set, desktop)) continue;
                 var on = set.StateMachine == null
                     ? NativeSets.Takers(m, set.Region).All(x => st[x.sm.Name] != x.st.Name)
                     : st[set.StateMachine] == set.State;

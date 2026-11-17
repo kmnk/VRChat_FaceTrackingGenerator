@@ -24,7 +24,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var op = JObject.Parse(line);
                     if ((string)op["table"] == "expression") StateMachineEdit.Apply(doc.Json(TableDocument.Expression), op);
-                    else TableEdits.Apply(doc.Json(TableDocument.Avatar), op, removed);
+                    else TableEdits.Apply(doc.Json(TableDocument.Avatar), op, removed, Path.GetDirectoryName(doc.AvatarPath));
                     n++;
                 }
             var model = doc.Model();  // the edited tables must still load

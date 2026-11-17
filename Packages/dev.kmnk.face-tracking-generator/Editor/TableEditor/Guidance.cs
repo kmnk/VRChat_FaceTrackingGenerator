@@ -209,6 +209,30 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
+        // Devices made from the table's recordings (spec R19), and the ids of the devices the Preview runs as desktop (R20).
+        public const string MeasuredVr = "measured-vr", MeasuredDesktop = "measured-desktop", SelfieExpression = "selfie-expression";
+        // Whether the Preview runs as desktop with the device `id` for the model: only when the list has that device (a saved
+        // id of a device that is gone falls back to Settings, which runs as VR).
+        public static bool IsDesktop(TableModel m, string id) =>
+            id == MeasuredDesktop ? m?.Measurements.DesktopSide != null
+            : id == SelfieExpression && File.Exists(Folder + "/" + id + ".jsonc");
+
+        // Load() and, for each side with recordings, a device of the keys sent, from the neutral value to the largest.
+        public static List<Device> Load(TableModel m)
+        {
+            var list = Load();
+            foreach (var side in Measurements.Sides)
+            {
+                var s = m?.Measurements.Of(side);
+                if (s == null) continue;
+                var d = new Device { Id = side == Measurements.Vr ? MeasuredVr : MeasuredDesktop, Name = Measurements.Label(side) + " (records)" };
+                foreach (var kv in s.Keys.Where(k => k.Value.Sent))
+                    d.Keys.Add((kv.Key, Math.Min(kv.Value.Neutral, kv.Value.Max), Math.Max(kv.Value.Neutral, kv.Value.Max)));
+                list.Add(d);
+            }
+            return list;
+        }
+
         public static List<Device> Load()
         {
             var list = new List<Device>();

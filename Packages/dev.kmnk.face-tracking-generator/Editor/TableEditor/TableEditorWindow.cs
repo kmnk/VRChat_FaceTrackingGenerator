@@ -17,7 +17,7 @@ namespace Kmnk.FaceTrackingGenerator
     // the scene. The tables are edited as JSON trees (TableDocument) and written only on Save.
     public sealed partial class TableEditorWindow : EditorWindow
     {
-        static readonly string[] Tabs = { "Avatar", "Preview" };
+        static readonly string[] Tabs = { "Avatar", "Preview", "Devices" };
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
@@ -208,6 +208,10 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // The device chosen in the Preview (Templates/Devices), or null for none.
+        // Whether the Preview runs as desktop (spec R20): the device chosen is desktop's ("Desktop (records)" or Selfie
+        // Expression). Live input runs as VR (spec "置いた前提").
+        internal bool PreviewDesktop => !LiveRunning && Devices.IsDesktop(model, captureDevice ?? EditorPrefs.GetString(DevicePrefKey, ""));
+
         Devices.Device ChosenDevice(List<Devices.Device> devices) =>
             devices.FirstOrDefault(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, "")));
 
@@ -251,7 +255,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             stateShown = (sm, st);
             if (model == null || model.StateMachine(sm)?.State(st) == null) { FaceView.Clear(); return; }
-            var weights = FaceEval.Evaluate(model, inputs, new Dictionary<string, string> { [sm] = st });
+            var weights = FaceEval.Evaluate(model, inputs, new Dictionary<string, string> { [sm] = st }, PreviewDesktop);
             FaceView.Show(model, Prefab(), weights, $"{sm} = {st}");
         }
 
@@ -292,6 +296,8 @@ namespace Kmnk.FaceTrackingGenerator
             EditorUtility.SetDirty(state);
             Rebuild();
             UpdateDirty();
+            // An edit from the State Machine window changes what this window shows (the Devices tab's values).
+            Repaint();
         }
 
         void OnUndoRedo()
@@ -345,7 +351,9 @@ namespace Kmnk.FaceTrackingGenerator
             if (error != null) EditorGUILayout.HelpBox(error, MessageType.Error);
             scroll = EditorGUILayout.BeginScrollView(scroll);
             if (tab == 0) DrawAvatarTab();
-            else DrawPreviewTab();
+            else if (tab == 1) DrawPreviewTab();
+            else if (model == null) { }  // the error is above
+            else DrawDevicesTab();
             EditorGUILayout.EndScrollView();
         }
 
@@ -983,13 +991,13 @@ namespace Kmnk.FaceTrackingGenerator
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
 
-            var states = switches.Update(model, inputs);
+            var states = switches.Update(model, inputs, PreviewDesktop);
 
             if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
 
             // Inputs, by device
             EditorGUILayout.Space(6);
-            var devices = Devices.Load();
+            var devices = Devices.Load(model);
             var deviceNames = new List<string> { "Settings" };
             deviceNames.AddRange(devices.Select(d => d.Name));
             var deviceIndex = Math.Max(0, devices.FindIndex(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, ""))) + 1);
@@ -1000,7 +1008,7 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.Label("Device", GUILayout.ExpandWidth(false));
                 EditorGUI.BeginChangeCheck();
                 deviceIndex = EditorGUILayout.Popup(deviceIndex, deviceNames.ToArray(), GUILayout.Width(150));
-                if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); }
+                if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); changed = true; }
                 using (new EditorGUI.DisabledScope(LiveRunning))
                 if (GUILayout.Button("Reset", GUILayout.Width(60)))
                 {
@@ -1009,24 +1017,16 @@ namespace Kmnk.FaceTrackingGenerator
                     changed = true;
                 }
             }
-            Help("help.inputs");
+            Help("preview.devices");
+            // What the Preview runs as and which values it uses (spec R20).
+            SideBox(SideLine());
             if (LiveRunning) Help("help.liveInputs");
             var device = deviceIndex == 0 ? null : devices[deviceIndex - 1];
             var partsOf = InputParts.Of(model);
             // The tracking keys ("key:<key>"). The keys forwarded for the transitions are the same values, so they are not
             // shown again.
             foreach (var input in model.Inputs.Where(x => x.IsTrack))
-            {
-                var (lo, hi, label, sent) = PreviewSlider(input, device);
-                var v = inputs.TryGetValue(input.Name, out var x) ? x : 0f;
-                using (new EditorGUI.DisabledScope(!sent || LiveRunning))
-                {
-                    EditorGUI.BeginChangeCheck();
-                    v = EditorGUILayout.Slider(new GUIContent(label, ParameterHelp.Tooltip(model, input)), v, lo, hi);
-                    if (EditorGUI.EndChangeCheck()) { inputs[input.Name] = (float)Math.Round(v, 2); changed = true; }
-                }
-                if (partsOf.TryGetValue(input.Name, out var line)) PartsLine(line);
-            }
+                DrawInputSlider(input, device, partsOf.TryGetValue(input.Name, out var line) ? line : null, ref changed);
 
             // Menu: a state chosen as the menu does; the transitions stop until None (design.md "設定エディタ").
             var withMenu = model.StateMachines.Where(sm => sm.MenuStates.Any()).ToList();
@@ -1067,11 +1067,11 @@ namespace Kmnk.FaceTrackingGenerator
                     }
             }
 
-            if (changed) states = switches.Update(model, inputs);
+            if (changed) states = switches.Update(model, inputs, PreviewDesktop);
             if (changed && preview.Running) ApplyPreview(states);
 
             // Overlaps under the sliders, so that a warning that comes and goes does not move the slider in use.
-            foreach (var o in Overlaps.Find(FaceEval.EvaluateParts(model, inputs, states)))
+            foreach (var o in Overlaps.Find(FaceEval.EvaluateParts(model, inputs, states, PreviewDesktop)))
             {
                 EditorGUILayout.HelpBox(Overlaps.Message(o, usage), MessageType.Warning);
                 foreach (var (part, _) in o.Parts)
@@ -1106,7 +1106,7 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.Label("Source", EditorStyles.miniBoldLabel, GUILayout.Width(200));
             }
             var i = 0;
-            foreach (var row in PreviewWeights.Rows(model, inputs, states))
+            foreach (var row in PreviewWeights.Rows(model, inputs, states, PreviewDesktop))
             {
                 var (mesh, shape) = FacePreview.Split(row.Key);
                 var name = mesh == model.DefaultMesh ? shape : row.Key;
@@ -1146,22 +1146,11 @@ namespace Kmnk.FaceTrackingGenerator
         // The slider range: the values the transitions compare the input with (0 to 1 at least).
         (float, float) SliderRange(string input) => Devices.ThresholdRange(model, input);
 
-        // A slider of the preview: the thresholds' range fitted to what the device sends (design.md "Preview").
-        (float lo, float hi, string label, bool sent) PreviewSlider(InputDef input, Devices.Device device)
-        {
-            var (lo, hi) = SliderRange(input.Name);
-            if (device == null) return (lo, hi, input.Name, true);
-            var s = Devices.Slider(model, input, device, (lo, hi));
-            if (!s.sent) return (lo, hi, input.Name + EditorText.Get("device.notSent"), false);
-            var label = s.clipped ? input.Name + string.Format(EditorText.Get("device.range"), s.device.lo.ToString("0.##"), s.device.hi.ToString("0.##")) : input.Name;
-            return (s.lo, s.hi, label, true);
-        }
-
         void ApplyPreview(Dictionary<string, string> states = null)
         {
             if (model == null || !preview.Running) return;
-            states = states ?? switches.Update(model, inputs);
-            var weights = FaceEval.Evaluate(model, inputs, states);
+            states = states ?? switches.Update(model, inputs, PreviewDesktop);
+            var weights = FaceEval.Evaluate(model, inputs, states, PreviewDesktop);
             notOnAvatar = preview.Apply(model, weights);
             nothingApplied = FacePreview.Targets(model, weights).All(notOnAvatar.Contains);
             FaceView.Show(model, Prefab(), weights, "Preview");
@@ -1199,7 +1188,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- TableEditorChecks.Capture
 
-        // -ftTable <avatar.jsonc>, -ftTab avatar|preview, -ftHelp en|ja|off, -ftState dirty|picker|preview|notable,
+        // -ftTable <avatar.jsonc>, -ftTab avatar|preview|devices, -ftHelp en|ja|off, -ftState dirty|picker|preview|notable,
         // -ftSet "Input=value,...", -ftPickerPart <part>, -ftPickerSearch <text>
         internal void ApplyCaptureArgs()
         {
@@ -1222,7 +1211,7 @@ namespace Kmnk.FaceTrackingGenerator
             var chooseAvatar = CliArgs.Get("-ftChooseAvatar");
             if (chooseAvatar != null) ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
             var tabArg = CliArgs.Get("-ftTab");
-            tab = tabArg == "preview" ? 1 : 0;
+            tab = tabArg == "preview" ? 1 : tabArg == "devices" ? 2 : 0;
             scroll.y = CliArgs.GetFloat("-ftScroll", 0);
             if (st.Contains("dirty") && doc != null)
             {
