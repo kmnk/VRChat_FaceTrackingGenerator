@@ -110,6 +110,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["part.addIn"] = ("Add a face movement to {0}", "{0} に顔の動きを足す"),
             ["part.regionOf"] = ("A movement of this row must start with \"{0}.\".", "この行の動きは「{0}.」で始めてください。"),
             ["sm.help"] = ("Select a state to show its settings on the right. Right-click a state to make a transition. Wheel: zoom.", "状態を選ぶと右に設定が出ます。状態を右クリックすると遷移を作れます。ホイールで拡大・縮小します。"),
+            ["sm.stopVisemes"] = ("While in this state, speaking does not move the mouth with visemes. The fixed blendshapes stay while talking. Off: visemes add to the face as before.", "この状態の間、話しても viseme で口を動かしません。固定の動きは話している間も残ります。外すと、今までどおり viseme が顔に重なります。"),
             ["sm.regions"] = ("Override: while in this state, the region moves with the rows below. Off: the region's neutral stops.", "Override: この状態の間、部位を下の行で動かします。Off: 部位の neutral を止めます。"),
             ["sm.others"] = ("The other {0} keys move with neutral. × puts a key back to neutral.", "ほかの {0} キーは neutral で動きます。× で neutral に戻せます。"),
             ["sm.neutral"] = ("The rows of neutral. Other states use them for the keys they do not write.", "neutral の行です。ほかの状態は、書いていないキーをここから使います。"),

@@ -105,6 +105,13 @@ namespace Kmnk.FaceTrackingGenerator
         public static IEnumerable<(StateMachineDef sm, StateDef st)> Takers(TableModel m, string region) =>
             m.StateMachines.SelectMany(sm => sm.States.Where(st => st.Regions.ContainsKey(region)).Select(st => (sm, st)));
 
+        // The lerp speed of a set that follows these state machines: the slowest of their transitions.
+        public static float LerpSpeed(IEnumerable<StateMachineDef> sms)
+        {
+            var dur = sms.Select(x => x.MaxDuration).DefaultIfEmpty(0).Max();
+            return dur > 0 ? Math.Min(MaxLerpSpeed, 1f / dur) : 0f;
+        }
+
         public static List<SetDef> Build(TableModel m)
         {
             var sets = new List<SetDef>();
@@ -122,11 +129,7 @@ namespace Kmnk.FaceTrackingGenerator
                 return set;
             }
 
-            float Lerp(IEnumerable<StateMachineDef> sms)
-            {
-                var dur = sms.Select(x => x.MaxDuration).DefaultIfEmpty(0).Max();
-                return dur > 0 ? Math.Min(MaxLerpSpeed, 1f / dur) : 0f;
-            }
+            float Lerp(IEnumerable<StateMachineDef> sms) => LerpSpeed(sms);
 
             foreach (var kv in m.Neutral)
             {

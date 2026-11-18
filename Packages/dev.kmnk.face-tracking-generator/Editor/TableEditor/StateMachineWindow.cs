@@ -518,6 +518,12 @@ namespace Kmnk.FaceTrackingGenerator
                 menu = EditorGUILayout.ToggleLeft("Selectable from menu", menu);
                 if (EditorGUI.EndChangeCheck()) Edit("Set FT menu state", x => StateMachineEdit.SetMenu(x, machine, st, menu));
             }
+            var stop = StateMachineEdit.StopVisemes(e, machine, st);
+            EditorGUI.BeginChangeCheck();
+            stop = EditorGUILayout.ToggleLeft("Stop visemes", stop);
+            if (EditorGUI.EndChangeCheck()) Edit("Set FT stop visemes", x => StateMachineEdit.SetStopVisemes(x, machine, st, stop));
+            var stopHelp = EditorText.Help("sm.stopVisemes");
+            if (stopHelp != null) EditorGUILayout.LabelField(stopHelp, EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("Regions", EditorStyles.boldLabel);
             var neutralRegions = StateMachineEdit.NeutralRegions(e);

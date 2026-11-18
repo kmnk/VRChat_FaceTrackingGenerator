@@ -15,6 +15,7 @@ namespace Kmnk.FaceTrackingGenerator
     //                 inputs, and Menu/<state> states entered from the menu (FT/Menu/<state machine>)
     //   FT/Face       the states' fixed amounts: one Direct BlendTree, weighted by FT/Sw/* (the only layer that writes blendshapes)
     //   FT/Sets/*     weights of the Face Tracking section's Blendshapes Sets (NativeSets)
+    //   FT/Visemes    weight of the viseme sets, 0 in states with stopVisemes (VisemeStop)
     public sealed class FtBuilder
     {
         public const string One = "FT/One";
@@ -25,20 +26,22 @@ namespace Kmnk.FaceTrackingGenerator
         readonly TableModel m;
         readonly AnimUtil u;
         readonly List<AfkGroup> afkGroups;
+        readonly VisemeStop.Plan visemes;
         public readonly List<AnimatorControllerLayer> Layers = new List<AnimatorControllerLayer>();
 
-        public FtBuilder(TableModel model, AnimatorController fx, List<AfkGroup> afkGroups)
+        public FtBuilder(TableModel model, AnimatorController fx, List<AfkGroup> afkGroups, VisemeStop.Plan visemes = null)
         {
             m = model;
             u = new AnimUtil(fx);
             this.afkGroups = afkGroups;
+            this.visemes = visemes;
         }
 
         public static string SwitchParam(string sm, string state) => "FT/Sw/" + sm + "/" + state;
         // The Int parameter of the menu: 0 when nothing is chosen, else the chosen state's StateMachineDef.MenuValue.
         public static string MenuParam(string sm) => "FT/Menu/" + sm;
-        // Names in the FT/Face Direct BlendTree: a region group ("Active" or "Mouth"), and a state's fixed amounts in that group.
-        public static readonly string[] FaceGroups = { "Active", "Mouth" };  // regions that keep moving while talking, and the others
+        // Names in the FT/Face Direct BlendTree: a group ("Active" or "Mouth"), and a state's fixed amounts in that group.
+        public static readonly string[] FaceGroups = { "Active", "Mouth" };  // amounts kept while talking, and those of stopWhileTalking's regions (not for a stopVisemes state)
         public static string FaceMotion(string group) => "FT/Face/" + group;
         public static string FaceMotion(string group, string sm, string state) => FaceMotion(group) + "/" + sm + "/" + state;
 
@@ -70,6 +73,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var sm in m.StateMachines) StateMachine(sm);
             Face();
             SetLayers();
+            VisemeStop.BuildLayer(u, visemes, Layers);
         }
 
         void Parameters()
@@ -257,15 +261,19 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- FT/Face
 
         // The states' fixed amounts (already multiplied by the part's scale), each weighted by its state's FT/Sw/*.
+        // A state whose visemes are stopped (stopVisemes, and VisemeStop could stop them for this avatar) keeps all its
+        // fixed amounts while talking (the Active group), also those in stopWhileTalking's regions: the mouth keeps the
+        // state's shape. When the visemes cannot be stopped, the state is as without stopVisemes.
         void Face()
         {
             var talkRegions = new HashSet<string>(m.StopWhileTalking);
+            var stopped = new HashSet<StateDef>(visemes != null && visemes.Any ? visemes.States.Select(x => x.st) : Enumerable.Empty<StateDef>());
             var root = u.NewTree("FT/Face", BlendTreeType.Direct);
             var any = false;
-            foreach (var (group, weight, inGroup) in new (string, string, Func<string, bool>)[]
+            foreach (var (group, weight, inGroup) in new (string, string, Func<StateDef, string, bool>)[]
                      {
-                         (FaceGroups[0], Active, r => !talkRegions.Contains(r)),
-                         (FaceGroups[1], MouthActive, r => talkRegions.Contains(r)),
+                         (FaceGroups[0], Active, (st, r) => stopped.Contains(st) || !talkRegions.Contains(r)),
+                         (FaceGroups[1], MouthActive, (st, r) => !stopped.Contains(st) && talkRegions.Contains(r)),
                      })
             {
                 var groupTree = u.NewTree(FaceMotion(group), BlendTreeType.Direct);
@@ -273,7 +281,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var sm in m.StateMachines)
                     foreach (var st in sm.States)
                     {
-                        var parts = st.Fixed.Where(kv => inGroup(PartNames.Region(kv.Key))).ToList();
+                        var parts = st.Fixed.Where(kv => inGroup(st, PartNames.Region(kv.Key))).ToList();
                         if (parts.Count == 0) continue;
                         var clip = u.ShapeClip(FaceMotion(group, sm.Name, st.Name), parts.Select(kv => (m.Parts[kv.Key].Mesh, m.Parts[kv.Key].Shape, kv.Value)));
                         AnimUtil.AddDirectChild(groupTree, clip, SwitchParam(sm.Name, st.Name));

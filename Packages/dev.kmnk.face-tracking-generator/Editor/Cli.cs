@@ -240,12 +240,18 @@ namespace Kmnk.FaceTrackingGenerator
                 ["stateMachines"] = new JArray(m.StateMachines.Select(sm => new JObject
                 {
                     ["name"] = sm.Name,
-                    ["states"] = new JArray(sm.States.Select(st => new JObject
+                    ["states"] = new JArray(sm.States.Select(st =>
                     {
-                        ["name"] = st.Name,
-                        ["menu"] = st.Menu ? sm.MenuValue(st.Name) : 0,
-                        ["regions"] = new JObject(st.Regions.Select(kv => new JProperty(kv.Key, kv.Value.Off ? (JToken)TableLoader.Off : new JArray(kv.Value.Rows.Select(r => Row(r, m)))))),
-                        ["fixed"] = new JObject(st.Fixed.Select(kv => new JProperty(kv.Key, kv.Value))),
+                        var o = new JObject
+                        {
+                            ["name"] = st.Name,
+                            ["menu"] = st.Menu ? sm.MenuValue(st.Name) : 0,
+                            ["regions"] = new JObject(st.Regions.Select(kv => new JProperty(kv.Key, kv.Value.Off ? (JToken)TableLoader.Off : new JArray(kv.Value.Rows.Select(r => Row(r, m)))))),
+                            ["fixed"] = new JObject(st.Fixed.Select(kv => new JProperty(kv.Key, kv.Value))),
+                        };
+                        // Only when set, so that the output of a table without it stays as before.
+                        if (st.StopVisemes) o["stopVisemes"] = true;
+                        return o;
                     })),
                     ["transitions"] = new JArray(sm.Transitions.Select(t => new JObject
                     {

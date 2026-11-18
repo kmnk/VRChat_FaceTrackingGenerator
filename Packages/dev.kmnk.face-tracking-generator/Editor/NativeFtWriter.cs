@@ -24,6 +24,7 @@ namespace Kmnk.FaceTrackingGenerator
             public bool Overwrite;
             public string EyeGazeMode;
             public bool Eyelids;   // a neutral row uses EyeClosedLeft or EyeClosedRight
+            public VisemeStop.Plan Visemes;  // set by Generator.Generate, which reads the avatar's Lip Sync
         }
 
         public static Plan Build(TableModel m) => new Plan
@@ -83,6 +84,10 @@ namespace Kmnk.FaceTrackingGenerator
             return found;
         }
 
+        // Whether Apply writes the generator's Blendshapes Sets (and empties the tracking rows of the avatar's own sets):
+        // the table has sets, and the avatar has no own Face Tracking values or overwriteFaceTracking is on.
+        public static bool WritesSets(bool hasSets, VRCAvatarDescriptor d, bool overwrite) => hasSets && (OwnValues(d).Count == 0 || overwrite);
+
         // Returns lines for the generation log.
         public static List<string> Apply(VRCAvatarDescriptor d, Plan plan)
         {
@@ -103,7 +108,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (plan.Sets.Count > 0)
             {
                 var own = OwnValues(d);
-                if (own.Count > 0 && !plan.Overwrite)
+                if (!WritesSets(true, d, plan.Overwrite))
                 {
                     log.Add("face tracking: kept the avatar's own Face Tracking settings (overwriteFaceTracking is false): " + string.Join(", ", own) + "; the generator's Blendshapes Sets are not written");
                 }
@@ -116,6 +121,8 @@ namespace Kmnk.FaceTrackingGenerator
                     WriteEyes(d, plan, log);
                 }
             }
+
+            VisemeStop.Apply(d, plan.Visemes, log);
 
             var kept = list.Count;
             list.AddRange(behaviors);

@@ -54,6 +54,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Name;
         public bool Menu;  // selectable from the menu
+        public bool StopVisemes;  // while its fixed amounts show, the voice's visemes do not move the mouth
         public SortedDictionary<string, RegionDef> Regions = new SortedDictionary<string, RegionDef>(System.StringComparer.Ordinal);
         public SortedDictionary<string, float> Fixed = new SortedDictionary<string, float>(System.StringComparer.Ordinal);  // part -> amount x scale
     }

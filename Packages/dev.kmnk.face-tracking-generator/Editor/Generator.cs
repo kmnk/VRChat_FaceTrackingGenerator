@@ -92,6 +92,8 @@ namespace Kmnk.FaceTrackingGenerator
             var groups = new List<AfkGroup>(m.AfkGroups);
             if (withAfk) groups.Add(AfkBuilder.Group());
 
+            var visemes = VisemeStop.Build(m, desc, r.Log);
+
             var outputs = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             foreach (var (type, key) in new[] { (VRCAvatarDescriptor.AnimLayerType.FX, "fx"), (VRCAvatarDescriptor.AnimLayerType.Gesture, "gesture"), (VRCAvatarDescriptor.AnimLayerType.Action, "action") })
             {
@@ -111,7 +113,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var reg = new StableIds.Registry(dest);
                 if (isFx)
                 {
-                    var ft = new FtBuilder(m, c, groups);
+                    var ft = new FtBuilder(m, c, groups, visemes);
                     ft.Build();
                     foreach (var l in ft.Layers) reg.AddLayer(l);
                     r.Log.Add($"{type}: added {ft.Layers.Count} FT layers");
@@ -145,6 +147,7 @@ namespace Kmnk.FaceTrackingGenerator
             r.Controllers = outputs;
             r.ExpressionParameters = expr;
             r.FaceTracking = NativeFtWriter.Build(m);
+            r.FaceTracking.Visemes = visemes;
             r.Log.AddRange(SideLog(m, r.FaceTracking.Sets));
             foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
 

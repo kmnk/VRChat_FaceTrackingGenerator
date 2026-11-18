@@ -14,6 +14,9 @@
 //     (Override: the region moves with neutral's rows, with these rows in place of the same keys; null: Don't move)
 //   - "fixed": part -> amount (0 to 100), held while in the state
 //   - "menu": true (selectable from the menu: a toggle in the FT menu's submenu of the state machine)
+//   - "stopVisemes": true (while the state's fixed movements show, speaking does not move the mouth with visemes, and
+//     the fixed movements stay while talking, also in stopWhileTalking's regions. The generator then switches the
+//     avatar's Lip Sync from Viseme Blend Shape to Viseme Blend Shape Face Tracking with the same viseme blendshapes)
 // "transitions": [{"from", "to", "when": [[tracking key, ">" or "<", value], ...], "duration": seconds}]. All
 // conditions of a transition must hold; write two transitions between the same states for either of two (e.g. the left
 // or the right side). Different values for entering and leaving keep the state from flickering. The generator forwards

@@ -136,6 +136,16 @@ namespace Kmnk.FaceTrackingGenerator
             if (menu) o["menu"] = true; else o.Remove("menu");
         }
 
+        // "stopVisemes": true, or no item (a table that never had it saves as before).
+        public static void SetStopVisemes(JObject e, string sm, string st, bool stop)
+        {
+            var o = State(e, sm, st);
+            if (stop) o["stopVisemes"] = true; else o.Remove("stopVisemes");
+        }
+
+        public static bool StopVisemes(JObject e, string sm, string st) =>
+            (States(e, sm)?[st] as JObject)?["stopVisemes"]?.Value<bool>() == true;
+
         public static void SetPosition(JObject e, string sm, string st, float x, float y) =>
             State(e, sm, st)["position"] = new JArray(Sides.Num(Math.Round(x)), Sides.Num(Math.Round(y)));
 
@@ -275,6 +285,7 @@ namespace Kmnk.FaceTrackingGenerator
                 case "renameState": RenameState(e, sm, S("from"), S("to")); break;
                 case "setDefault": SetDefault(e, sm, S("state")); break;
                 case "setMenu": SetMenu(e, sm, S("state"), (bool)op["menu"]); break;
+                case "setStopVisemes": SetStopVisemes(e, sm, S("state"), (bool)op["stop"]); break;
                 case "setPosition": SetPosition(e, sm, S("state"), F("x", 0), F("y", 0)); break;
                 case "addTransition": AddTransition(e, sm, S("from"), S("to"), S("input"), S("cmp") ?? ">", F("value", 0.5f), F("duration", 0.2f)); break;
                 case "removeTransition": RemoveTransition(e, sm, I("index")); break;

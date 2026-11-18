@@ -318,6 +318,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     if (!(stp.Value is JObject sto)) throw new TableException($"{file}: '{stp.Path}' must be an object");
                     st.Menu = sto["menu"]?.Value<bool>() ?? false;
+                    st.StopVisemes = sto["stopVisemes"]?.Value<bool>() ?? false;
                     if (sto["regions"] is JObject regions)
                         foreach (var rp in regions.Properties())
                         {
