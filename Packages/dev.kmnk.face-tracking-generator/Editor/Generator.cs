@@ -21,6 +21,8 @@ namespace Kmnk.FaceTrackingGenerator
             public List<string> Written = new List<string>();
             public Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController> Controllers = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             public VRCExpressionParameters ExpressionParameters;
+            // The copy of the avatar's menu with the FT toggles and the state submenus (MenuBuilder); null: not changed
+            public VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionsMenu Menu;
             // What NativeFtWriter writes into the Face Tracking section
             public NativeFtWriter.Plan FaceTracking = new NativeFtWriter.Plan();
         }
@@ -42,6 +44,7 @@ namespace Kmnk.FaceTrackingGenerator
             d.baseAnimationLayers = layers;
             d.customExpressions = true;
             d.expressionParameters = r.ExpressionParameters;
+            if (r.Menu != null) d.expressionsMenu = r.Menu;
         }
 
         // What the recordings change (spec R13): the other side's sets, the keys whose strength they scale above 1, and
@@ -109,7 +112,8 @@ namespace Kmnk.FaceTrackingGenerator
                 var dest = $"{m.OutputFolder}/{type}.controller";
                 AssetCopy.CopyKeepingGuid(src, dest);
                 var c = AssetDatabase.LoadAssetAtPath<AnimatorController>(dest);
-                foreach (var line in LayerPatcher.Apply(c, adj, m.FaceTrackParameter)) r.Log.Add($"{type}: {line}");
+                foreach (var line in LayerPatcher.Apply(c, adj, m.FaceTrackParameter))
+                    r.Log.Add(line.StartsWith("notice: ") ? $"notice: {type}: {line.Substring(8)}" : $"{type}: {line}");
 
                 var reg = new StableIds.Registry(dest);
                 if (isFx)
@@ -151,6 +155,7 @@ namespace Kmnk.FaceTrackingGenerator
             r.FaceTracking.Visemes = visemes;
             r.Log.AddRange(SideLog(m, r.FaceTracking.Sets));
             foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
+            r.Menu = MenuBuilder.Build(m, desc.expressionsMenu, r.Log, r.Written);
 
             if (writeVariant && m.VariantPath != null)
             {
@@ -200,6 +205,23 @@ namespace Kmnk.FaceTrackingGenerator
                 list.RemoveAll(x => x.name == name);
                 list.Add(new VRCExpressionParameters.Parameter { name = name, valueType = VRCExpressionParameters.ValueType.Int, defaultValue = 0, saved = false, networkSynced = true });
                 r.Log.Add("expression parameters: added " + name + " (Int, synced)");
+            }
+            // The FT toggle and the AFK toggle that MenuBuilder puts in the menu (synced Bools, as the avatar's own toggles).
+            foreach (var (name, def) in new[] { (m.FaceTrackParameter, 1f), (m.AfkPlayParameter, 0f) })
+            {
+                if (list.Any(x => x.name == name)) continue;
+                var with = list.Concat(new[] { new VRCExpressionParameters.Parameter { name = name, valueType = VRCExpressionParameters.ValueType.Bool, defaultValue = def, saved = false, networkSynced = true } }).ToArray();
+                var probe = ScriptableObject.CreateInstance<VRCExpressionParameters>();
+                probe.parameters = with;
+                var cost = probe.CalcTotalCost();
+                UnityEngine.Object.DestroyImmediate(probe);
+                if (cost > VRCExpressionParameters.MAX_PARAMETER_COST)
+                {
+                    r.Log.Add($"notice: expression parameters: {name} not added; synced parameters would use {cost} bits (max {VRCExpressionParameters.MAX_PARAMETER_COST})");
+                    continue;
+                }
+                list = with.ToList();
+                r.Log.Add("expression parameters: added " + name + " (Bool, synced)");
             }
             p.parameters = list.ToArray();
             EditorUtility.SetDirty(p);

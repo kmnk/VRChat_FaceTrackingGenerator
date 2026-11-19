@@ -18,10 +18,13 @@ namespace Kmnk.FaceTrackingGenerator
             RemovedLayerParameters = new HashSet<string>();
             if (adj == null) return log;
 
+            // A layer the table names but the controller does not have is left out with a notice, not an error: the
+            // template names the usual hand gesture layers, which an avatar without hand gestures does not have.
+            // StaticChecker.MissingLayers reports the same names before generating.
             foreach (var name in adj.Remove)
             {
                 var i = Array.FindIndex(c.layers, l => l.name == name);
-                if (i < 0) throw new TableLoader.TableException($"layer '{name}' to remove is not in {c.name}");
+                if (i < 0) { log.Add(Missing(name, "to remove", c)); continue; }
                 RemovedLayerParameters.UnionWith(ParameterRefs.Of(c.layers[i].stateMachine));
                 c.RemoveLayer(i);
                 log.Add($"removed layer {name}");
@@ -33,7 +36,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in adj.Weights)
                 {
                     var i = Array.FindIndex(layers, l => l.name == kv.Key);
-                    if (i < 0) throw new TableLoader.TableException($"layer '{kv.Key}' for a weight is not in {c.name}");
+                    if (i < 0) { log.Add(Missing(kv.Key, "for a weight", c)); continue; }
                     layers[i].defaultWeight = kv.Value;
                     log.Add($"weight {kv.Key} = {kv.Value}");
                 }
@@ -48,13 +51,33 @@ namespace Kmnk.FaceTrackingGenerator
                     c.AddParameter(FtBuilder.Active, UnityEngine.AnimatorControllerParameterType.Float);
                 foreach (var name in adj.StopWhileFaceTrack)
                 {
-                    var layer = c.layers.FirstOrDefault(l => l.name == name)
-                        ?? throw new TableLoader.TableException($"layer '{name}' to stop while FT is on is not in {c.name}");
+                    var layer = c.layers.FirstOrDefault(l => l.name == name);
+                    if (layer == null) { log.Add(Missing(name, "to stop while FT is on", c)); continue; }
                     var n = StopWhile(layer.stateMachine, FtBuilder.Active);
                     log.Add($"layer {name}: added '{FtBuilder.Active} < 0.5' to {n} transitions");
                 }
             }
+            // Muted by FtBuilder (FT/Gate), which leaves out the same names.
+            foreach (var name in adj.MuteWhileFaceTrack)
+                if (!c.layers.Any(l => l.name == name)) log.Add(Missing(name, "to mute while FT is on", c));
             return log;
+        }
+
+        static string Missing(string name, string what, AnimatorController c) =>
+            $"notice: layer '{name}' {what} is not in {c.name}; left out";
+
+        // The layer names of a table's layer lists ("remove", "weights", "stopWhileFaceTrack", "muteWhileFaceTrack")
+        // that the controller does not have, as (list, name).
+        public static List<(string list, string name)> MissingIn(AnimatorController c, LayerAdjust adj)
+        {
+            var have = new HashSet<string>(c.layers.Select(l => l.name));
+            var r = new List<(string, string)>();
+            if (adj == null) return r;
+            foreach (var (list, names) in new[] { ("remove", (IEnumerable<string>)adj.Remove), ("weights", adj.Weights.Keys),
+                         ("stopWhileFaceTrack", adj.StopWhileFaceTrack), ("muteWhileFaceTrack", adj.MuteWhileFaceTrack) })
+                foreach (var n in names)
+                    if (!have.Contains(n)) r.Add((list, n));
+            return r;
         }
 
         // Adds "FaceTrack is false" to every transition that leaves the default state and to every

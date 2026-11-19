@@ -14,7 +14,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Save and Undo are the settings editor's.
     public sealed class StateMachineWindow : EditorWindow
     {
-        const float NodeW = 150, NodeH = 36, ToolbarH = 22;
+        const float NodeW = 150, NodeH = 36, ToolbarH = 22, BrokenNoticeH = 40;
         static readonly Color Background = new Color(0.125f, 0.125f, 0.125f);
         static readonly Color Grid = new Color(0.15f, 0.15f, 0.15f);
         static readonly Color DefaultFill = new Color(0.72f, 0.41f, 0.16f);
@@ -73,7 +73,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (e == null) { EditorGUILayout.HelpBox(EditorText.Get("sm.noTable"), MessageType.Info); return; }
             var names = StateMachineEdit.Machines(e)?.Properties().Select(p => p.Name).ToList() ?? new List<string>();
             if (machine == null || !names.Contains(machine)) { machine = names.FirstOrDefault(); selState = null; selTransition = -1; }
-            DrawToolbar(e, names);
+            var brokenH = DrawToolbar(e, names);
             if (machine == null)
             {
                 GUILayout.FlexibleSpace();
@@ -86,7 +86,7 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.FlexibleSpace();
                 return;
             }
-            var top = ToolbarH + (EditorText.Help("sm.help") != null ? 18 : 0);
+            var top = ToolbarH + (EditorText.Help("sm.help") != null ? 18 : 0) + brokenH;
             var graph = new Rect(0, top, Math.Max(200, position.width - InspectorWidth), position.height - top);
             var inspector = new Rect(graph.xMax, top, position.width - graph.xMax, position.height - top);
             Splitter(new Rect(graph.xMax - 3, top, 6, graph.height));  // before the graph, which takes clicks in its area
@@ -125,7 +125,9 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- toolbar
 
-        void DrawToolbar(JObject e, List<string> names)
+        // Returns the height of the notice about transitions to missing states (0 when there are none), which the graph
+        // goes below.
+        float DrawToolbar(JObject e, List<string> names)
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
@@ -144,6 +146,22 @@ namespace Kmnk.FaceTrackingGenerator
             }
             var help = EditorText.Help("sm.help");
             if (help != null) EditorGUILayout.LabelField(linkFrom != null ? EditorText.Get("sm.pickTarget") : help, EditorStyles.miniLabel);
+            // Transitions to or from a state the machine does not have are not drawn, so they are offered for removal here.
+            var broken = machine == null ? new List<int>() : StateMachineEdit.BrokenTransitions(e, machine);
+            if (broken.Count == 0) return 0;
+            const float h = BrokenNoticeH;
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(h)))
+            {
+                var text = string.Format(EditorText.Get("sm.brokenTransitions"), broken.Count, string.Join(", ", broken));
+                EditorGUILayout.LabelField(new GUIContent(text, EditorGUIUtility.IconContent("console.warnicon.sml").image), EditorStyles.helpBox, GUILayout.Height(h), GUILayout.ExpandWidth(true));
+                if (GUILayout.Button(EditorText.Get("sm.removeBroken"), GUILayout.Width(90), GUILayout.Height(h)))
+                {
+                    Edit("Remove FT transitions to missing states", x => StateMachineEdit.RemoveBrokenTransitions(x, machine));
+                    selTransition = -1;
+                    GUIUtility.ExitGUI();
+                }
+            }
+            return h + 4;
         }
 
         // Add a state named state<n> at 'at' (graph space) and select it.
@@ -163,7 +181,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var n in names)
             {
                 var name = n;
-                menu.AddItem(new GUIContent(name), name == machine, () => { machine = name; selState = null; selTransition = -1; FrameAll(Expr); });
+                menu.AddItem(new GUIContent(name), name == machine, () => { machine = name; selState = null; selTransition = -1; linkFrom = null; FrameAll(Expr); });
             }
             menu.AddSeparator("");
             menu.AddItem(new GUIContent("New State Machine…"), false, () =>
@@ -173,7 +191,7 @@ namespace Kmnk.FaceTrackingGenerator
                 PopupWindow.Show(at, new MachineNamePopup("New state machine", "StateMachine" + k, n => MachineNameProblem(n, null), n =>
                 {
                     Edit("Add FT state machine", x => StateMachineEdit.AddStateMachine(x, n));
-                    machine = n; selState = null; selTransition = -1;
+                    machine = n; selState = null; selTransition = -1; linkFrom = null;
                     FrameAll(Expr);
                 }));
             });
@@ -188,7 +206,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (!EditorUtility.DisplayDialog("FT State Machine", string.Format(EditorText.Get("sm.removeMachine"), current), "Delete", "Cancel")) return;
                 Edit("Remove FT state machine", x => StateMachineEdit.RemoveStateMachine(x, current));
-                machine = null; selState = null; selTransition = -1;
+                machine = null; selState = null; selTransition = -1; linkFrom = null;
             });
             return menu;
         }
@@ -275,7 +293,7 @@ namespace Kmnk.FaceTrackingGenerator
             var sameWay = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < trs.Count; i++)
             {
-                var f = (string)trs[i]["from"]; var t = (string)trs[i]["to"];
+                var f = StateMachineEdit.Name(trs[i]["from"]); var t = StateMachineEdit.Name(trs[i]["to"]);
                 if (!rects.ContainsKey(f) || !rects.ContainsKey(t) || f == t) continue;
                 var a = rects[f].center; var b = rects[t].center;
                 var n = (b - a).normalized;
@@ -461,6 +479,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (!EditorUtility.DisplayDialog("FT State Machine", string.Format(EditorText.Get("sm.removeState"), st), "Delete", "Cancel")) return;
             Edit("Remove FT state", x => StateMachineEdit.RemoveState(x, machine, st));
             if (selState == st) selState = null;
+            if (linkFrom == st) linkFrom = null;
         }
 
         // The key a new condition starts with: one the transitions already compare, else one the rows use.
@@ -479,8 +498,12 @@ namespace Kmnk.FaceTrackingGenerator
             keyLabels = keyNames.Select(k => System.Text.RegularExpressions.Regex.Match(k, "^[A-Z][a-z]+").Value + "/" + k).ToArray();
         }
 
+        // The source chosen with "Make Transition" may have gone since (deleted, renamed, another machine shown, Undo):
+        // then nothing is added.
         void MakeTransition(JObject e, string from, string to)
         {
+            var names = StateMachineEdit.StateNames(e, machine);
+            if (!names.Contains(from) || !names.Contains(to)) { Debug.LogWarning($"[FTG] state machine {machine}: no transition added: state {(names.Contains(from) ? to : from)} is not there"); return; }
             var input = DefaultKey();
             var index = Editor.EditExpression("Add FT transition", x => StateMachineEdit.AddTransition(x, machine, from, to, input));
             Select(null, index);
@@ -507,6 +530,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     Edit("Rename FT state", x => StateMachineEdit.RenameState(x, machine, st, n));
                     selState = n;
+                    if (linkFrom == st) linkFrom = n;
                     GUIUtility.ExitGUI();
                 }
                 if (isDefault) GUILayout.Label("(default)", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
@@ -733,7 +757,7 @@ namespace Kmnk.FaceTrackingGenerator
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField("Transition", EditorStyles.boldLabel, GUILayout.Width(90));
-                GUILayout.Label($"{(string)t["from"]} → {(string)t["to"]}");
+                GUILayout.Label($"{StateMachineEdit.Name(t["from"])} → {StateMachineEdit.Name(t["to"])}");
             }
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -891,7 +915,7 @@ namespace Kmnk.FaceTrackingGenerator
                 else
                 {
                     var from = sel.Substring(0, arrow); var to = sel.Substring(arrow + 2);
-                    var i = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().ToList().FindIndex(t => (string)t["from"] == from && (string)t["to"] == to) ?? -1;
+                    var i = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().ToList().FindIndex(t => StateMachineEdit.Name(t["from"]) == from && StateMachineEdit.Name(t["to"]) == to) ?? -1;
                     Select(null, i);
                 }
             }

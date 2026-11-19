@@ -14,6 +14,7 @@ namespace Kmnk.FaceTrackingGenerator
         readonly Action<string, bool> rename;
         string name;
         bool focused;
+        int caretFrames;
 
         public RenamePartPopup(string from, Func<string, bool, PartRename.Problem> check, Action<string, bool> rename)
         {
@@ -36,6 +37,15 @@ namespace Kmnk.FaceTrackingGenerator
             name = EditorGUILayout.TextField("Name", name);
             EditorGUIUtility.labelWidth = labelWidth;
             if (!focused) { EditorGUI.FocusTextInControl("ftRenamePart"); focused = true; }
+            else if (caretFrames < 3 && Event.current.type == EventType.Repaint)
+            {
+                // Focusing selects the whole text, and the first key typed would replace the current name: put the
+                // caret at the end (as MachineNamePopup and NewPartPopup do).
+                var field = typeof(EditorGUI).GetField("activeEditor", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                if (field?.GetValue(null) is TextEditor te && te.text == name) te.MoveTextEnd();
+                caretFrames++;
+                editorWindow.Repaint();
+            }
             var problem = check(name, false);
             var ja = EditorText.Current == EditorText.Language.Japanese;
             if (problem == PartRename.Problem.None && name != from)

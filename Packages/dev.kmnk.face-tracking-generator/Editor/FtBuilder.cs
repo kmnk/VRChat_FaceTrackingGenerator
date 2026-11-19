@@ -195,7 +195,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var name in names)
             {
                 var i = Array.FindIndex(layers, l => l.name == name);
-                if (i < 0) throw new TableLoader.TableException($"layer '{name}' to mute while FT is on is not in {u.Controller.name}");
+                if (i < 0) continue;   // not in the controller: LayerPatcher logs a notice
                 var lc = s.AddStateMachineBehaviour<VRCAnimatorLayerControl>();
                 lc.playable = VRC_AnimatorLayerControl.BlendableLayer.FX;
                 lc.layer = i;

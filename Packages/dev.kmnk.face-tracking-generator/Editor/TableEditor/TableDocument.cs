@@ -73,7 +73,33 @@ namespace Kmnk.FaceTrackingGenerator
                 e.Saved = JsonTableWriter.OneLine(e.Json);
                 written.Add(e.Path);
             }
+            RemovedRecordings = RemoveUnlistedRecordings();
             return written;
+        }
+
+        // The recordings Save deleted last time (paths, for the caller to tell the AssetDatabase).
+        public List<string> RemovedRecordings { get; private set; } = new List<string>();
+
+        // Measurements/ next to the avatar table holds the copies TableEdits.AddMeasurement made. A recording there that
+        // the saved table no longer lists (removed in the Devices tab, or added and removed before saving) is deleted
+        // with its .meta, so the folder holds what the table uses. Deleted at Save, not at removal, so Undo and closing
+        // without saving keep the file.
+        List<string> RemoveUnlistedRecordings()
+        {
+            var removed = new List<string>();
+            var dir = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(AvatarPath), Measurements.Folder);
+            if (!Directory.Exists(dir)) return removed;
+            var listed = new HashSet<string>((entries[Avatar].Json["measurements"] as JArray ?? new JArray()).OfType<JObject>()
+                .Select(o => Measurements.Text(o["file"])).Where(f => f != null)
+                .Select(f => Full(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(AvatarPath), f))));
+            foreach (var file in Directory.GetFiles(dir, "*.jsonl"))
+            {
+                if (listed.Contains(Full(file))) continue;
+                File.Delete(file);
+                if (File.Exists(file + ".meta")) File.Delete(file + ".meta");
+                removed.Add(file.Replace('\\', '/'));
+            }
+            return removed;
         }
 
         // The table as last read or saved.

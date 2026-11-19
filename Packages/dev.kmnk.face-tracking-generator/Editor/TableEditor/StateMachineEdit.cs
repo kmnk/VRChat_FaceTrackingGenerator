@@ -104,7 +104,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (states == null || states.Count <= 1) throw new ArgumentException("a state machine keeps one state");
             states.Remove(st);
             var tr = Transitions(e, sm);
-            if (tr != null) foreach (var t in tr.OfType<JObject>().Where(t => (string)t["from"] == st || (string)t["to"] == st).ToList()) t.Remove();
+            if (tr != null) foreach (var t in tr.OfType<JObject>().Where(t => Name(t["from"]) == st || Name(t["to"]) == st).ToList()) t.Remove();
         }
 
         public static void RenameState(JObject e, string sm, string from, string to)
@@ -116,8 +116,8 @@ namespace Kmnk.FaceTrackingGenerator
             p.Remove();
             foreach (var t in Transitions(e, sm)?.OfType<JObject>() ?? Enumerable.Empty<JObject>())
             {
-                if ((string)t["from"] == from) t["from"] = to;
-                if ((string)t["to"] == from) t["to"] = to;
+                if (Name(t["from"]) == from) t["from"] = to;
+                if (Name(t["to"]) == from) t["to"] = to;
             }
         }
 
@@ -156,6 +156,8 @@ namespace Kmnk.FaceTrackingGenerator
         public static int AddTransition(JObject e, string sm, string from, string to, string input, string op = ">", float value = 0.5f, float duration = 0.2f)
         {
             var m = Machine(e, sm) ?? throw new ArgumentException("no state machine " + sm);
+            var states = StateNames(e, sm);
+            if (!states.Contains(from) || !states.Contains(to)) throw new ArgumentException($"no state {sm}/{(states.Contains(from) ? to : from)}");
             if (!(m["transitions"] is JArray tr)) m["transitions"] = tr = new JArray();
             var when = new JArray();
             when.Add(Condition(input, op, value));
@@ -164,6 +166,24 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         public static void RemoveTransition(JObject e, string sm, int index) => Transitions(e, sm)[index].Remove();
+
+        // The transitions whose "from" or "to" is not a state of the machine (written by hand, or by an older version),
+        // by index. The loader leaves them out with a warning; the State Machine window offers to remove them.
+        public static List<int> BrokenTransitions(JObject e, string sm)
+        {
+            var states = new HashSet<string>(StateNames(e, sm));
+            var tr = Transitions(e, sm)?.ToList() ?? new List<JToken>();
+            return Enumerable.Range(0, tr.Count)
+                .Where(i => !(tr[i] is JObject t) || !states.Contains(Name(t["from"])) || !states.Contains(Name(t["to"]))).ToList();
+        }
+
+        public static string Name(JToken t) => t != null && t.Type == JTokenType.String ? (string)t : "";
+
+        public static void RemoveBrokenTransitions(JObject e, string sm)
+        {
+            var tr = Transitions(e, sm);
+            foreach (var i in BrokenTransitions(e, sm).OrderByDescending(i => i)) tr[i].Remove();
+        }
 
         public static void SetDuration(JObject e, string sm, int index, float duration) =>
             Transitions(e, sm)[index]["duration"] = Sides.Num(Math.Round((double)Math.Max(0, duration), 3));
@@ -287,6 +307,7 @@ namespace Kmnk.FaceTrackingGenerator
                 case "setMenu": SetMenu(e, sm, S("state"), (bool)op["menu"]); break;
                 case "setStopVisemes": SetStopVisemes(e, sm, S("state"), (bool)op["stop"]); break;
                 case "setPosition": SetPosition(e, sm, S("state"), F("x", 0), F("y", 0)); break;
+                case "removeBrokenTransitions": RemoveBrokenTransitions(e, sm); break;
                 case "addTransition": AddTransition(e, sm, S("from"), S("to"), S("input"), S("cmp") ?? ">", F("value", 0.5f), F("duration", 0.2f)); break;
                 case "removeTransition": RemoveTransition(e, sm, I("index")); break;
                 case "setDuration": SetDuration(e, sm, I("index"), F("duration", 0)); break;

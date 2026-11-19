@@ -184,7 +184,8 @@ namespace Kmnk.FaceTrackingGenerator
             return rel;
         }
 
-        // Takes a recording out of "measurements" (the copied file stays); the key goes when the list is empty.
+        // Takes a recording out of "measurements"; the key goes when the list is empty. The copied file is deleted when the
+        // table is saved (TableDocument.Save).
         public static void RemoveMeasurement(JObject avatar, int index)
         {
             if (!(avatar["measurements"] is JArray list) || index < 0 || index >= list.Count) return;

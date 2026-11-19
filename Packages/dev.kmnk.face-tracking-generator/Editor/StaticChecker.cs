@@ -20,6 +20,7 @@ namespace Kmnk.FaceTrackingGenerator
             f.AddRange(m.Warnings.Select(w => "table: " + w));
             Asymmetry(m, f);
             MissingShapes(m, f);
+            MissingLayers(m, f);
             PropertyRows(m, f);
             Unused(m, f);
             States(m, f);
@@ -50,6 +51,37 @@ namespace Kmnk.FaceTrackingGenerator
             Limits(d, what, f);
             foreach (var w in NativeFtWriter.Check(d)) f.Add($"face tracking: {what}: SDK: " + w.Replace("\n", " "));
             return f;
+        }
+
+        // ---- menus: every control's parameters are in the avatar's Expression Parameters (what the SDK's build panel
+        // reports as "VRCExpressionMenu uses a parameter that is not defined"). `what` names the avatar.
+        public static List<string> MenuParameters(VRCAvatarDescriptor d, string what)
+        {
+            var f = new List<string>();
+            var defined = new HashSet<string>((d.expressionParameters?.parameters ?? new VRCExpressionParameters.Parameter[0]).Select(p => p.name));
+            foreach (var (menu, c) in MenuControls(d.expressionsMenu))
+                foreach (var p in new[] { c.parameter }.Concat(c.subParameters ?? new VRCExpressionsMenu.Control.Parameter[0]))
+                    if (!string.IsNullOrEmpty(p?.name) && !defined.Contains(p.name))
+                        f.Add($"menu: {what}: {menu.name}/{c.name} uses {p.name}, which is not in the Expression Parameters");
+            return f;
+        }
+
+        // The menus of the avatar and what they hold, one line per menu.
+        public static List<string> MenuSummary(VRCAvatarDescriptor d) =>
+            MenuControls(d.expressionsMenu).GroupBy(x => x.menu).Select(g => $"{AssetDatabase.GetAssetPath(g.Key)}: " +
+                string.Join(", ", g.Select(x => x.c.type == VRCExpressionsMenu.Control.ControlType.SubMenu ? $"[{x.c.name}]" : $"{x.c.name} ({x.c.parameter?.name})"))).ToList();
+
+        static List<(VRCExpressionsMenu menu, VRCExpressionsMenu.Control c)> MenuControls(VRCExpressionsMenu root)
+        {
+            var r = new List<(VRCExpressionsMenu, VRCExpressionsMenu.Control)>();
+            var seen = new HashSet<VRCExpressionsMenu>();
+            void Walk(VRCExpressionsMenu m)
+            {
+                if (m == null || !seen.Add(m)) return;
+                foreach (var c in m.controls) { r.Add((m, c)); if (c.type == VRCExpressionsMenu.Control.ControlType.SubMenu) Walk(c.subMenu); }
+            }
+            Walk(root);
+            return r;
         }
 
         public const int MaxSets = 128, MaxBehaviors = 128, ExcellentOperations = 2000;
@@ -147,6 +179,22 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 if (smr.sharedMesh.GetBlendShapeIndex(target.Shape) < 0)
                     f.Add($"avatar: part {part}: mesh '{target.Mesh}' has no blendshape '{target.Shape}'");
+            }
+        }
+
+        // ---- 2a. layer names in the table's "layers" that the avatar's controllers do not have (generation leaves them out)
+        static void MissingLayers(TableModel m, List<string> f)
+        {
+            var path = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
+            var desc = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path)?.GetComponent<VRCAvatarDescriptor>();
+            if (desc == null) return;   // MissingShapes reports a missing prefab
+            foreach (var (type, key) in new[] { (VRCAvatarDescriptor.AnimLayerType.FX, "fx"), (VRCAvatarDescriptor.AnimLayerType.Gesture, "gesture"), (VRCAvatarDescriptor.AnimLayerType.Action, "action") })
+            {
+                if (!m.Layers.TryGetValue(key, out var adj)) continue;
+                var layer = desc.baseAnimationLayers.FirstOrDefault(l => l.type == type);
+                if (!(layer.animatorController is AnimatorController c)) continue;
+                foreach (var (list, name) in LayerPatcher.MissingIn(c, adj))
+                    f.Add($"avatar: layers.{key}.{list}: layer '{name}' is not in {type} ({c.name}); generation leaves it out");
             }
         }
 

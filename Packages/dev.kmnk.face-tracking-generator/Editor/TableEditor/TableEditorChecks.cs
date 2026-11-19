@@ -31,6 +31,7 @@ namespace Kmnk.FaceTrackingGenerator
             var written = doc.Save(CliArgs.Get("-ftAll") == "1");
             Debug.Log($"[FTG] table-editor edit: applied={n} written={written.Count} parts={model.Parts.Count} dropped={model.Dropped.Count} stateMachines={model.StateMachines.Count} states={model.StateMachines.Sum(x => x.States.Count)} transitions={model.StateMachines.Sum(x => x.Transitions.Count)}");
             foreach (var w in written) Debug.Log("[FTG] wrote " + w);
+            foreach (var r in doc.RemovedRecordings) Debug.Log("[FTG] removed recording " + r);
             return 0;
         });
     }

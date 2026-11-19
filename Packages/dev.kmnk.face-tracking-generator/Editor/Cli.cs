@@ -65,8 +65,11 @@ namespace Kmnk.FaceTrackingGenerator
                     Debug.Log($"[FTG] check: face tracking set {s.setName} weight={s.setWeight} rows={rows.Count} visemes={visemes}");
                     foreach (var i in rows) Debug.Log($"[FTG] check: face tracking row {s.setName} {(VRC.SDK3.Avatars.Components.VRCAvatarDescriptor.FaceTrackingKey)i} -> {names[i]} x{s.faceTrackingBlendshapeMultipliers[i]}");
                 }
+                foreach (var l in StaticChecker.MenuSummary(desc)) Debug.Log($"[FTG] check: menu {model.VariantPath}: {l}");
+                findings.AddRange(StaticChecker.MenuParameters(desc, model.VariantPath));
                 var src = !string.IsNullOrEmpty(model.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab?.Path;
                 var orig = AssetDatabase.LoadAssetAtPath<GameObject>(src)?.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>();
+                if (orig != null) findings.AddRange(StaticChecker.MenuParameters(orig, src));
                 if (orig != null)
                 {
                     var os = orig.faceTrackingBlendshapesSetList ?? new System.Collections.Generic.List<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor.FaceTrackingBlendshapesSet>();
@@ -76,14 +79,6 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var x in findings) Debug.Log("[FTG] finding: " + x);
             Debug.Log($"[FTG] check: findings={findings.Count}");
             return findings.Count == 0 ? 0 : 1;
-        });
-
-        // Adds the FT toggle and the AFK flag to the avatar's Expression Parameters and menu (R28).
-        public static void InstallMenu() => Run(() =>
-        {
-            var model = TableLoader.Load(CliArgs.Require("-ftTable"));
-            foreach (var l in MenuInstaller.Install(model)) Debug.Log("[FTG] menu: " + l);
-            return 0;
         });
 
         // Face values (R15) by FaceEval. -ftQueries: JSON Lines of {"label", "set": {key or "key:<key>": value},

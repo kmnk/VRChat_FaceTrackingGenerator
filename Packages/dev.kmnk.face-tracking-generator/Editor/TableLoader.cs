@@ -349,9 +349,17 @@ namespace Kmnk.FaceTrackingGenerator
             }
             foreach (var t in (so["transitions"] as JArray ?? new JArray()).OfType<JObject>())
             {
-                var td = new TransitionDef { From = Str(t, "from", file), To = Str(t, "to", file), Duration = t["duration"] != null ? Num(t["duration"], file) : 0 };
-                if (sm.State(td.From) == null || sm.State(td.To) == null)
-                    throw new TableException($"{file}: state machine '{sm.Name}': unknown state in {t.Path}");
+                // A "from" or "to" that is not the name of a state (another name, or not a string) is left out with a
+                // warning, not an error, so the settings editor still opens the table and its State Machine window can
+                // remove the transition.
+                var from = t["from"]?.Type == JTokenType.String ? (string)t["from"] : null;
+                var to = t["to"]?.Type == JTokenType.String ? (string)t["to"] : null;
+                if (from == null || to == null || sm.State(from) == null || sm.State(to) == null)
+                {
+                    Warn(m, $"{file}: state machine '{sm.Name}': unknown state in {t.Path} ({t["from"]?.ToString(Newtonsoft.Json.Formatting.None) ?? "no from"} -> {t["to"]?.ToString(Newtonsoft.Json.Formatting.None) ?? "no to"}); the transition is left out (remove it in the State Machine window)");
+                    continue;
+                }
+                var td = new TransitionDef { From = from, To = to, Duration = t["duration"] != null ? Num(t["duration"], file) : 0 };
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
                 {
                     if (c.Count != 3 && c.Count != 4) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");

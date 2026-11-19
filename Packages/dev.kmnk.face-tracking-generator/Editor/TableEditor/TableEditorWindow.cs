@@ -324,7 +324,15 @@ namespace Kmnk.FaceTrackingGenerator
         bool Save()
         {
             if (doc == null) return true;
-            try { foreach (var p in doc.Save()) AssetDatabase.ImportAsset(p); }
+            try
+            {
+                foreach (var p in doc.Save()) AssetDatabase.ImportAsset(p);
+                if (doc.RemovedRecordings.Count > 0)
+                {
+                    foreach (var p in doc.RemovedRecordings) Debug.Log("[FTG] removed recording " + p + " (no longer in the table)");
+                    AssetDatabase.Refresh();
+                }
+            }
             catch (TableLoader.TableException e)
             {
                 EditorUtility.DisplayDialog("FT Settings Editor", e.Message, "OK");

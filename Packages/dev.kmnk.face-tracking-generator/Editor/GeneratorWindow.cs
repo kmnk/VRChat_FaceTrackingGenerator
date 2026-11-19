@@ -265,9 +265,8 @@ namespace Kmnk.FaceTrackingGenerator
                             TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
                             TableWriter.SetTopLevel(TablePath, "subMenu", string.IsNullOrWhiteSpace(menuSub) ? "null" : TableWriter.StringJson(menuSub));
                             Reload();
-                            return "Saved toggle names. Toggles already in the menu keep their names; rename them in the menu asset.";
+                            return "Saved toggle names. Generating puts the toggles into the generated menu (the avatar's own menu is not changed).";
                         });
-                        if (GUILayout.Button("Add toggles to menu")) Do(() => "Menu\n" + string.Join("\n", MenuInstaller.Install(model)));
                     }
                 }
 
