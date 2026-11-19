@@ -36,7 +36,10 @@ namespace Kmnk.FaceTrackingGenerator
             var expr = read(exprPath);
             ParseExpressions(expr, m, exprPath);
 
-            m.Measurements = Measurements.Load(dir, avatar["measurements"], m.Warnings, avatar["measurementsMain"]);
+            m.Measurements = Measurements.Load(dir, avatar["measurements"], m.Warnings);
+            // 0.15.0 to 0.17.0 computed the other device's values from the recordings for the main device.
+            if (avatar["measurementsMain"] != null)
+                Warn(m, "avatar table: 'measurementsMain' is not used since 0.18.0: the values for VR and desktop are written in the expression table (remove it)");
             Resolve(m, missingParts);
             return m;
         }
@@ -281,7 +284,8 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        // Rows of a region: tracking key -> "part", {"part", "strength"} or (override only) null for "Don't move".
+        // Rows of a region: tracking key -> "part", {"part", "strength"} or (override only) null for "Don't move". The
+        // strength is a number for both devices or {"vr": n, "desktop": n} (a device not written: 1).
         static List<TrackRow> Rows(JObject rows, string region, bool canSkip, string file)
         {
             var list = new List<TrackRow>();
@@ -297,11 +301,14 @@ namespace Kmnk.FaceTrackingGenerator
                 else if (p.Value is JObject ro)
                 {
                     row.Part = Str(ro, "part", file);
-                    if (ro["strength"] != null)
+                    if (ro["strength"] is JObject so)
                     {
-                        row.Strength = Num(ro["strength"], file);
-                        if (float.IsNaN(row.Strength) || row.Strength < 0 || row.Strength > 1) throw new TableException($"{file}: '{ro.Path}.strength' must be 0 to 1");
+                        foreach (var dp in so.Properties())
+                            if (!Device.IsName(dp.Name)) throw new TableException($"{file}: '{dp.Path}': a strength per device has \"vr\" and \"desktop\" only");
+                        row.StrengthVr = so["vr"] != null ? Strength(so["vr"], file) : 1;
+                        row.StrengthDesktop = so["desktop"] != null ? Strength(so["desktop"], file) : 1;
                     }
+                    else if (ro["strength"] != null) row.SetStrength(Strength(ro["strength"], file));
                 }
                 else throw new TableException($"{file}: '{p.Path}' must be a part name or {{\"part\", \"strength\"}}" + (canSkip ? " or null" : ""));
                 if (row.Part != null)
@@ -312,6 +319,22 @@ namespace Kmnk.FaceTrackingGenerator
                 list.Add(row);
             }
             return list;
+        }
+
+        static float Strength(JToken t, string file)
+        {
+            var v = Num(t, file);
+            if (float.IsNaN(v) || v < 0 || v > 1) throw new TableException($"{file}: '{t.Path}' must be 0 to 1");
+            return v;
+        }
+
+        // "stopVisemes": true or false (both devices), or "vr" / "desktop" (only that device).
+        static (bool vr, bool desktop) StopVisemes(JToken t, string file)
+        {
+            if (t == null || t.Type == JTokenType.Null) return (false, false);
+            if (t.Type == JTokenType.Boolean) { var b = (bool)t; return (b, b); }
+            if (t.Type == JTokenType.String && Device.IsName((string)t)) return ((string)t == Device.Vr, (string)t == Device.Desktop);
+            throw new TableException($"{file}: '{t.Path}' must be true, false, \"vr\" or \"desktop\"");
         }
 
         static StateMachineDef StateMachine(JProperty sp, TableModel m, string file)
@@ -326,7 +349,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     if (!(stp.Value is JObject sto)) throw new TableException($"{file}: '{stp.Path}' must be an object");
                     st.Menu = sto["menu"]?.Value<bool>() ?? false;
-                    st.StopVisemes = sto["stopVisemes"]?.Value<bool>() ?? false;
+                    (st.StopVisemesVr, st.StopVisemesDesktop) = StopVisemes(sto["stopVisemes"], file);
                     if (sto["regions"] is JObject regions)
                         foreach (var rp in regions.Properties())
                         {
@@ -360,14 +383,20 @@ namespace Kmnk.FaceTrackingGenerator
                     continue;
                 }
                 var td = new TransitionDef { From = from, To = to, Duration = t["duration"] != null ? Num(t["duration"], file) : 0 };
+                if (t["device"] != null && t["device"].Type != JTokenType.Null)
+                {
+                    var dev = t["device"].Type == JTokenType.String ? (string)t["device"] : null;
+                    if (!Device.IsName(dev)) throw new TableException($"{file}: '{t.Path}.device' must be \"vr\" or \"desktop\"");
+                    td.Device = dev;
+                }
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
                 {
                     if (c.Count != 3 && c.Count != 4) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");
                     // The Face Tracking section's key ("v2/" may be written, as in neutral).
                     var cond = new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = Num(c[2], file) };
-                    // The desktop value of 0.13.x development builds (spec R7): the other side's value is computed now.
+                    // The desktop value of 0.13.x development builds: a transition for one device is written with "device".
                     if (c.Count == 4)
-                        Warn(m, $"{file}: '{c[3].Path}' is not used: the other side's value is computed from the recordings (remove the fourth element)");
+                        Warn(m, $"{file}: '{c[3].Path}' is not used: write a transition for one device with \"device\": \"vr\" or \"desktop\" (remove the fourth element)");
                     if (cond.Op != ">" && cond.Op != "<") throw new TableException($"{file}: '{c.Path}': operator must be > or <");
                     if (NativeKeys.Index(cond.Input) < 0)
                         throw new TableException($"{file}: '{c.Path}': '{c[0]}' is not a tracking key of the Face Tracking section " +
@@ -408,19 +437,19 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var st in sm.States.Where(s => !reach.Contains(s.Name)))
                     Warn(m, $"state machine {sm.Name}: state {st.Name} cannot be reached (no transition into it and not in the menu)");
                 var names = sm.States.SelectMany(st => st.Regions.Keys.Select(r => NativeSets.SetName(sm.Name, st.Name, r)));
-                if (m.Measurements.HasBoth) names = names.Select(NativeSets.DesktopName);
+                if (m.SetsByDevice) names = names.Select(NativeSets.DesktopName);
                 foreach (var n in names.Where(n => n.Length > NativeSets.MaxNameLength))
                     throw new TableException($"Blendshapes Set name '{n}' is longer than {NativeSets.MaxNameLength} characters; use shorter state machine, state or region names");
             }
 
-            // With recordings for both sides, a desktop set's name must not be another set's name (a state machine named
-            // "desktop" could have one).
-            if (m.Measurements.HasBoth)
+            // With sets per device, a desktop set's name must not be another set's name (a state machine named "desktop"
+            // could have one).
+            if (m.SetsByDevice)
             {
                 var plain = new HashSet<string>(m.Neutral.Keys.Select(NativeSets.NeutralSetName)
                     .Concat(m.StateMachines.SelectMany(sm => sm.States.SelectMany(st => st.Regions.Where(r => !r.Value.Off).Select(r => NativeSets.SetName(sm.Name, st.Name, r.Key))))));
                 foreach (var n in plain.Select(NativeSets.DesktopName).Where(plain.Contains).OrderBy(x => x, StringComparer.Ordinal))
-                    throw new TableException($"Blendshapes Set name '{n}' is both a set of the tables and the desktop copy of another set; rename the state machine 'desktop' (recordings for VR and desktop make desktop copies)");
+                    throw new TableException($"Blendshapes Set name '{n}' is both a set of the tables and the desktop copy of another set; rename the state machine 'desktop' (strengths per device make desktop copies)");
             }
 
             // Rows of parts the avatar layer does not set (R23).

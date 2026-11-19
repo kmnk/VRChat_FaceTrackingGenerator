@@ -41,7 +41,8 @@ namespace Kmnk.FaceTrackingGenerator
         public const string NeutralName = "neutral";
         public const int MaxNameLength = 100;
         public const float MaxLerpSpeed = 100;
-        // VRChat's built-in parameter: 1 in VR, 0 on desktop. The sets of each side are on only on that side (spec R10).
+        // VRChat's built-in parameter: 1 in VR, 0 on desktop. With strengths per device, the sets of each side are on only
+        // on that side; transitions for one device have it as a condition.
         public const string SideParameter = "VRMode";
         public const string DesktopPrefix = Prefix + "desktop/";
 
@@ -71,7 +72,7 @@ namespace Kmnk.FaceTrackingGenerator
             public List<Row> Rows = new List<Row>();
             public List<Cond> Conditions = new List<Cond>();
             public float LerpSpeed;
-            // null: one set for both sides (no recordings for both); else Measurements.Vr or Measurements.Desktop.
+            // null: one set for both sides (no strength differs between the devices); else Device.Vr or Device.Desktop.
             public string Side;
             // Conditions and lerp speed as one string: sets with the same signature share a weight layer.
             public string Signature => string.Join(" & ", Conditions.Select(c => c.ToString())) + " @" + LerpSpeed.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
@@ -112,7 +113,25 @@ namespace Kmnk.FaceTrackingGenerator
             return dur > 0 ? Math.Min(MaxLerpSpeed, 1f / dur) : 0f;
         }
 
+        // The sets of the table: one of each for both devices, or, when a row's strength differs between the devices
+        // (TableModel.SetsByDevice), one of each per device: the VR ones (VRMode > 0.5) first, then the desktop ones
+        // (FTG/desktop/..., VRMode < 0.5) in the same order, each with that device's strengths.
         public static List<SetDef> Build(TableModel m)
+        {
+            if (!m.SetsByDevice) return Build(m, false);
+            var result = new List<SetDef>();
+            foreach (var desktop in new[] { false, true })
+                foreach (var set in Build(m, desktop))
+                {
+                    if (desktop) set.Name = DesktopName(set.Name);
+                    set.Side = Device.Of(desktop);
+                    set.Conditions = new SortedSet<Cond>(set.Conditions) { new Cond { Param = SideParameter, High = !desktop } }.ToList();
+                    result.Add(set);
+                }
+            return result;
+        }
+
+        static List<SetDef> Build(TableModel m, bool desktop)
         {
             var sets = new List<SetDef>();
             var talk = new HashSet<string>(m.StopWhileTalking);
@@ -124,7 +143,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var r in rows)
                 {
                     if (r.Part == null || !m.Parts.TryGetValue(r.Part, out var target)) continue;
-                    set.Rows.Add(new Row { Key = r.Key, Part = r.Part, Mesh = target.Mesh, Shape = target.Shape, Multiplier = r.Strength * target.Scale });
+                    set.Rows.Add(new Row { Key = r.Key, Part = r.Part, Mesh = target.Mesh, Shape = target.Shape, Multiplier = r.Strength(desktop) * target.Scale });
                 }
                 return set;
             }
@@ -155,32 +174,7 @@ namespace Kmnk.FaceTrackingGenerator
                         set.LerpSpeed = Lerp(new[] { sm });
                         sets.Add(set);
                     }
-            return m.Measurements.HasBoth ? BySide(m, sets) : sets;
-        }
-
-        // With recordings for both sides (spec R8): each set for VR (VRMode > 0.5) and a copy for desktop (VRMode < 0.5).
-        // The other side's rows' multipliers are scaled by Measurements.Factor (1 on the main side). Each side's sets in
-        // the same order.
-        static List<SetDef> BySide(TableModel m, List<SetDef> sets)
-        {
-            var result = new List<SetDef>();
-            foreach (var desktop in new[] { false, true })
-                foreach (var x in sets)
-                {
-                    var set = new SetDef
-                    {
-                        Name = desktop ? DesktopName(x.Name) : x.Name,
-                        Region = x.Region,
-                        StateMachine = x.StateMachine,
-                        State = x.State,
-                        LerpSpeed = x.LerpSpeed,
-                        Side = desktop ? Measurements.Desktop : Measurements.Vr,
-                        Rows = x.Rows.Select(r => new Row { Key = r.Key, Part = r.Part, Mesh = r.Mesh, Shape = r.Shape, Multiplier = r.Multiplier * m.Measurements.Factor(r.Key, desktop ? Measurements.Desktop : Measurements.Vr) }).ToList(),
-                    };
-                    set.Conditions = new SortedSet<Cond>(x.Conditions) { new Cond { Param = SideParameter, High = !desktop } }.ToList();
-                    result.Add(set);
-                }
-            return result;
+            return sets;
         }
     }
 }

@@ -1252,6 +1252,12 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in set.Split(',').Select(s => s.Split('=')).Where(p => p.Length == 2))
                     inputs[kv[0].Trim()] = float.Parse(kv[1], System.Globalization.CultureInfo.InvariantCulture);
             captureDevice = CliArgs.Get("-ftDevice");
+            // -ftDevicesSide vr|desktop and -ftDevicesFace <id>: the Devices tab's Recorded faces.
+            // As pressing the list's VR / Desktop: the shared input mode, kept only for the check.
+            // A capture never reads or writes the user's input mode: -ftDevicesSide, else -ftSmDevice, else VR.
+            var captureMode = CliArgs.Get("-ftDevicesSide") ?? CliArgs.Get("-ftSmDevice");
+            StateMachineWindow.CaptureInputMode = Measurements.Sides.Contains(captureMode ?? "") ? captureMode : Device.Vr;
+            facesId = CliArgs.Get("-ftDevicesFace") ?? facesId;
             var renameArg = CliArgs.Get("-ftAvatarRename");  // "<part>=<new name>": open the rename panel with the name typed
             if (renameArg != null && renameArg.Contains("=")) { renameAt = renameArg.Substring(0, renameArg.IndexOf('=')); renameCapture = renameArg.Substring(renameArg.IndexOf('=') + 1); selectedPart = renameAt; }
             newPartCapture = CliArgs.Get("-ftAvatarNewPart");  // "<name>": open "+ Add Face Movement" with the name typed

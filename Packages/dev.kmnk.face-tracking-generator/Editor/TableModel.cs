@@ -23,7 +23,18 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Input;
         public string Op;     // ">" or "<"
-        public float Value;     // the main side's value; Thresholds gives the other side's (spec R9)
+        public float Value;
+    }
+
+    // The two devices a table can write values for: "vr" and "desktop" (the same names as Measurements.Vr and
+    // Measurements.Desktop). A value not written per device is the same on both.
+    public static class Device
+    {
+        public const string Vr = "vr";
+        public const string Desktop = "desktop";
+        public static string Of(bool desktop) => desktop ? Desktop : Vr;
+        public static string Other(string device) => device == Vr ? Desktop : Vr;
+        public static bool IsName(string s) => s == Vr || s == Desktop;
     }
 
     public sealed class TransitionDef
@@ -32,6 +43,9 @@ namespace Kmnk.FaceTrackingGenerator
         public string To;
         public List<Condition> When = new List<Condition>();  // all must hold
         public float Duration;
+        // null: on both devices; Device.Vr or Device.Desktop: only on that device (VRMode on the Animator).
+        public string Device;
+        public bool On(bool desktop) => Device == null || Device == Kmnk.FaceTrackingGenerator.Device.Of(desktop);
     }
 
     // A row of a Blendshapes Set: a tracking key moves a part (its blendshape) by key value x Strength x the part's
@@ -40,7 +54,11 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Key;
         public string Part;
-        public float Strength = 1;
+        // The strength on VR and on desktop (the same unless the table writes {"vr", "desktop"}).
+        public float StrengthVr = 1, StrengthDesktop = 1;
+        public float Strength(bool desktop) => desktop ? StrengthDesktop : StrengthVr;
+        public bool StrengthByDevice => StrengthVr != StrengthDesktop;
+        public void SetStrength(float both) { StrengthVr = both; StrengthDesktop = both; }
     }
 
     // What a state does to a region: Off (the region's neutral set is 0) or Override (Rows over the neutral rows).
@@ -54,7 +72,12 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public string Name;
         public bool Menu;  // selectable from the menu
-        public bool StopVisemes;  // while its fixed amounts show, the voice's visemes do not move the mouth
+        // While its fixed amounts show, the voice's visemes do not move the mouth: on VR, on desktop (the same unless the
+        // table writes "vr" or "desktop").
+        public bool StopVisemesVr, StopVisemesDesktop;
+        public bool StopVisemes(bool desktop) => desktop ? StopVisemesDesktop : StopVisemesVr;
+        public bool StopVisemesAny => StopVisemesVr || StopVisemesDesktop;
+        public bool StopVisemesByDevice => StopVisemesVr != StopVisemesDesktop;
         public SortedDictionary<string, RegionDef> Regions = new SortedDictionary<string, RegionDef>(System.StringComparer.Ordinal);
         public SortedDictionary<string, float> Fixed = new SortedDictionary<string, float>(System.StringComparer.Ordinal);  // part -> amount x scale
     }
@@ -167,6 +190,14 @@ namespace Kmnk.FaceTrackingGenerator
         public SortedSet<string> PropertyPartsInRows = new SortedSet<string>(System.StringComparer.Ordinal);
 
         public InputDef Input(string name) => Inputs.Find(i => i.Name == name);
+
+        IEnumerable<TrackRow> AllRows() =>
+            Neutral.Values.SelectMany(r => r).Concat(StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows)));
+        // Whether a row's strength differs between the devices: the Blendshapes Sets are then one set of each per device.
+        public bool SetsByDevice => AllRows().Any(r => r.StrengthByDevice);
+        // Whether anything is written per device (transitions, strengths, stopVisemes): the FX then reads VRMode.
+        public bool SplitsByDevice => SetsByDevice
+            || StateMachines.Any(sm => sm.Transitions.Any(t => t.Device != null) || sm.States.Any(st => st.StopVisemesByDevice));
         public StateMachineDef StateMachine(string name) => StateMachines.Find(s => s.Name == name);
 
         // Every part the expression layer uses: neutral rows, override rows and fixed amounts.

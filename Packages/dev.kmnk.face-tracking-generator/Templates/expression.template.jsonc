@@ -14,7 +14,7 @@
 //     (Override: the region moves with neutral's rows, with these rows in place of the same keys; null: Don't move)
 //   - "fixed": part -> amount (0 to 100), held while in the state
 //   - "menu": true (selectable from the menu: a toggle in the FT menu's submenu of the state machine)
-//   - "stopVisemes": true (while the state's fixed movements show, speaking does not move the mouth with visemes, and
+//   - "stopVisemes": true, or "vr" / "desktop" for one device only (while the state's fixed movements show, speaking does not move the mouth with visemes, and
 //     the fixed movements stay while talking, also in stopWhileTalking's regions. The generator then switches the
 //     avatar's Lip Sync from Viseme Blend Shape to Viseme Blend Shape Face Tracking with the same viseme blendshapes)
 // "transitions": [{"from", "to", "when": [[tracking key, ">" or "<", value], ...], "duration": seconds}]. All
@@ -22,9 +22,10 @@
 // or the right side). Different values for entering and leaving keep the state from flickering. The generator forwards
 // the keys the conditions compare to the Animator (Forward to Animator, FT/In/<key>). While a state is chosen in the
 // menu the transitions do not run; leaving the menu goes back to the default state.
-// The values are for the avatar table's main device ("measurementsMain", VR by default). With ft-measure recordings for
-// both VR and desktop, the generator computes the other device's values and makes such a transition once per device,
-// switched by VRChat's VRMode (the settings editor's Devices tab lists them).
+// VR and desktop: a transition with "device": "vr" or "desktop" runs on that device only (VRChat's VRMode); one without
+// runs on both. A row's strength can be {"vr": 1, "desktop": 0.5}: the generator then writes the Blendshapes Sets once
+// for VR and once for desktop (FTG/desktop/...), switched by VRMode. The settings editor's State Machine window shows and
+// edits one device at a time (Input: VR or Desktop); editing a value of both devices there changes that device's only.
 //
 // This template moves the 52 perfect sync (ARKit) blendshapes in neutral. Parts are "<region>.<ARKit name>", regions as
 // in VRCFaceTracking's Unified Expressions groups (gaze, eye, brow, nose, cheek, jaw, lip, tongue). Which keys move which

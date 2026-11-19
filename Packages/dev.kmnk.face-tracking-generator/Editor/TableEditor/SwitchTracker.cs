@@ -20,7 +20,7 @@ namespace Kmnk.FaceTrackingGenerator
         public string Current(string sm) => current.TryGetValue(sm, out var s) ? s : null;
 
         // Updates the states for the input values and returns state machine -> state for FaceEval.
-        // desktop: compare the conditions with the desktop side's values (spec R20).
+        // desktop: run the desktop transitions (spec R20).
         public Dictionary<string, string> Update(TableModel model, IDictionary<string, float> inputs, bool desktop = false)
         {
             // A condition compares a tracking key; the preview holds key values as "key:<key>".
@@ -37,13 +37,9 @@ namespace Kmnk.FaceTrackingGenerator
                 var state = current.TryGetValue(sm.Name, out var c) && sm.State(c) != null ? c : sm.States[0].Name;
                 for (int step = 0; step < sm.States.Count; step++)
                 {
-                    var side = desktop ? Measurements.Desktop : Measurements.Vr;
+                    // The transitions of the device (both devices' and its own), with the table's values.
                     var t = sm.Transitions.FirstOrDefault(x =>
-                    {
-                        if (x.From != state) return false;
-                        var values = Thresholds.Values(model.Measurements, x, side);
-                        return values != null && x.When.Select((w, i) => w.Op == ">" ? V(w.Input) > values[i] : V(w.Input) < values[i]).All(b => b);
-                    });
+                        x.From == state && x.On(desktop) && x.When.All(w => w.Op == ">" ? V(w.Input) > w.Value : V(w.Input) < w.Value));
                     if (t == null) break;
                     state = t.To;
                 }

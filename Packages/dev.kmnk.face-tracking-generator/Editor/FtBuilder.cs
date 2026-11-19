@@ -60,8 +60,9 @@ namespace Kmnk.FaceTrackingGenerator
         // The condition on the face tracking source, in one place so that it can be changed alone.
         void WhenSource(AnimatorStateTransition t, bool present) => u.When(t, SourceParameter, present);
 
-        // Whether the FX needs VRMode: sets and transitions are split by side only with recordings for both sides.
-        public static bool UsesSide(TableModel model) => model.Measurements.HasBoth;
+        // Whether the FX needs VRMode: only when the expression table writes something per device (transitions,
+        // strengths, stopVisemes). Without it the FX is the same as before devices could be written.
+        public static bool UsesSide(TableModel model) => model.SplitsByDevice;
 
         // State machines that have states in the menu (they get FT/Menu/<name> and a submenu).
         public static IEnumerable<StateMachineDef> WithMenu(TableModel model) => model.StateMachines.Where(sm => sm.MenuStates.Any());
@@ -71,6 +72,7 @@ namespace Kmnk.FaceTrackingGenerator
             Parameters();
             Gate();
             foreach (var sm in m.StateMachines) StateMachine(sm);
+            if (DeviceWeighted) DeviceLayer();
             Face();
             SetLayers();
             VisemeStop.BuildLayer(u, visemes, Layers);
@@ -230,19 +232,12 @@ namespace Kmnk.FaceTrackingGenerator
             asm.defaultState = states[sm.States[0].Name];
             foreach (var t in sm.Transitions)
             {
-                // A transition whose values differ on the other side: one for VR (VRMode > 0.5) and one for desktop, or
-                // none on a side where it never happens (spec R9, R10).
-                foreach (var side in Thresholds.Splits(m.Measurements, t) ? new bool?[] { false, true } : new bool?[] { null })
-                {
-                    var values = side == null ? t.When.Select(c => c.Value).ToList()
-                        : Thresholds.Values(m.Measurements, t, side.Value ? Measurements.Desktop : Measurements.Vr);
-                    if (values == null) continue;
-                    var tr = AnimUtil.Transition(states[t.From], states[t.To], t.Duration);
-                    for (var i = 0; i < t.When.Count; i++)
-                        tr.AddCondition(t.When[i].Op == ">" ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, values[i], InputParam(t.When[i].Input));
-                    if (side != null) tr.AddCondition(side.Value ? AnimatorConditionMode.Less : AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
-                    if (menu) tr.AddCondition(AnimatorConditionMode.Equals, 0, menuParam);
-                }
+                // A transition for one device runs only on it: VRMode > 0.5 (VR) or < 0.5 (desktop).
+                var tr = AnimUtil.Transition(states[t.From], states[t.To], t.Duration);
+                foreach (var c in t.When)
+                    tr.AddCondition(c.Op == ">" ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, c.Value, InputParam(c.Input));
+                if (t.Device != null) tr.AddCondition(t.Device == Device.Desktop ? AnimatorConditionMode.Less : AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
+                if (menu) tr.AddCondition(AnimatorConditionMode.Equals, 0, menuParam);
             }
             if (!menu) return;
             var dur = sm.MaxDuration;
@@ -258,35 +253,70 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
+        // ---- FT/Device: VRMode (an Int) as two Float weights for FT/Face, which a Direct blend tree can use. Only when a
+        // state stops the visemes on one device (FT/Visemes stops them on that device only).
+
+        public static string DeviceWeight(bool desktop) => "FT/Device/" + Device.Of(desktop);
+
+        bool DeviceWeighted => visemes != null && visemes.Any && visemes.States.Any(x => x.st.StopVisemesByDevice);
+
+        void DeviceLayer()
+        {
+            foreach (var desktop in new[] { false, true }) u.EnsureParameter(DeviceWeight(desktop), AnimatorControllerParameterType.Float, desktop ? 0 : 1);
+            var layer = u.NewLayer("FT/Device");
+            Layers.Add(layer);
+            var sm = layer.stateMachine;
+            var vr = AnimUtil.State(sm, Device.Vr, u.ParamClip("FT/Device/" + Device.Vr, new[] { (DeviceWeight(false), 1f), (DeviceWeight(true), 0f) }), new Vector3(300, 0));
+            var desk = AnimUtil.State(sm, Device.Desktop, u.ParamClip("FT/Device/" + Device.Desktop, new[] { (DeviceWeight(false), 0f), (DeviceWeight(true), 1f) }), new Vector3(600, 0));
+            sm.defaultState = vr;
+            AnimUtil.Transition(vr, desk).AddCondition(AnimatorConditionMode.Less, 0.5f, NativeSets.SideParameter);
+            AnimUtil.Transition(desk, vr).AddCondition(AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
+        }
+
         // ---- FT/Face
 
         // The states' fixed amounts (already multiplied by the part's scale), each weighted by its state's FT/Sw/*.
         // A state whose visemes are stopped (stopVisemes, and VisemeStop could stop them for this avatar) keeps all its
         // fixed amounts while talking (the Active group), also those in stopWhileTalking's regions: the mouth keeps the
-        // state's shape. When the visemes cannot be stopped, the state is as without stopVisemes.
+        // state's shape. When the visemes cannot be stopped, the state is as without stopVisemes. A state that stops them on
+        // one device only does so on that device: its stopWhileTalking regions' amounts go into both groups, each under a
+        // tree weighted by the device's FT/Device/* (the Active group for the device that stops, Mouth for the other).
         void Face()
         {
             var talkRegions = new HashSet<string>(m.StopWhileTalking);
-            var stopped = new HashSet<StateDef>(visemes != null && visemes.Any ? visemes.States.Select(x => x.st) : Enumerable.Empty<StateDef>());
+            var stopping = visemes != null && visemes.Any ? visemes.States.Select(x => x.st).ToList() : new List<StateDef>();
+            // null: the state stops on both devices (or on none: not in the list); else the device it stops on.
+            bool Stops(StateDef st, bool? desktop) => stopping.Contains(st) && (desktop == null ? !st.StopVisemesByDevice : st.StopVisemes(desktop.Value));
+            var byDevice = DeviceWeighted;
             var root = u.NewTree("FT/Face", BlendTreeType.Direct);
             var any = false;
-            foreach (var (group, weight, inGroup) in new (string, string, Func<StateDef, string, bool>)[]
+            // inGroup(state, region, device): device null for the amounts of every device.
+            foreach (var (group, weight, inGroup) in new (string, string, Func<StateDef, string, bool?, bool>)[]
                      {
-                         (FaceGroups[0], Active, (st, r) => stopped.Contains(st) || !talkRegions.Contains(r)),
-                         (FaceGroups[1], MouthActive, (st, r) => !stopped.Contains(st) && talkRegions.Contains(r)),
+                         (FaceGroups[0], Active, (st, r, d) => !talkRegions.Contains(r) ? d == null : d == null ? Stops(st, null) : st.StopVisemesByDevice && Stops(st, d)),
+                         (FaceGroups[1], MouthActive, (st, r, d) => talkRegions.Contains(r) && (d == null ? !stopping.Contains(st) : st.StopVisemesByDevice && stopping.Contains(st) && !Stops(st, d))),
                      })
             {
                 var groupTree = u.NewTree(FaceMotion(group), BlendTreeType.Direct);
                 var groupAny = false;
-                foreach (var sm in m.StateMachines)
-                    foreach (var st in sm.States)
-                    {
-                        var parts = st.Fixed.Where(kv => inGroup(st, PartNames.Region(kv.Key))).ToList();
-                        if (parts.Count == 0) continue;
-                        var clip = u.PartClip(FaceMotion(group, sm.Name, st.Name), parts.Select(kv => (m.Parts[kv.Key], kv.Value)));
-                        AnimUtil.AddDirectChild(groupTree, clip, SwitchParam(sm.Name, st.Name));
-                        groupAny = true;
-                    }
+                foreach (var device in byDevice ? new bool?[] { null, false, true } : new bool?[] { null })
+                {
+                    var tree = device == null ? groupTree : u.NewTree(FaceMotion(group) + "/" + Device.Of(device.Value), BlendTreeType.Direct);
+                    var treeAny = false;
+                    foreach (var sm in m.StateMachines)
+                        foreach (var st in sm.States)
+                        {
+                            var parts = st.Fixed.Where(kv => inGroup(st, PartNames.Region(kv.Key), device)).ToList();
+                            if (parts.Count == 0) continue;
+                            var name = FaceMotion(group, sm.Name, st.Name) + (device == null ? "" : "/" + Device.Of(device.Value));
+                            var clip = u.PartClip(name, parts.Select(kv => (m.Parts[kv.Key], kv.Value)));
+                            AnimUtil.AddDirectChild(tree, clip, SwitchParam(sm.Name, st.Name));
+                            treeAny = true;
+                        }
+                    if (!treeAny) continue;
+                    if (device != null) AnimUtil.AddDirectChild(groupTree, tree, DeviceWeight(device.Value));
+                    groupAny = true;
+                }
                 if (groupAny) { AnimUtil.AddDirectChild(root, groupTree, weight); any = true; }
             }
             if (!any) return;

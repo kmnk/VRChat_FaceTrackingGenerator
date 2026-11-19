@@ -193,14 +193,6 @@ namespace Kmnk.FaceTrackingGenerator
             if (list.Count == 0) avatar.Remove("measurements");
         }
 
-        // The side the tables are written for (spec R6): "vr" is the default, so it removes the key.
-        public static void SetMeasurementsMain(JObject avatar, string side)
-        {
-            if (!Measurements.Sides.Contains(side)) throw new ArgumentException("side must be vr or desktop: " + side);
-            if (side == Measurements.Vr) avatar.Remove("measurementsMain");
-            else avatar["measurementsMain"] = side;
-        }
-
         public static void SetString(JObject avatar, string key, string value) => avatar[key] = value;
 
         public static void SetBool(JObject avatar, string key, bool value) => avatar[key] = value;
@@ -215,7 +207,6 @@ namespace Kmnk.FaceTrackingGenerator
         //   {"op": "setAssetRef", "key": "prefab", "guid": "...", "path": "Assets/..."}
         //   {"op": "addMeasurement", "source": "<path>", "side": "vr"}        copies the file to Measurements/ (tableDir)
         //   {"op": "removeMeasurement", "index": 0}
-        //   {"op": "setMeasurementsMain", "side": "desktop"}
         public static void Apply(JObject avatar, JObject op, IDictionary<string, JToken> removed = null, string tableDir = null)
         {
             var name = (string)op["op"];
@@ -230,7 +221,6 @@ namespace Kmnk.FaceTrackingGenerator
                 case "setBool": SetBool(avatar, (string)op["key"], (bool)op["value"]); break;
                 case "addMeasurement": AddMeasurement(avatar, tableDir ?? throw new ArgumentException("addMeasurement needs the table's folder"), (string)op["source"], (string)op["side"]); break;
                 case "removeMeasurement": RemoveMeasurement(avatar, (int)op["index"]); break;
-                case "setMeasurementsMain": SetMeasurementsMain(avatar, (string)op["side"]); break;
                 case "setAssetRef": SetAssetRef(avatar, (string)op["key"], (string)op["guid"], (string)op["path"]); break;
                 default: throw new ArgumentException("unknown op: " + name);
             }

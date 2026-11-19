@@ -47,36 +47,26 @@ namespace Kmnk.FaceTrackingGenerator
             if (r.Menu != null) d.expressionsMenu = r.Menu;
         }
 
-        // What the recordings change (spec R13): the other side's sets, the keys whose strength they scale above 1, and
-        // the conditions whose other side's value cannot be computed.
+        // What the table writes per device: transitions for one device, sets per device and the rows and states that
+        // differ. Nothing for a table that writes nothing per device (the output is then the same as before).
         public static List<string> SideLog(TableModel m, List<NativeSets.SetDef> sets)
         {
             var log = new List<string>();
-            var ms = m.Measurements;
-            var inv = System.Globalization.CultureInfo.InvariantCulture;
-            if (ms.Any)
-                log.Add($"measurements: main {Measurements.Label(ms.Main)}, VR {ms.VrSide?.Files.Count ?? 0} files, desktop {ms.DesktopSide?.Files.Count ?? 0} files");
-            var other = sets.Count(x => x.Side == ms.OtherSide);
-            if (other > 0)
+            var all = m.StateMachines.SelectMany(sm => sm.Transitions).ToList();
+            var vr = all.Count(t => t.Device == Device.Vr);
+            var desktop = all.Count(t => t.Device == Device.Desktop);
+            if (vr + desktop > 0)
+                log.Add($"devices: transitions {all.Count - vr - desktop} for both, {vr} for VR only, {desktop} for desktop only (VRMode)");
+            var perDevice = sets.Count(x => x.Side == Device.Desktop);
+            if (perDevice > 0)
             {
-                var over = sets.Where(x => x.Side == ms.OtherSide).SelectMany(x => x.Rows).Select(x => x.Key).Distinct()
-                    .Where(k => ms.Factor(k, ms.OtherSide) > 1).OrderBy(NativeKeys.Index)
-                    .Select(k => k + " x" + ms.Factor(k, ms.OtherSide).ToString("0.##", inv)).ToList();
-                log.Add($"measurements: {Measurements.Label(ms.OtherSide)} sets {other} (VRMode), strength over x1: {(over.Count > 0 ? string.Join(", ", over) : "none")}");
+                var rows = m.Neutral.Values.SelectMany(r => r).Concat(m.StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows))).Count(r => r.StrengthByDevice);
+                log.Add($"devices: Blendshapes Sets per device ({perDevice} for VR, {perDevice} for desktop, VRMode); rows with another strength on desktop: {rows}");
             }
-            else if (ms.Any) log.Add($"measurements: no {Measurements.Label(ms.OtherSide)} sets (recordings for both VR and desktop are needed)");
-            var split = m.StateMachines.Sum(sm => sm.Transitions.Count(t => Thresholds.Splits(ms, t)));
-            if (split > 0) log.Add($"transitions: {split} with other values on {Measurements.Label(ms.OtherSide)}, one per side (VRMode)");
-            foreach (var sm in m.StateMachines)
-                foreach (var t in sm.Transitions)
-                    foreach (var c in t.When)
-                    {
-                        var r = Thresholds.For(ms, c, ms.OtherSide);
-                        if (r.Kind == Thresholds.Kind.Unusable)
-                            log.Add($"transition {sm.Name}: {t.From} -> {t.To}: {c.Input} {(r.NotSent ? "is not sent" : "moves too little")} on {Measurements.Label(r.Side)}; {Measurements.Label(ms.OtherSide)} uses {c.Value.ToString("0.###", inv)}");
-                        else if (r.Kind == Thresholds.Kind.OutOfRange)
-                            log.Add($"transition {sm.Name}: {t.From} -> {t.To}: {c.Input} {c.Op} {c.Value.ToString("0.###", inv)} is outside {Measurements.Label(ms.Main)}'s range; {(r.Never ? "never holds" : "always holds")} on {Measurements.Label(ms.OtherSide)} ({r.Value.Value.ToString("0.###", inv)})");
-                    }
+            var stops = m.StateMachines.SelectMany(sm => sm.States.Where(st => st.StopVisemesByDevice).Select(st => $"{sm.Name}/{st.Name} ({(st.StopVisemesVr ? "VR" : "desktop")} only)")).ToList();
+            if (stops.Count > 0) log.Add($"devices: stopVisemes on one device: {string.Join(", ", stops)}");
+            if (m.Measurements.Any)
+                log.Add($"measurements: VR {m.Measurements.VrSide?.Files.Count ?? 0} files, desktop {m.Measurements.DesktopSide?.Files.Count ?? 0} files (shown in the settings editor; the output does not use them)");
             return log;
         }
 

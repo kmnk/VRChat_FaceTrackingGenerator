@@ -31,7 +31,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         public static List<(StateMachineDef sm, StateDef st)> StopStates(TableModel m) =>
-            m.StateMachines.SelectMany(sm => sm.States.Where(st => st.StopVisemes).Select(st => (sm, st))).ToList();
+            m.StateMachines.SelectMany(sm => sm.States.Where(st => st.StopVisemesAny).Select(st => (sm, st))).ToList();
 
         static bool HasNames(string[] names) => names != null && names.Any(n => !string.IsNullOrEmpty(n));
 
@@ -164,19 +164,47 @@ namespace Kmnk.FaceTrackingGenerator
             var sm = layer.stateMachine;
             var empty = u.EmptyClip(LayerName + "/Empty");
             var on = AnimUtil.State(sm, "On", empty, new Vector3(300, 0));
-            var stop = AnimUtil.State(sm, "Stop", empty, new Vector3(600, 0));
             sm.defaultState = on;
             Weights(on, plan.Sets, plan.LerpSpeed);
+            // With a state that stops the visemes on one device only, one Stop per device (Stop/vr, Stop/desktop), each
+            // entered and left on its device only (VRMode): Animator conditions are all "and", so one Stop could not be
+            // left when every state of the current device is off.
+            if (!plan.States.Any(x => x.st.StopVisemesByDevice))
+            {
+                StopState(sm, on, "Stop", new Vector3(600, 0), plan, plan.States, null);
+                return;
+            }
+            var y = 0;
+            foreach (var desktop in new[] { false, true })
+            {
+                var states = plan.States.Where(x => x.st.StopVisemes(desktop)).ToList();
+                if (states.Count == 0) continue;
+                StopState(sm, on, "Stop/" + Device.Of(desktop), new Vector3(600, y), plan, states, desktop);
+                y += 100;
+            }
+        }
+
+        static void StopState(AnimatorStateMachine sm, AnimatorState on, string name, Vector3 position, Plan plan,
+            List<(StateMachineDef sm, StateDef st)> states, bool? desktop)
+        {
+            var stop = AnimUtil.State(sm, name, on.motion, position);
             Weights(stop, plan.Sets.Select(x => (x.name, 0f)).ToList(), plan.LerpSpeed);
-            foreach (var (smd, st) in plan.States)
+            void OnDevice(AnimatorStateTransition t)
+            {
+                if (desktop != null) t.AddCondition(desktop.Value ? AnimatorConditionMode.Less : AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
+            }
+            foreach (var (smd, st) in states)
             {
                 var t = AnimUtil.Transition(on, stop);
                 t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtBuilder.Active);
+                OnDevice(t);
                 t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtBuilder.SwitchParam(smd.Name, st.Name));
             }
             AnimUtil.Transition(stop, on).AddCondition(AnimatorConditionMode.Less, 0.5f, FtBuilder.Active);
+            if (desktop != null)
+                AnimUtil.Transition(stop, on).AddCondition(desktop.Value ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, 0.5f, NativeSets.SideParameter);
             var none = AnimUtil.Transition(stop, on);
-            foreach (var (smd, st) in plan.States)
+            foreach (var (smd, st) in states)
                 none.AddCondition(AnimatorConditionMode.Less, 0.5f, FtBuilder.SwitchParam(smd.Name, st.Name));
         }
 

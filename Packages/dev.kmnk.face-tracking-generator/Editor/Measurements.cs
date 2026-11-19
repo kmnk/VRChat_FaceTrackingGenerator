@@ -71,42 +71,10 @@ namespace Kmnk.FaceTrackingGenerator
         public bool HasBoth => VrSide != null && DesktopSide != null;
         public bool Any => VrSide != null || DesktopSide != null;
 
-        // The side the tables are written for ("measurementsMain", spec R6); the other side's values are computed.
-        public string Main = Vr;
-        public string OtherSide => Other(Main);
-
         public Side Of(string side) => side == Vr ? VrSide : side == Desktop ? DesktopSide : null;
-
-        // The multiplier of a key's strength on `side` (spec R8): 1 on the main side; else the main side's usable range /
-        // side's, or 1 when a side cannot use the key.
-        public float Factor(string key, string side)
-        {
-            if (!HasBoth || side == Main) return 1;
-            var m = Of(Main).Usable(key);
-            var s = Of(side).Usable(key);
-            return m != null && s != null ? m.Value / s.Value : 1;
-        }
 
         public static string Other(string side) => side == Vr ? Desktop : Vr;
         public static string Label(string side) => side == Vr ? "VR" : "Desktop";
-
-        // A threshold of `from` moved to `to` (spec R9): to's neutral + (value - from's neutral) x to's usable / from's
-        // usable, rounded to 3 places. Reason: why it cannot be moved.
-        public (float? value, string reason) Remap(string key, float value, string from, string to)
-        {
-            var a = Of(from);
-            var b = Of(to);
-            if (a == null || b == null) return (null, $"no {Label(a == null ? from : to)} recording");
-            foreach (var s in new[] { a, b })
-                if (s.Usable(key) == null)
-                    return (null, s.Key(key).Sent ? $"{key} moves less than {MinUsable} in the {Label(s.Name)} recording" : $"{key} is not sent in the {Label(s.Name)} recording");
-            var sa = a.Key(key);
-            if (value < sa.Neutral - 1e-4f || value > sa.Max + 1e-4f)
-                return (null, $"{value.ToString("0.###", CultureInfo.InvariantCulture)} is outside the {Label(from)} range of {key} (neutral {sa.Neutral.ToString("0.###", CultureInfo.InvariantCulture)} to max {sa.Max.ToString("0.###", CultureInfo.InvariantCulture)})");
-            var sb = b.Key(key);
-            var moved = sb.Neutral + (value - sa.Neutral) * b.Usable(key).Value / a.Usable(key).Value;
-            return ((float)Math.Round(moved, 3), null);
-        }
 
         // ---- reading
 
@@ -134,15 +102,9 @@ namespace Kmnk.FaceTrackingGenerator
 
         // entries: the avatar table's "measurements" (or null). dir: the avatar table's folder; files are relative to it.
         // Problems go to warnings; nothing here throws for a recording (spec R5).
-        public static Measurements Load(string dir, JToken entries, List<string> warnings, JToken main = null)
+        public static Measurements Load(string dir, JToken entries, List<string> warnings)
         {
             var result = new Measurements();
-            if (main != null && main.Type != JTokenType.Null)
-            {
-                var side = Text(main);
-                if (Sides.Contains(side)) result.Main = side;
-                else warnings.Add("avatar table: 'measurementsMain' must be \"vr\" or \"desktop\"; \"vr\" is used");
-            }
             if (entries == null || entries.Type == JTokenType.Null) return result;
             if (!(entries is JArray list))
             {

@@ -30,11 +30,9 @@
 
   // ft-measure recordings (https://github.com/kmnk/ft-measure), relative to this file, each for "vr" or "desktop":
   // "measurements": [{ "file": "Measurements/vr_20261116-195154.jsonl", "side": "vr" }, { "file": "...", "side": "desktop" }]
-  // "measurementsMain": "vr" or "desktop" (default "vr"): the device the expression table's values and strengths are for.
-  // The settings editor's Devices tab adds recordings (copied to Measurements/) and chooses the main device. With
-  // recordings for both sides the generator makes Blendshapes Sets for the other device whose strength is scaled by each
-  // key's range (main's / the other's), and computes its transitions' values from the recordings, switched by VRMode.
-  // Without them, or with one side only, nothing changes.
+  // The settings editor's Devices tab adds recordings (copied to Measurements/) and lists each key's values in a recorded
+  // face, with a neutral face and while talking. The output does not use them: the values for VR and desktop are written
+  // in the expression table.
 
   // The avatar's Face Tracking section (the generator writes the Prefab Variant and the build-time copy, never the
   // original prefab). The generator writes Blendshapes Sets and Eye Look there. When the avatar already

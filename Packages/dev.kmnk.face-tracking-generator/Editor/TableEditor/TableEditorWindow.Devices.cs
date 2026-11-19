@@ -9,8 +9,8 @@ using UnityEngine;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // The Devices tab (spec R14-R17, design.md "Devices タブ"): the recordings and the main side, the conditions' values
-    // on both sides, and how the strength changes. The Preview's sliders with the device's range (spec R19, R20).
+    // The Devices tab (spec R19, R19a, design.md "Devices タブ"): the recordings, and a list of a recorded face's keys.
+    // The Preview's sliders with the device's range.
     public sealed partial class TableEditorWindow
     {
         static readonly Color NoteDark = new Color(0.90f, 0.71f, 0f), NoteLight = new Color(0.54f, 0.43f, 0f);
@@ -34,28 +34,15 @@ namespace Kmnk.FaceTrackingGenerator
             var avatar = doc.Json(TableDocument.Avatar);
             DrawRecordings(avatar);
             if (model == null) return;
-            var ms = model.Measurements;
-            DrawThresholds(ms);
-            EditorGUILayout.Space(8);
-            Heading("Strength");
-            EditorGUILayout.LabelField(StrengthText(ms), EditorStyles.wordWrappedMiniLabel);
+            DrawRecordedFaces(model.Measurements);
         }
 
-        // ---- Recordings: the files assigned to VR or desktop, and the main side (spec R1, R2, R6)
+        // ---- Recordings: the files assigned to VR or desktop
 
         void DrawRecordings(JObject avatar)
         {
             Heading("Recordings");
             Help("devices.recordings");
-            var main = Measurements.Sides.Contains(Measurements.Text(avatar["measurementsMain"])) ? Measurements.Text(avatar["measurementsMain"]) : Measurements.Vr;
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Label("Main", GUILayout.Width(70));
-                EditorGUI.BeginChangeCheck();
-                var i = GUILayout.Toolbar(Array.IndexOf(Measurements.Sides, main), Measurements.Sides.Select(Measurements.Label).ToArray(), GUILayout.Width(220));
-                if (EditorGUI.EndChangeCheck()) { var side = Measurements.Sides[i]; Edit("Set FT main device", a => TableEdits.SetMeasurementsMain(a, side)); }
-                GUILayout.FlexibleSpace();
-            }
             var list = avatar["measurements"] as JArray ?? new JArray();
             var files = model?.Measurements.Files ?? new List<Measurements.FileEntry>();
             for (int i = 0; i < list.Count; i++)
@@ -78,8 +65,7 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                 }
             }
-            if (list.Count == 0)
-                EditorGUILayout.LabelField(string.Format(EditorText.Get("devices.noRecords"), Measurements.Label(main), Measurements.Label(Measurements.Other(main))), EditorStyles.wordWrappedMiniLabel);
+            if (list.Count == 0) EditorGUILayout.LabelField(EditorText.Get("devices.noRecords"), EditorStyles.wordWrappedMiniLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
                 foreach (var side in Measurements.Sides)
@@ -99,96 +85,145 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        // ---- Thresholds: every condition with its value on the main and the other side (spec R15-R17)
+        // ---- Recorded faces: per key of a recorded face, its range there and with a neutral face (spec R19a)
 
-        // The transitions of a state machine by (from, to), in the order they first appear.
-        static List<List<TransitionDef>> Groups(StateMachineDef sm) =>
-            sm.Transitions.GroupBy(t => (t.From, t.To)).Select(g => g.ToList()).ToList();
+        string facesId;  // the list's face
+        // The list's device: the State Machine window's input mode (spec R19a), or the other one when it has no recording.
+        string facesSide;
+        static readonly Color FaceBar = new Color(0x5b / 255f, 0x8f / 255f, 0xc9 / 255f);
+        static readonly Color NeutralBar = new Color(0x8a / 255f, 0x8a / 255f, 0x8a / 255f);
+        // Darker than the window (0x38 in the dark skin), so that the 0 to 1 range shows.
+        static readonly Color Groove = new Color(0x22 / 255f, 0x22 / 255f, 0x22 / 255f);
+        static readonly Color FaintBar = new Color(0x4a / 255f, 0x4a / 255f, 0x4a / 255f);
+        const float FacesMinGap = 0.02f;  // a key whose face is less than this above neutral is faint (as Measurements.MinUsable)
 
-        void DrawThresholds(Measurements ms)
+        // The faces of a recording to list: the poses in the order they were recorded, without neutral and the readings.
+        static List<string> FaceIds(Measurements.Side s) =>
+            s.Items.Select(i => i.Id).Where(id => id != Measurements.NeutralId && id != Measurements.ReadNeutralId && id != Measurements.ReadSmileId).ToList();
+
+        // The rows of a face: sent keys with the neutral and the face's range, by how far the face's smallest value is above
+        // the neutral face's largest (the room for a threshold), largest first.
+        internal static List<(string key, (float min, float max) neutral, (float min, float max) face, float gap)> FaceRows(Measurements.Side s, string id)
         {
-            EditorGUILayout.Space(8);
-            Heading("Thresholds");
-            var main = Measurements.Label(ms.Main);
-            var other = Measurements.Label(ms.OtherSide);
-            EditorGUILayout.LabelField(string.Format(EditorText.Get(ms.HasBoth ? "devices.thresholds" : "devices.thresholdsSame"), main, other), EditorStyles.wordWrappedMiniLabel);
-            if (model.StateMachines.Count == 0) { EditorGUILayout.LabelField(EditorText.Get("devices.noMachines"), EditorStyles.miniLabel); return; }
-            using (new EditorGUILayout.HorizontalScope())
+            var face = s.ItemOf(id);
+            var neutral = s.ItemOf(Measurements.NeutralId);
+            if (face == null) return new List<(string, (float, float), (float, float), float)>();
+            return s.Keys.Where(kv => kv.Value.Sent).Select(kv =>
             {
-                GUILayout.Label("Condition", EditorStyles.miniBoldLabel);
-                GUILayout.FlexibleSpace();
-                var head = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleRight };
-                GUILayout.Label(main + " (Main)", head, GUILayout.Width(ValueWidth));
-                GUILayout.Label(other + " (" + EditorText.Get("devices.computed") + ")", head, GUILayout.Width(ValueWidth));
-                GUILayout.Space(16);
-            }
-            var right = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight };
-            var faint = Colored(right, new Color(right.normal.textColor.r, right.normal.textColor.g, right.normal.textColor.b, 0.5f));
-            var note = Colored(EditorStyles.wordWrappedMiniLabel, NoteColor);
-            foreach (var sm in model.StateMachines)
-            {
-                if (model.StateMachines.Count > 1) EditorGUILayout.LabelField(sm.Name, EditorStyles.miniBoldLabel);
-                foreach (var group in Groups(sm))
-                {
-                    // A block per (from, to) on a lighter background; a short line between its transitions (spec R15).
-                    var block = EditorGUILayout.BeginVertical();
-                    if (Event.current.type == EventType.Repaint) EditorGUI.DrawRect(block, BlockColor);
-                    GUILayout.Space(3);
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Space(6);
-                        GUILayout.Label($"{group[0].From} → {group[0].To}", EditorStyles.boldLabel);
-                    }
-                    for (var ti = 0; ti < group.Count; ti++)
-                    {
-                        if (ti > 0)
-                        {
-                            var line = GUILayoutUtility.GetRect(1, 7, GUILayout.ExpandWidth(true));
-                            if (Event.current.type == EventType.Repaint)
-                                EditorGUI.DrawRect(new Rect(block.x + Indent + 6, line.y + 3, block.width - Indent - 6, 1), LineColor);
-                        }
-                        foreach (var c in group[ti].When)
-                        {
-                            var r = Thresholds.For(ms, c, ms.OtherSide);
-                            using (new EditorGUILayout.HorizontalScope())
-                            {
-                                GUILayout.Space(Indent + 6);
-                                GUILayout.Label($"{c.Input} {c.Op}");
-                                GUILayout.FlexibleSpace();
-                                GUILayout.Label(ThresholdText.Value(c.Value), right, GUILayout.Width(ValueWidth));
-                                GUILayout.Label(r.Value == null ? "—" : ThresholdText.Value(r.Value.Value), ms.HasBoth ? right : faint, GUILayout.Width(ValueWidth));
-                                GUILayout.Space(16);
-                            }
-                            foreach (var n in ThresholdText.Notes(ms, c))
-                                using (new EditorGUILayout.HorizontalScope())
-                                {
-                                    GUILayout.Space(Indent + 6);
-                                    GUILayout.Label("⚠ " + n, note);
-                                    GUILayout.Space(8);
-                                }
-                        }
-                    }
-                    GUILayout.Space(4);
-                    EditorGUILayout.EndVertical();
-                    GUILayout.Space(6);
-                }
-            }
+                var n = neutral?.Of(kv.Key) ?? (0f, 0f);
+                var f = face.Of(kv.Key);
+                return (kv.Key, n, f, f.min - n.max);
+            }).OrderByDescending(r => r.Item4).ThenBy(r => NativeKeys.Index(r.Key)).ToList();
         }
 
-        // ---- Strength (spec R8)
-
-        string StrengthText(Measurements ms)
+        // The list's device: the one chosen, or the first with a recording.
+        Measurements.Side FacesSide(Measurements ms)
         {
-            if (!ms.HasBoth) return EditorText.Get("devices.strengthSame");
-            var other = Measurements.Label(ms.OtherSide);
-            // The example: the key the other side's sets scale most (either way), without Left/Right.
-            var keys = NativeSets.Build(model).Where(s => s.Side == ms.OtherSide).SelectMany(s => s.Rows).Select(r => r.Key).Distinct()
-                .Where(k => Math.Abs(ms.Factor(k, ms.OtherSide) - 1) > 1e-3f)
-                .OrderByDescending(k => Math.Abs(Math.Log(ms.Factor(k, ms.OtherSide)))).ThenBy(k => k, StringComparer.Ordinal).ToList();
-            if (keys.Count == 0) return string.Format(EditorText.Get("devices.strengthPlain"), Measurements.Label(ms.Main), other);
-            var k0 = keys[0];
-            var name = k0.EndsWith("Left") ? k0.Substring(0, k0.Length - 4) : k0.EndsWith("Right") ? k0.Substring(0, k0.Length - 5) : k0;
-            return string.Format(EditorText.Get("devices.strength"), Measurements.Label(ms.Main), other, name, ms.Factor(k0, ms.OtherSide).ToString("0.0", CultureInfo.InvariantCulture));
+            var mode = StateMachineWindow.SharedInputMode;
+            facesSide = ms.Of(mode) != null ? mode : ms.Of(Measurements.Other(mode)) != null ? Measurements.Other(mode) : null;
+            var side = facesSide == null ? null : ms.Of(facesSide);
+            var ids = side == null ? new List<string>() : FaceIds(side);
+            if (facesId == null || !ids.Contains(facesId)) facesId = ids.FirstOrDefault();
+            return side;
+        }
+
+        void DrawRecordedFaces(Measurements ms)
+        {
+            var side = FacesSide(ms);
+            if (side == null) return;
+            EditorGUILayout.Space(10);
+            Heading("Recorded faces");
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                foreach (var d in Measurements.Sides)
+                    using (new EditorGUI.DisabledScope(ms.Of(d) == null))
+                        if (GUILayout.Toggle(d == facesSide, Measurements.Label(d), EditorStyles.miniButtonMid, GUILayout.Width(130)) && d != facesSide) { StateMachineWindow.SharedInputMode = d; side = FacesSide(ms); }
+                GUILayout.FlexibleSpace();
+            }
+            var ids = FaceIds(side);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label("Face", GUILayout.Width(40));
+                var i = EditorGUILayout.Popup(Math.Max(0, ids.IndexOf(facesId)), ids.ToArray(), GUILayout.Width(180));
+                if (ids.Count > 0) facesId = ids[i];
+                GUILayout.FlexibleSpace();
+            }
+            if (facesId == null) return;
+            var inv = CultureInfo.InvariantCulture;
+            string R((float min, float max) r) => r.min.ToString("0.00", inv) + "~" + r.max.ToString("0.00", inv);
+            // The reading columns (spec R19a): only the readings the recording has.
+            var talks = TalkColumns(side);
+            var showBar = position.width >= FacesBarMinWindow;
+            // No margins, so that the columns add up to the window's width (the scroll view's bar and padding aside).
+            var small = new GUIStyle(EditorStyles.label) { fontSize = 11, margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(2, 2, 2, 2) };
+            var right = new GUIStyle(small) { alignment = TextAnchor.MiddleRight };
+            var faintColor = new Color(0x6a / 255f, 0x6a / 255f, 0x6a / 255f);
+            var faint = Colored(small, faintColor);
+            var faintRight = Colored(right, faintColor);
+            // The key column takes what is left, at least FacesKeyMin; a longer name is cut with "…" (tooltip: the whole).
+            // Narrower: the key column first (down to FacesKeyMin), then the value columns (down to FacesValueMinW).
+            var avail = position.width - FacesWindowInset - (showBar ? FacesBarW + 6 : 0);
+            var cols = 2 + talks.Count;
+            var valueW = Mathf.Clamp((avail - FacesKeyMin) / cols, FacesValueMinW, FacesValueW);
+            var keyW = Math.Max(FacesKeyMin, avail - valueW * cols);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var head = new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleRight, margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(2, 2, 2, 2) };
+                GUILayout.Label("Key", new GUIStyle(head) { alignment = TextAnchor.MiddleLeft }, GUILayout.Width(keyW));
+                // Headings longer than the column end with "…"; the tooltip has the whole.
+                void Head(string text) => GUILayout.Label(new GUIContent(Fit(text, head, valueW), text), head, GUILayout.Width(valueW));
+                Head(EditorText.Get("range.neutral"));
+                foreach (var (_, text) in talks) Head(EditorText.Get(text));
+                Head(facesId);
+                GUILayout.FlexibleSpace();
+            }
+            foreach (var (key, n, f, gap) in FaceRows(side, facesId))
+                using (new EditorGUILayout.HorizontalScope(GUILayout.Height(20)))
+                {
+                    var dim = gap < FacesMinGap;
+                    var keyStyle = new GUIStyle(dim ? faint : small) { clipping = TextClipping.Clip };
+                    GUILayout.Label(new GUIContent(Fit(key, keyStyle, keyW), key), keyStyle, GUILayout.Width(keyW));
+                    GUILayout.Label(R(n), dim ? faintRight : right, GUILayout.Width(valueW));
+                    foreach (var (id, _) in talks) GUILayout.Label(R(side.ItemOf(id).Of(key)), dim ? faintRight : right, GUILayout.Width(valueW));
+                    GUILayout.Label(R(f), dim ? faintRight : right, GUILayout.Width(valueW));
+                    if (!showBar) { GUILayout.FlexibleSpace(); continue; }
+                    GUILayout.Space(6);
+                    var bar = GUILayoutUtility.GetRect(FacesBarW, 20, GUILayout.Width(FacesBarW));
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        var groove = new Rect(bar.x, bar.center.y - 4, bar.width, 8);
+                        EditorGUI.DrawRect(groove, Groove);
+                        // At least 2 px wide, and inside the groove also at 1.
+                        Rect Span((float min, float max) r, float h)
+                        {
+                            var w = Math.Max(2, (Mathf.Clamp01(r.max) - Mathf.Clamp01(r.min)) * groove.width);
+                            var x = Math.Min(groove.x + Mathf.Clamp01(r.min) * groove.width, groove.xMax - w);
+                            return new Rect(x, groove.center.y - h / 2, w, h);
+                        }
+                        EditorGUI.DrawRect(Span(f, 8), dim ? FaintBar : FaceBar);
+                        EditorGUI.DrawRect(Span(n, 4), dim ? FaintBar : NeutralBar);
+                    }
+                    GUILayout.FlexibleSpace();
+                }
+        }
+
+        // FacesWindowInset: the tab's scroll bar and the window's side padding.
+        const float FacesValueW = 64, FacesValueMinW = 56, FacesBarW = 90, FacesKeyMin = 100, FacesBarMinWindow = 480, FacesWindowInset = 28;
+
+        // The reading columns of a recording (read_neutral, read_smile), with their headings' text keys.
+        static List<(string id, string text)> TalkColumns(Measurements.Side s) =>
+            new[] { (Measurements.ReadNeutralId, "range.talk"), (Measurements.ReadSmileId, "range.smile") }.Where(x => s.ItemOf(x.Item1) != null).ToList();
+
+        // The text cut to the width with "…" at the end.
+        static string Fit(string text, GUIStyle style, float width)
+        {
+            if (style.CalcSize(new GUIContent(text)).x <= width) return text;
+            for (var n = text.Length - 1; n > 1; n--)
+            {
+                var t = text.Substring(0, n) + "…";
+                if (style.CalcSize(new GUIContent(t)).x <= width) return t;
+            }
+            return "…";
         }
 
         // ---- Preview: the device's range under a slider (spec R19)
@@ -244,14 +279,8 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
-        // The line of what the Preview runs as (spec R20).
-        string SideLine()
-        {
-            var ms = model.Measurements;
-            var side = PreviewDesktop ? Measurements.Desktop : Measurements.Vr;
-            var key = side == ms.Main ? "preview.sideMain" : ms.HasBoth ? "preview.sideComputed" : "preview.sideWaiting";
-            return string.Format(EditorText.Get(key), Measurements.Label(side), Measurements.Label(ms.Main));
-        }
+        // The line of what the Preview runs as (spec R20): the device's transitions and strengths.
+        string SideLine() => string.Format(EditorText.Get("preview.side"), Measurements.Label(PreviewDesktop ? Measurements.Desktop : Measurements.Vr));
 
         // A line on a bluish background (the Preview's side).
         static void SideBox(string text)
@@ -271,8 +300,9 @@ namespace Kmnk.FaceTrackingGenerator
             var ms = model.Measurements;
             if (tab == 2)
             {
-                var conds = model.StateMachines.SelectMany(sm => sm.Transitions.SelectMany(t => t.When)).ToList();
-                yield return $"[FTG] capture devices main={ms.Main} groups={model.StateMachines.Sum(sm => Groups(sm).Count)} notes={conds.Sum(c => ThresholdText.Notes(ms, c).Count)} other={string.Join(",", conds.Select(c => { var r = Thresholds.For(ms, c, ms.OtherSide); return r.Value == null ? "never" : ThresholdText.Value(r.Value.Value); }))} strength=\"{StrengthText(ms)}\"";
+                var side = FacesSide(ms);
+                var rows = side == null || facesId == null ? null : FaceRows(side, facesId);
+                yield return $"[FTG] capture devices recordings={ms.Files.Count} faces={(side == null ? "-" : facesSide + ":" + facesId)} rows={rows?.Count ?? 0} faint={rows?.Count(r => r.gap < FacesMinGap) ?? 0} first={(rows == null || rows.Count == 0 ? "-" : rows[0].key)} talk={(side == null ? "-" : string.Join(",", TalkColumns(side).Select(x => x.id)))} bar={(position.width >= FacesBarMinWindow).ToString().ToLowerInvariant()}";
             }
             if (tab == 1)
             {

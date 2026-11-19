@@ -84,15 +84,17 @@ namespace Kmnk.FaceTrackingGenerator
         // Face values (R15) by FaceEval. -ftQueries: JSON Lines of {"label", "set": {key or "key:<key>": value},
         // "state": {state machine: state}}; or -ftSet "Key=value,..." and -ftStates "StateMachine=state,..." for one
         // query. Writes JSON Lines of {"label", "shapes": {"mesh/shape": weight}} to -ftOut, or the log without it.
+        // -ftDesktop 1: the desktop side's Blendshapes Sets (the strengths written for desktop).
         public static void Curve() => Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
             var lines = new System.Collections.Generic.List<string>();
+            var desktop = CliArgs.Get("-ftDesktop") == "1";
             System.Collections.Generic.Dictionary<string, float> Keys(System.Collections.Generic.IEnumerable<(string, float)> pairs) =>
                 pairs.ToDictionary(p => p.Item1.StartsWith(InputDef.TrackPrefix) || NativeKeys.Index(p.Item1) < 0 ? p.Item1 : InputDef.TrackPrefix + p.Item1, p => p.Item2);
             void Add(object label, System.Collections.Generic.Dictionary<string, float> set, System.Collections.Generic.Dictionary<string, string> st)
             {
-                var shapes = FaceEval.Evaluate(model, set, st, withProperties: true);
+                var shapes = FaceEval.Evaluate(model, set, st, desktop, withProperties: true);
                 lines.Add(new JObject { ["label"] = JToken.FromObject(label ?? ""), ["states"] = new JObject(FaceEval.States(model, st).Select(kv => new JProperty(kv.Key, kv.Value))), ["shapes"] = new JObject(shapes.Select(kv => new JProperty(kv.Key, Math.Round(kv.Value, 1)))) }.ToString(Formatting.None));
             }
             var q = CliArgs.Get("-ftQueries");
@@ -218,9 +220,13 @@ namespace Kmnk.FaceTrackingGenerator
 
     public static class ModelJson
     {
+        // A strength per device as {"vr", "desktop"}, else a number, so that the output of a table without them stays as before.
+        public static JToken Strength(TrackRow r) =>
+            r.StrengthByDevice ? new JObject { ["vr"] = r.StrengthVr, ["desktop"] = r.StrengthDesktop } : (JToken)r.StrengthVr;
+
         static JObject Row(TrackRow r, TableModel m) => new JObject
         {
-            ["key"] = r.Key, ["part"] = r.Part, ["strength"] = r.Strength,
+            ["key"] = r.Key, ["part"] = r.Part, ["strength"] = Strength(r),
             ["shape"] = r.Part != null && m.Parts.TryGetValue(r.Part, out var t) ? t.Shape : null,
         };
 
@@ -245,13 +251,18 @@ namespace Kmnk.FaceTrackingGenerator
                             ["fixed"] = new JObject(st.Fixed.Select(kv => new JProperty(kv.Key, kv.Value))),
                         };
                         // Only when set, so that the output of a table without it stays as before.
-                        if (st.StopVisemes) o["stopVisemes"] = true;
+                        if (st.StopVisemesAny) o["stopVisemes"] = st.StopVisemesByDevice ? (JToken)Device.Of(st.StopVisemesDesktop) : true;
                         return o;
                     })),
-                    ["transitions"] = new JArray(sm.Transitions.Select(t => new JObject
+                    ["transitions"] = new JArray(sm.Transitions.Select(t =>
                     {
-                        ["from"] = t.From, ["to"] = t.To, ["duration"] = t.Duration,
-                        ["when"] = new JArray(t.When.Select(c => new JArray(c.Input, c.Op, c.Value))),
+                        var o = new JObject
+                        {
+                            ["from"] = t.From, ["to"] = t.To, ["duration"] = t.Duration,
+                            ["when"] = new JArray(t.When.Select(c => new JArray(c.Input, c.Op, c.Value))),
+                        };
+                        if (t.Device != null) o["device"] = t.Device;
+                        return o;
                     })),
                 })),
                 ["stopWhileTalking"] = new JArray(m.StopWhileTalking),

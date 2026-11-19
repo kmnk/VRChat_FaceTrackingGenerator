@@ -14,7 +14,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Save and Undo are the settings editor's.
     public sealed class StateMachineWindow : EditorWindow
     {
-        const float NodeW = 150, NodeH = 36, ToolbarH = 22, BrokenNoticeH = 40;
+        const float NodeW = 150, NodeH = 36, ToolbarH = 22, BrokenNoticeH = 40, BandH = 20;
         static readonly Color Background = new Color(0.125f, 0.125f, 0.125f);
         static readonly Color Grid = new Color(0.15f, 0.15f, 0.15f);
         static readonly Color DefaultFill = new Color(0.72f, 0.41f, 0.16f);
@@ -23,6 +23,10 @@ namespace Kmnk.FaceTrackingGenerator
         static readonly Color MenuLine = new Color(0.25f, 0.65f, 0.65f);
         static readonly Color Line = new Color(0.82f, 0.82f, 0.82f);
         static readonly Color Selected = new Color(0.23f, 0.47f, 0.73f);
+        // The input mode: the chosen button and the band under the toolbar (spec "試作: 状態遷移機の窓").
+        static readonly Color ModeOn = new Color(0x8a / 255f, 0x5a / 255f, 0x2b / 255f);
+        static readonly Color BandFill = new Color(0x4a / 255f, 0x3a / 255f, 0x28 / 255f);
+        static readonly Color BandText = new Color(0xe8 / 255f, 0xc9 / 255f, 0xa0 / 255f);
 
         string machine;          // the state machine shown
         string selState;         // the selected state, or null
@@ -41,6 +45,48 @@ namespace Kmnk.FaceTrackingGenerator
         const float MinZoom = 0.3f, MaxZoom = 2f;
         Vector2 inspectorScroll;
         readonly HashSet<string> openRegions = new HashSet<string>(StringComparer.Ordinal);
+        // The input mode: the device whose transitions, strengths and stopVisemes are shown and edited (Device.Vr or
+        // Device.Desktop). Kept for the user, not in the tables (spec R12).
+        const string InputModeKey = "Kmnk.FaceTrackingGenerator.StateMachine.InputMode";
+
+        // The input mode, shared with the Devices tab's Recorded faces (they show the same device). Kept for the user in
+        // EditorPrefs; TableEditorChecks.Capture sets CaptureInputMode instead, so that a check does not change it.
+        internal static string CaptureInputMode;
+        public static string SharedInputMode
+        {
+            get
+            {
+                if (Device.IsName(CaptureInputMode)) return CaptureInputMode;
+                var mode = EditorPrefs.GetString(InputModeKey, Device.Vr);
+                return Device.IsName(mode) ? mode : Device.Vr;
+            }
+            set
+            {
+                if (!Device.IsName(value)) return;
+                if (Device.IsName(CaptureInputMode)) CaptureInputMode = value;
+                else EditorPrefs.SetString(InputModeKey, value);
+                foreach (var w in Resources.FindObjectsOfTypeAll<StateMachineWindow>()) w.SetInputMode(value);
+                TableEditorWindow.Current?.Repaint();
+            }
+        }
+        string device = Device.Vr;
+        internal string InputMode => device;
+
+        // Switches the input mode: the selected state and the scroll stay; a selected transition the other mode does not
+        // show is deselected (spec R15).
+        internal void SetInputMode(string d)
+        {
+            if (!Device.IsName(d) || d == device) return;
+            // First bring the selection up to the table (Undo may have changed it while the window was not drawn), then
+            // check it against the new mode.
+            var e = Expr;
+            if (e != null && machine != null && !FollowUndoOfSplit(e)) FollowSelection(e);
+            device = d;
+            if (SharedInputMode != d) SharedInputMode = d;
+            var tr = e == null || machine == null ? null : StateMachineEdit.Transitions(e, machine);
+            if (selTransition >= 0 && (tr == null || selTransition >= tr.Count || !StateMachineEdit.Shows(tr[selTransition], device))) selTransition = -1;
+            Repaint();
+        }
 
         [MenuItem("Tools/Kmnk/Face Tracking State Machine")]
         public static StateMachineWindow Open()
@@ -56,6 +102,7 @@ namespace Kmnk.FaceTrackingGenerator
         void OnEnable()
         {
             inspectorWidth = EditorPrefs.GetFloat(InspectorWidthKey, 360);
+            device = SharedInputMode;
             TableEditorWindow.Changed += Repaint;
             EditorText.Changed += Repaint;
         }
@@ -68,11 +115,73 @@ namespace Kmnk.FaceTrackingGenerator
 
         void OnGUI()
         {
+            try { DrawWindow(); }
+            finally
+            {
+                RememberSelection();
+                // The slider releases the mouse while drawing; write the dragged amount in the same frame.
+                CommitFixedDrag();
+            }
+        }
+
+        // The selected transition's from, to and device after the last frame: when Undo or Redo changes the table between
+        // frames, the selection follows a shown transition of the same from, to and device (the same index if it still is
+        // one, else the nearest), or is cleared, instead of staying on an index that now holds another, perhaps the other
+        // device's, transition. The conditions and the duration are not compared, so that undoing an edit of the selected
+        // transition keeps it selected.
+        string selKey;
+
+        string TransitionKey(JObject e, int index)
+        {
+            var tr = e == null || machine == null ? null : StateMachineEdit.Transitions(e, machine);
+            if (tr == null || index < 0 || index >= tr.Count) return null;
+            var t = tr[index];
+            return StateMachineEdit.Name(t["from"]) + "\n" + StateMachineEdit.Name(t["to"]) + "\n" + (StateMachineEdit.DeviceOf(t) ?? "both");
+        }
+
+        void RememberSelection() => selKey = TransitionKey(Expr, selTransition);
+
+        void FollowSelection(JObject e)
+        {
+            if (selTransition < 0) return;
+            var tr = StateMachineEdit.Transitions(e, machine);
+            if (tr != null && selTransition < tr.Count && (selKey == null || TransitionKey(e, selTransition) == selKey) && StateMachineEdit.Shows(tr[selTransition], device)) return;
+            // The nearest shown transition of the same from, to and device; else of the same from and to (Redo of a split:
+            // the copy for this device next to the one that went to the other device).
+            string FromTo(string key) => key == null ? null : key.Substring(0, key.LastIndexOf('\n'));
+            var found = -1;
+            foreach (var match in new Func<int, bool>[] { i => TransitionKey(e, i) == selKey, i => FromTo(TransitionKey(e, i)) == FromTo(selKey) })
+                for (var d = 0; tr != null && selKey != null && found < 0 && (selTransition - d >= 0 || selTransition + d < tr.Count); d++)
+                    foreach (var i in new[] { selTransition - d, selTransition + d })
+                        if (found < 0 && i >= 0 && i < tr.Count && match(i) && StateMachineEdit.Shows(tr[i], device)) found = i;
+            selTransition = found;
+        }
+
+        // A fixed amount being dragged: shown by its slider, written to the table once when the mouse is released (each
+        // edit rebuilds the model and the preview, which is too slow for every step of a drag).
+        (string machine, string state, string part, int amount)? fixedDrag;
+
+        void CommitFixedDrag()
+        {
+            if (fixedDrag == null || GUIUtility.hotControl != 0) return;
+            var (m, st, part, amount) = fixedDrag.Value;
+            fixedDrag = null;
+            if (Expr != null && StateMachineEdit.StateNames(Expr, m).Contains(st))
+                Edit("Set FT fixed amount", x => StateMachineEdit.SetFixed(x, m, st, part, amount));
+        }
+
+        void DrawWindow()
+        {
+            CommitFixedDrag();
             if (BuildGuard.Building) { BuildGuard.DrawPaused(); return; }
             var e = Expr;
             if (e == null) { EditorGUILayout.HelpBox(EditorText.Get("sm.noTable"), MessageType.Info); return; }
             var names = StateMachineEdit.Machines(e)?.Properties().Select(p => p.Name).ToList() ?? new List<string>();
             if (machine == null || !names.Contains(machine)) { machine = names.FirstOrDefault(); selState = null; selTransition = -1; }
+            // Undo of a split goes back to the transition of both devices; any other change follows the same text. Then the
+            // Devices tab may have switched the shared input mode.
+            if (!FollowUndoOfSplit(e)) FollowSelection(e);
+            if (SharedInputMode != device) SetInputMode(SharedInputMode);
             var brokenH = DrawToolbar(e, names);
             if (machine == null)
             {
@@ -86,7 +195,7 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.FlexibleSpace();
                 return;
             }
-            var top = ToolbarH + (EditorText.Help("sm.help") != null ? 18 : 0) + brokenH;
+            var top = ToolbarH + (EditorText.Help("sm.help") != null ? 18 : 0) + BandH + brokenH;
             var graph = new Rect(0, top, Math.Max(200, position.width - InspectorWidth), position.height - top);
             var inspector = new Rect(graph.xMax, top, position.width - graph.xMax, position.height - top);
             Splitter(new Rect(graph.xMax - 3, top, 6, graph.height));  // before the graph, which takes clicks in its area
@@ -95,7 +204,8 @@ namespace Kmnk.FaceTrackingGenerator
             GUILayout.BeginArea(new Rect(inspector.x + 6, inspector.y + 4, inspector.width - 10, inspector.height - 8));
             inspectorScroll = EditorGUILayout.BeginScrollView(inspectorScroll);
             if (selState != null && StateMachineEdit.StateNames(e, machine).Contains(selState)) DrawState(e, selState);
-            else if (selTransition >= 0 && selTransition < (StateMachineEdit.Transitions(e, machine)?.Count ?? 0)) DrawTransition(e, selTransition);
+            else if (selTransition >= 0 && selTransition < (StateMachineEdit.Transitions(e, machine)?.Count ?? 0)
+                && StateMachineEdit.Shows(StateMachineEdit.Transitions(e, machine)[selTransition], device)) DrawTransition(e, selTransition);
             EditorGUILayout.EndScrollView();
             GUILayout.EndArea();
         }
@@ -123,6 +233,39 @@ namespace Kmnk.FaceTrackingGenerator
 
         void Edit(string undo, Action<JObject> edit) => Editor?.EditExpression(undo, x => { edit(x); return 0; });
 
+        // An edit of the selected transition for the input mode: it may split a transition of both devices, which moves the
+        // selection to this device's one.
+        void EditTransition(string undo, Func<JObject, int> edit)
+        {
+            if (Editor == null) return;
+            var before = selTransition;
+            var count = StateMachineEdit.Transitions(Expr, machine)?.Count ?? 0;
+            selTransition = Editor.EditExpression(undo, edit);
+            selKey = TransitionKey(Expr, selTransition);
+            var after = StateMachineEdit.Transitions(Expr, machine)?.Count ?? 0;
+            if (after == count + 1) { splitFrom = before; splitCount = after; splitMachine = machine; }
+        }
+
+        // A split by the last edit (the transition of both devices' index, and the count after it): when Undo takes the
+        // table back, the selection goes back to that transition instead of staying on the index of the copy.
+        // Kept only while the copy stays selected in the same state machine: choosing anything else forgets it.
+        int splitFrom = -1, splitCount;
+        string splitMachine;
+
+        // Returns whether it moved the selection.
+        bool FollowUndoOfSplit(JObject e)
+        {
+            if (splitFrom < 0) return false;
+            if (machine != splitMachine || selTransition != splitFrom + 1 || selState != null) { splitFrom = -1; return false; }
+            var tr = machine == null ? null : StateMachineEdit.Transitions(e, machine);
+            var count = tr?.Count ?? 0;
+            if (count == splitCount) return false;
+            var back = count == splitCount - 1 && splitFrom < count && StateMachineEdit.DeviceOf(tr[splitFrom]) == null;
+            if (back) selTransition = splitFrom;
+            splitFrom = -1;
+            return back;
+        }
+
         // ---- toolbar
 
         // Returns the height of the notice about transitions to missing states (0 when there are none), which the graph
@@ -143,9 +286,23 @@ namespace Kmnk.FaceTrackingGenerator
                 using (new EditorGUI.DisabledScope(machine == null))
                     if (GUILayout.Button("Frame All", EditorStyles.toolbarButton, GUILayout.Width(70))) FrameAll(e);
                 GUILayout.FlexibleSpace();
+                GUILayout.Label("Input", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                foreach (var d in new[] { Device.Vr, Device.Desktop })
+                {
+                    var on = d == device;
+                    var bg = GUI.backgroundColor;
+                    if (on) GUI.backgroundColor = ModeOn * 1.6f;
+                    if (GUILayout.Toggle(on, Measurements.Label(d), EditorStyles.toolbarButton, GUILayout.Width(64)) && !on) SetInputMode(d);
+                    GUI.backgroundColor = bg;
+                }
             }
             var help = EditorText.Help("sm.help");
             if (help != null) EditorGUILayout.LabelField(linkFrom != null ? EditorText.Get("sm.pickTarget") : help, EditorStyles.miniLabel);
+            // Which device is being edited, always shown (spec R12).
+            var band = GUILayoutUtility.GetRect(0, BandH, GUILayout.ExpandWidth(true));
+            EditorGUI.DrawRect(band, BandFill);
+            var bandStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = BandText }, fontSize = 11, padding = new RectOffset(8, 8, 2, 2) };
+            GUI.Label(band, string.Format(EditorText.Get("sm.inputBand"), Measurements.Label(device)), bandStyle);
             // Transitions to or from a state the machine does not have are not drawn, so they are offered for removal here.
             var broken = machine == null ? new List<int>() : StateMachineEdit.BrokenTransitions(e, machine);
             if (broken.Count == 0) return 0;
@@ -221,8 +378,10 @@ namespace Kmnk.FaceTrackingGenerator
 
         void Select(string state, int transition)
         {
+            splitFrom = -1;
             selState = state;
             selTransition = transition;
+            selKey = TransitionKey(Expr, transition);
             if (state != null) Editor?.ShowState(machine, state);
             Repaint();
         }
@@ -294,7 +453,7 @@ namespace Kmnk.FaceTrackingGenerator
             for (int i = 0; i < trs.Count; i++)
             {
                 var f = StateMachineEdit.Name(trs[i]["from"]); var t = StateMachineEdit.Name(trs[i]["to"]);
-                if (!rects.ContainsKey(f) || !rects.ContainsKey(t) || f == t) continue;
+                if (!rects.ContainsKey(f) || !rects.ContainsKey(t) || f == t || !StateMachineEdit.Shows(trs[i], device)) continue;
                 var a = rects[f].center; var b = rects[t].center;
                 var n = (b - a).normalized;
                 var k = sameWay.TryGetValue(f + "\n" + t, out var c0) ? c0 : 0;
@@ -453,7 +612,8 @@ namespace Kmnk.FaceTrackingGenerator
                     break;
                 case EventType.KeyDown when ev.keyCode == KeyCode.Delete || ev.keyCode == KeyCode.Backspace && ev.command:
                     if (selState != null) DeleteState(selState);
-                    else if (selTransition >= 0) { var i = selTransition; Edit("Remove FT transition", x => StateMachineEdit.RemoveTransition(x, machine, i)); selTransition = -1; }
+                    else if (selTransition >= 0 && StateMachineEdit.Transitions(e, machine) is JArray dtr && selTransition < dtr.Count && StateMachineEdit.Shows(dtr[selTransition], device))
+                    { var i = selTransition; Edit("Remove FT transition", x => StateMachineEdit.RemoveTransition(x, machine, i, device)); selTransition = -1; }
                     ev.Use();
                     break;
                 case EventType.KeyDown when ev.keyCode == KeyCode.F:
@@ -505,7 +665,8 @@ namespace Kmnk.FaceTrackingGenerator
             var names = StateMachineEdit.StateNames(e, machine);
             if (!names.Contains(from) || !names.Contains(to)) { Debug.LogWarning($"[FTG] state machine {machine}: no transition added: state {(names.Contains(from) ? to : from)} is not there"); return; }
             var input = DefaultKey();
-            var index = Editor.EditExpression("Add FT transition", x => StateMachineEdit.AddTransition(x, machine, from, to, input));
+            var d = device;
+            var index = Editor.EditExpression("Add FT transition", x => StateMachineEdit.AddTransition(x, machine, from, to, input, device: d));
             Select(null, index);
         }
 
@@ -542,12 +703,10 @@ namespace Kmnk.FaceTrackingGenerator
                 menu = EditorGUILayout.ToggleLeft("Selectable from menu", menu);
                 if (EditorGUI.EndChangeCheck()) Edit("Set FT menu state", x => StateMachineEdit.SetMenu(x, machine, st, menu));
             }
-            var stop = StateMachineEdit.StopVisemes(e, machine, st);
+            var stop = StateMachineEdit.StopVisemes(e, machine, st, device);
             EditorGUI.BeginChangeCheck();
             stop = EditorGUILayout.ToggleLeft("Stop visemes", stop);
-            if (EditorGUI.EndChangeCheck()) Edit("Set FT stop visemes", x => StateMachineEdit.SetStopVisemes(x, machine, st, stop));
-            var stopHelp = EditorText.Help("sm.stopVisemes");
-            if (stopHelp != null) EditorGUILayout.LabelField(stopHelp, EditorStyles.wordWrappedMiniLabel);
+            if (EditorGUI.EndChangeCheck()) { var d = device; Edit("Set FT stop visemes", x => StateMachineEdit.SetStopVisemes(x, machine, st, stop, d)); }
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("Regions", EditorStyles.boldLabel);
             var neutralRegions = StateMachineEdit.NeutralRegions(e);
@@ -623,8 +782,8 @@ namespace Kmnk.FaceTrackingGenerator
                         using (new EditorGUI.DisabledScope(part == null))
                         {
                             EditorGUI.BeginChangeCheck();
-                            var ns = EditorGUILayout.DelayedFloatField(part == null ? 0 : strength, GUILayout.Width(52));
-                            if (EditorGUI.EndChangeCheck() && part != null) { var k = key; var p = part; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetRow(x, machine, st, region, k, p, ns)); }
+                            var ns = EditorGUILayout.DelayedFloatField(part == null ? 0 : strength.Of(device), GUILayout.Width(52));
+                            if (EditorGUI.EndChangeCheck() && part != null) { var k = key; var d = device; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetRowStrength(x, machine, st, region, k, ns, d)); }
                         }
                         if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var k = key; Edit("Remove FT row", x => StateMachineEdit.RemoveRow(x, machine, st, region, k)); GUIUtility.ExitGUI(); }
                     }
@@ -712,8 +871,8 @@ namespace Kmnk.FaceTrackingGenerator
                                 else { var np = options[ni]; Edit("Set FT neutral row", x => StateMachineEdit.SetNeutralRow(x, r, k, np, s0)); }
                             }
                             EditorGUI.BeginChangeCheck();
-                            var ns = EditorGUILayout.DelayedFloatField(strength, GUILayout.Width(52));
-                            if (EditorGUI.EndChangeCheck()) { var k = key; var p = part; var r = region; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetNeutralRow(x, r, k, p, ns)); }
+                            var ns = EditorGUILayout.DelayedFloatField(strength.Of(device), GUILayout.Width(52));
+                            if (EditorGUI.EndChangeCheck()) { var k = key; var r = region; var d = device; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetNeutralStrength(x, r, k, ns, d)); }
                         }
                 }
             }
@@ -729,9 +888,10 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     GUILayout.Label(p.Name, GUILayout.Width(130));
                     var v = p.Value.Value<float>();
+                    var pending = fixedDrag != null && fixedDrag.Value.machine == machine && fixedDrag.Value.state == st && fixedDrag.Value.part == p.Name;
                     EditorGUI.BeginChangeCheck();
-                    var nv = EditorGUILayout.IntSlider((int)Math.Round(v), 0, 100);
-                    if (EditorGUI.EndChangeCheck()) { var part = p.Name; Edit("Set FT fixed amount", x => StateMachineEdit.SetFixed(x, machine, st, part, nv)); }
+                    var nv = EditorGUILayout.IntSlider(pending ? fixedDrag.Value.amount : (int)Math.Round(v), 0, 100);
+                    if (EditorGUI.EndChangeCheck()) fixedDrag = (machine, st, p.Name, nv);
                     if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var part = p.Name; Edit("Remove FT fixed amount", x => StateMachineEdit.RemoveFixed(x, machine, st, part)); GUIUtility.ExitGUI(); }
                 }
             var addRect = GUILayoutUtility.GetRect(new GUIContent("+ Add Blendshape"), EditorStyles.miniButton, GUILayout.ExpandWidth(false));
@@ -765,18 +925,14 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUI.BeginChangeCheck();
                 var d = EditorGUILayout.DelayedFloatField(t["duration"]?.Value<float>() ?? 0, GUILayout.Width(70));
                 GUILayout.Label("s");
-                if (EditorGUI.EndChangeCheck()) Edit("Set FT duration", x => StateMachineEdit.SetDuration(x, machine, index, d));
+                var dv = device;
+                if (EditorGUI.EndChangeCheck()) EditTransition("Set FT duration", x => StateMachineEdit.SetDuration(x, machine, index, d, dv));
             }
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("Conditions", EditorStyles.boldLabel);
-            var help = EditorText.Help("sm.conditions");
-            if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
             LoadKeys();
             var when = t["when"] as JArray ?? new JArray();
-            var ms = Editor?.Model?.Measurements ?? new Measurements();
-            // The values are the main side's; the other side's are computed (spec R18).
-            var otherHelp = ms.HasBoth ? EditorText.Help("sm.other") : null;
-            if (otherHelp != null) EditorGUILayout.LabelField(string.Format(otherHelp, Measurements.Label(ms.Main), Measurements.Label(ms.OtherSide)), EditorStyles.wordWrappedMiniLabel);
+            var dev = device;
             for (int c = 0; c < when.Count; c++)
             {
                 var cond = when[c] as JArray;
@@ -792,101 +948,34 @@ namespace Kmnk.FaceTrackingGenerator
                     var ii = EditorGUILayout.Popup(Math.Max(0, names.IndexOf(shown)), labels.ToArray());
                     var oi = EditorGUILayout.Popup(op == "<" ? 1 : 0, new[] { ">", "<" }, GUILayout.Width(40));
                     var nv = EditorGUILayout.DelayedFloatField(value, GUILayout.Width(60));
-                    if (EditorGUI.EndChangeCheck()) { var ci = c; var ni = names[ii]; var no = oi == 1 ? "<" : ">"; Edit("Set FT condition", x => StateMachineEdit.SetCondition(x, machine, index, ci, ni, no, nv)); }
-                    if (ms.HasBoth)
-                    {
-                        // The other side's value: text only, no frame, so that it does not look like a button.
-                        var cd = new Condition { Input = NativeInputs.NameOf(input), Op = op, Value = value };
-                        // A fixed width (the longest value, 3 places), so that the row does not move as the digits change.
-                        var w = EditorStyles.miniLabel.CalcSize(new GUIContent(Measurements.Label(ms.OtherSide) + " 0.000")).x;
-                        GUILayout.Label(new GUIContent(ThresholdText.Other(ms, cd), string.Join("\n", ThresholdText.Notes(ms, cd))), EditorStyles.miniLabel, GUILayout.Width(w));
-                    }
+                    if (EditorGUI.EndChangeCheck()) { var ci = c; var ni = names[ii]; var no = oi == 1 ? "<" : ">"; EditTransition("Set FT condition", x => StateMachineEdit.SetCondition(x, machine, index, ci, ni, no, nv, dev)); }
                     using (new EditorGUI.DisabledScope(when.Count <= 1))
-                        if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var ci = c; Edit("Remove FT condition", x => StateMachineEdit.RemoveCondition(x, machine, index, ci)); GUIUtility.ExitGUI(); }
+                        if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var ci = c; EditTransition("Remove FT condition", x => StateMachineEdit.RemoveCondition(x, machine, index, ci, dev)); GUIUtility.ExitGUI(); }
                 }
-                // How far the key moves on the main device (spec R18a).
-                var mainSide = ms.Of(ms.Main);
-                if (mainSide != null)
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Space(12);
-                        GUILayout.Label(RangeText(mainSide, NativeInputs.NameOf(input), compareItem, true), RangeStyle);
-                    }
             }
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("+ Add Condition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
                 {
                     var k = DefaultKey();
-                    Edit("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, k));
-                }
-                // A recorded face whose range is added to the lines above.
-                var side = ms.Of(ms.Main);
-                if (side != null)
-                {
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Label("Compare with", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
-                    var ids = new List<string> { null };
-                    ids.AddRange(CompareIds(side));
-                    var ci = Math.Max(0, ids.IndexOf(compareItem));
-                    ci = EditorGUILayout.Popup(ci, ids.Select(x => x ?? "(none)").ToArray(), GUILayout.Width(140));
-                    compareItem = ids[ci];
+                    EditTransition("Add FT condition", x => StateMachineEdit.AddCondition(x, machine, index, k, device: dev));
                 }
             }
             EditorGUILayout.Space(8);
             if (GUILayout.Button("Remove Transition", EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
             {
-                Edit("Remove FT transition", x => StateMachineEdit.RemoveTransition(x, machine, index));
+                Edit("Remove FT transition", x => StateMachineEdit.RemoveTransition(x, machine, index, dev));
                 selTransition = -1;
                 GUIUtility.ExitGUI();
             }
         }
 
-        // ---- the main device's ranges (spec R18a)
-
-        string compareItem;
-
-        static GUIStyle rangeStyle;
-        static GUIStyle RangeStyle => rangeStyle ?? (rangeStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel) { richText = true });
-
-        static readonly (string id, string text)[] RangeItems =
-            { (Measurements.NeutralId, "range.neutral"), (Measurements.ReadNeutralId, "range.talk"), (Measurements.ReadSmileId, "range.smile") };
-
-        // The faces to compare with: the recorded ones other than those always shown.
-        static IEnumerable<string> CompareIds(Measurements.Side s) => s.Items.Select(i => i.Id).Where(id => !RangeItems.Any(r => r.id == id));
-
-        // "VR: 真顔 0.00〜0.00 ・ 真顔で喋る 0.00〜0.02 ・ 笑顔で喋る 0.15〜0.40 ・ mouth_frown 0.71〜1.00".
-        internal static string RangeText(Measurements.Side s, string key, string compare, bool rich)
-        {
-            var ja = EditorText.Current == EditorText.Language.Japanese;
-            var inv = System.Globalization.CultureInfo.InvariantCulture;
-            string R((float min, float max) r) => r.min.ToString("0.00", inv) + (ja ? "〜" : "–") + r.max.ToString("0.00", inv);
-            var label = Measurements.Label(s.Name);
-            if (!s.Key(key).Sent) return string.Format(EditorText.Get("range.notSent"), label);
-            var sep = ja ? " ・ " : " · ";
-            var parts = RangeItems.Select(x => (item: s.ItemOf(x.id), x.text)).Where(x => x.item != null)
-                .Select(x => EditorText.Get(x.text) + " " + R(x.item.Of(key))).ToList();
-            var text = label + ": " + string.Join(sep, parts);
-            var c = compare == null ? null : s.ItemOf(compare);
-            if (c != null)
-            {
-                var t = c.Id + " " + R(c.Of(key));
-                text += sep + (rich ? $"<color=#{(EditorGUIUtility.isProSkin ? "b0b0b0" : "404040")}>{t}</color>" : t);
-            }
-            return text;
-        }
-
-        // The other side's values of a transition's conditions, for the capture output (spec R18).
-        internal string OtherState(int index)
+        // The selected transition's device, for the capture output (the window shows no recorded ranges: spec R14).
+        internal string TransitionState(int index)
         {
             var e = Expr;
-            var ms = Editor?.Model?.Measurements;
-            if (e == null || machine == null || ms == null || !ms.Any) return "other=- ranges=-";
-            var t = StateMachineEdit.Transitions(e, machine)?[index] as JObject;
-            var when = (t?["when"] as JArray ?? new JArray()).OfType<JArray>().Where(x => x.Count >= 3);
-            var main = ms.Of(ms.Main);
-            var ranges = main == null ? "-" : string.Join(",", when.Select(c => NativeInputs.NameOf((string)c[0]) + ":\"" + RangeText(main, NativeInputs.NameOf((string)c[0]), compareItem, false) + "\""));
-            return "other=" + (!ms.HasBoth ? "-" : string.Join(",", when.Select(c => ThresholdText.Other(ms, new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = c[2].Value<float>() }).Replace(" ", ":")))) + " ranges=" + ranges;
+            var t = e == null || machine == null ? null : StateMachineEdit.Transitions(e, machine)?[index] as JObject;
+            return "of=" + (t == null ? "-" : StateMachineEdit.DeviceOf(t) ?? "both");
         }
 
         // ---- TableEditorChecks.Capture
@@ -896,7 +985,12 @@ namespace Kmnk.FaceTrackingGenerator
         internal void ApplyCaptureArgs()
         {
             machine = CliArgs.Get("-ftSmMachine") ?? machine;
-            compareItem = CliArgs.Get("-ftSmCompare") ?? compareItem;
+            // -ftSmDevice vr|desktop: the input mode the window opens with (as if it was kept from before).
+            var mode = CliArgs.Get("-ftSmDevice");
+            // Without it, the mode the settings editor's capture set (never the user's EditorPrefs).
+            if (Device.IsName(mode)) CaptureInputMode = mode;
+            else if (!Device.IsName(CaptureInputMode)) CaptureInputMode = Device.Vr;
+            device = CaptureInputMode;
             var edits = CliArgs.Get("-ftSmEdits");
             if (edits != null)
                 foreach (var line in System.IO.File.ReadAllLines(edits).Where(l => !string.IsNullOrWhiteSpace(l)))
@@ -915,9 +1009,22 @@ namespace Kmnk.FaceTrackingGenerator
                 else
                 {
                     var from = sel.Substring(0, arrow); var to = sel.Substring(arrow + 2);
-                    var i = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().ToList().FindIndex(t => StateMachineEdit.Name(t["from"]) == from && StateMachineEdit.Name(t["to"]) == to) ?? -1;
+                    var i = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().ToList().FindIndex(t => StateMachineEdit.Name(t["from"]) == from && StateMachineEdit.Name(t["to"]) == to && StateMachineEdit.Shows(t, device)) ?? -1;
                     Select(null, i);
                 }
+            }
+            // -ftSmScroll <y>: the inspector's scroll; -ftSmSwitch vr|desktop: press the input mode's button after selecting.
+            if (float.TryParse(CliArgs.Get("-ftSmScroll"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sy)) inspectorScroll = new Vector2(0, sy);
+            var to2 = CliArgs.Get("-ftSmSwitch");
+            if (Device.IsName(to2)) SetInputMode(to2);
+            // -ftSmDuration <s>: as typing the selected transition's Duration in the inspector; -ftSmUndo 1: then Undo.
+            if (selTransition >= 0 && float.TryParse(CliArgs.Get("-ftSmDuration"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var dur))
+            {
+                var index = selTransition; var dv = device;
+                EditTransition("Set FT duration", x => StateMachineEdit.SetDuration(x, machine, index, dur, dv));
+                // -ftSmUndo 2: Undo, then Redo.
+                if (CliArgs.Get("-ftSmUndo") == "1" || CliArgs.Get("-ftSmUndo") == "2") Undo.PerformUndo();
+                if (CliArgs.Get("-ftSmUndo") == "2") Undo.PerformRedo();
             }
             position = new Rect(80, 80, 1100, 700);
             // -ftSmInspector <width>: as dragging the line between the graph and the inspector (not kept).
@@ -939,9 +1046,12 @@ namespace Kmnk.FaceTrackingGenerator
             var e = Expr;
             if (e == null || machine == null) return "no state machine";
             var states = StateMachineEdit.StateNames(e, machine);
-            var trs = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().Select(t => $"{t["from"]}->{t["to"]}") ?? Enumerable.Empty<string>();
+            var shown = StateMachineEdit.Transitions(e, machine)?.OfType<JObject>().Where(t => StateMachineEdit.Shows(t, device)).ToList() ?? new List<JObject>();
+            var trs = shown.Select(t => $"{t["from"]}->{t["to"]}");
             var menu = states.Where(n => (StateMachineEdit.States(e, machine)[n] as JObject)?["menu"]?.Value<bool>() == true);
-            return $"machine={machine} states={string.Join(",", states)} transitions={string.Join(",", trs)} menu={string.Join(",", menu)} selected={(selState ?? (selTransition >= 0 ? "transition " + selTransition : "-"))} {(selTransition >= 0 ? OtherState(selTransition) : "other=-")} inspector={InspectorWidth:0} zoom={zoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}";
+            var strengths = selState == null ? "-" : string.Join(",", StateMachineEdit.NeutralRegions(e).Where(openRegions.Contains)
+                .SelectMany(r => StateMachineEdit.NeutralRows(e, r)).Select(r => r.key + "=" + r.strength.Of(device).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)));
+            return $"machine={machine} device={device} states={string.Join(",", states)} transitions={shown.Count} {string.Join(",", trs)} menu={string.Join(",", menu)} selected={(selState ?? (selTransition >= 0 ? "transition " + selTransition : "-"))} {(selTransition >= 0 ? TransitionState(selTransition) : "of=-")} stopVisemes={(selState != null && StateMachineEdit.StopVisemes(e, machine, selState, device) ? "on" : "off")} strengths={strengths} scroll={inspectorScroll.y:0} inspector={InspectorWidth:0} zoom={zoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}";
         }
     }
 }
