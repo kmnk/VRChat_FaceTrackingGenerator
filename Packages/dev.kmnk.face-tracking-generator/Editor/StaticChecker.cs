@@ -20,6 +20,7 @@ namespace Kmnk.FaceTrackingGenerator
             f.AddRange(m.Warnings.Select(w => "table: " + w));
             Asymmetry(m, f);
             MissingShapes(m, f);
+            PropertyRows(m, f);
             Unused(m, f);
             States(m, f);
             if (fx != null)
@@ -138,9 +139,23 @@ namespace Kmnk.FaceTrackingGenerator
                 var tr = prefab.transform.Find(target.Mesh);
                 var smr = tr != null ? tr.GetComponent<SkinnedMeshRenderer>() : null;
                 if (smr == null || smr.sharedMesh == null) { f.Add($"avatar: part {part}: no SkinnedMeshRenderer at '{target.Mesh}'"); continue; }
+                if (target.IsProperty)
+                {
+                    if (PropertyParts.Find(smr, target.Property) == null)
+                        f.Add($"avatar: part {part}: renderer {target.Mesh} has no material property {target.Property}");
+                    continue;
+                }
                 if (smr.sharedMesh.GetBlendShapeIndex(target.Shape) < 0)
                     f.Add($"avatar: part {part}: mesh '{target.Mesh}' has no blendshape '{target.Shape}'");
             }
+        }
+
+        // ---- 2b. material property parts in neutral or override rows (the loader leaves those rows out)
+
+        static void PropertyRows(TableModel m, List<string> f)
+        {
+            foreach (var part in m.PropertyPartsInRows)
+                f.Add($"avatar: part {part}: material property parts only move in a state's fixed amounts");
         }
 
         // ---- 3. inputs that nothing uses
@@ -173,6 +188,7 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var part in st.Fixed.Keys)
                     {
                         var target = m.Parts[part];
+                        if (target.IsProperty) continue;   // the sets move blendshapes only
                         foreach (var set in live)
                             foreach (var r in set.Rows.Where(r => r.Mesh == target.Mesh && r.Shape == target.Shape))
                                 f.Add($"fixed: {sm.Name}/{st.Name}: fixed {part} and Blendshapes Set {set.Name} ({r.Key}) move the same blendshape {target.Shape}");

@@ -630,7 +630,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var (part, _) in rows)
             {
                 if (TableEdits.IsMissing(avatar, part)) missing++;
-                else if (TableEdits.PartShape(avatar, part) != null) mapped++;
+                else if (TableEdits.PartShape(avatar, part) != null || TableEdits.PartProperty(avatar, part) != null) mapped++;
                 else notSet++;
             }
             Heading("Face movements", $"{mapped} set · {missing} missing · {notSet} not set");
@@ -648,12 +648,13 @@ namespace Kmnk.FaceTrackingGenerator
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
-                GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
+                GUILayout.Label("Blendshape / Property", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label("Scale", EditorStyles.miniBoldLabel, GUILayout.Width(scaleW));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
                 GUILayout.Space(24);
             }
             var shapeCache = new Dictionary<string, List<string>>();
+            var propertyCache = new Dictionary<string, List<(string material, List<string> properties)>>();
             var partUsage = model != null ? PartUsage.Of(model) : null;
             var i = 0;
             if (regionBand == null)
@@ -705,6 +706,8 @@ namespace Kmnk.FaceTrackingGenerator
                 var shape = TableEdits.PartShape(avatar, part);
                 var mesh = TableEdits.PartMesh(avatar, part) ?? defaultMesh;
                 if (!shapeCache.TryGetValue(mesh ?? "", out var shapes)) shapeCache[mesh ?? ""] = shapes = ShapesOf(prefab, mesh);
+                if (!propertyCache.TryGetValue(mesh ?? "", out var props)) propertyCache[mesh ?? ""] = props = PropertyParts.List(PropertyParts.RendererAt(prefab, mesh));
+                var prop = TableEdits.PartProperty(avatar, part);
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     using (new EditorGUILayout.HorizontalScope(GUILayout.Width(partW)))
@@ -724,6 +727,15 @@ namespace Kmnk.FaceTrackingGenerator
                     GUIContent content;
                     var color = GUI.contentColor;
                     if (isMissing) content = new GUIContent("—");
+                    else if (prop != null)
+                    {
+                        // A material property: "<property> (<material>)", or marked as the blendshape not in the mesh.
+                        // Without the renderer (no prefab, no renderer at the path) the name alone, as for a blendshape.
+                        var mat = props?.FirstOrDefault(x => x.properties.Contains(prop)).material;
+                        if (props == null) content = new GUIContent(prop);
+                        else if (mat != null) content = new GUIContent($"{prop} ({mat})");
+                        else { content = new GUIContent(prop + " (not in materials)", EditorGUIUtility.IconContent("console.erroricon.sml").image); GUI.contentColor = new Color(1f, 0.42f, 0.42f); }
+                    }
                     else if (shape == null) { content = new GUIContent("Not set", EditorGUIUtility.IconContent("console.warnicon.sml").image); GUI.contentColor = new Color(1f, 0.76f, 0.03f); }
                     else if (shapes != null && !shapes.Contains(shape)) { content = new GUIContent(shape + " (not in mesh)", EditorGUIUtility.IconContent("console.erroricon.sml").image); GUI.contentColor = new Color(1f, 0.42f, 0.42f); }
                     else content = new GUIContent(shape);
@@ -740,15 +752,18 @@ namespace Kmnk.FaceTrackingGenerator
                             var meshForPart = mesh;
                             selectedPart = p;
                             var undo = pendingParts.Contains(p) ? "Add FT face movement" : "Set FT part";
-                            PopupWindow.Show(r, new BlendshapePicker(shapes, shape, picked => { Edit(undo, a => TableEdits.SetPart(a, p, picked)); if (picked != null) pendingParts.Remove(p); Repaint(); }, search,
+                            PopupWindow.Show(r, new BlendshapePicker(shapes, prop ?? shape, picked => { Edit(undo, a => TableEdits.SetPart(a, p, picked)); if (picked != null) pendingParts.Remove(p); Repaint(); }, search,
                                 hover: name => ShowCandidate(p, meshForPart, name),
-                                closed: () => { if (!preview.Running) ShowSelected(); Repaint(); }));
+                                closed: () => { if (!preview.Running) ShowSelected(); Repaint(); },
+                                properties: props,
+                                pickProperty: picked => { Edit(undo, a => TableEdits.SetPartProperty(a, p, picked)); pendingParts.Remove(p); Repaint(); },
+                                currentIsProperty: prop != null));
                         }
                     }
                     GUI.contentColor = color;
 
-                    // Scale: only for a part with a blendshape. Written when Enter is pressed or the field is left.
-                    if (!isMissing && shape != null)
+                    // Scale: only for a part with a blendshape or a property. Written when Enter is pressed or the field is left.
+                    if (!isMissing && (shape != null || prop != null))
                     {
                         var scale = TableEdits.PartScale(avatar, part);
                         EditorGUI.BeginChangeCheck();
@@ -763,7 +778,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (TrashButton(used, EditorText.Get("part.cannotRemove")))
                         {
                             var p = part;
-                            if (pendingParts.Remove(p) && TableEdits.PartShape(avatar, p) == null && !TableEdits.IsMissing(avatar, p)) Repaint();
+                            if (pendingParts.Remove(p) && TableEdits.PartShape(avatar, p) == null && TableEdits.PartProperty(avatar, p) == null && !TableEdits.IsMissing(avatar, p)) Repaint();
                             else Edit("Remove FT face movement", a => TableEdits.RemovePart(a, p));
                             GUIUtility.ExitGUI();
                         }

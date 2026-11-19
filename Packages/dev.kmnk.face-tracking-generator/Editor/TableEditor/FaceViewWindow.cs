@@ -137,7 +137,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (Event.current.type == EventType.Repaint) GUI.DrawTexture(rect, image, ScaleMode.ScaleToFit);
         }
 
-        static IEnumerable<string> Targets(FaceView.Content c) => c.Model.Parts.Values.Select(p => p.Mesh + "/" + p.Shape);
+        static IEnumerable<string> Targets(FaceView.Content c) => c.Model.Parts.Values.Where(p => !p.IsProperty).Select(p => p.Mesh + "/" + p.Shape);
 
         void HandleDrag(Rect rect)
         {

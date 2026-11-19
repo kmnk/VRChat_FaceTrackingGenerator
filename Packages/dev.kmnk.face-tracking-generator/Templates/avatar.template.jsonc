@@ -18,6 +18,11 @@
   // A part is written as "jaw.jawOpen": "<blendshape>", or with its own mesh "brow.browInnerUp": { "mesh": "Body", "shape": "<blendshape>" }.
   // "scale" (0 to 1, default 1) corrects the strength of this avatar's blendshape: it multiplies the expression layer's
   // strengths and fixed amounts, without changing a shared expression layer: "lip.mouthSmileLeft": { "shape": "<blendshape>", "scale": 0.7 }
+  // A part can move a material Float or Range property of the renderer instead of a blendshape: "<region>.<movement>":
+  // { "property": "<property>" } (with "mesh" and "scale" as for a blendshape). It moves only in a state's "fixed"
+  // amounts (neutral and override rows go to VRChat's Blendshapes Sets, which move blendshapes only): amount 0 gives the
+  // Range's smallest value and 100 its largest (0 and 1 for a Float). The curve reaches every material of the renderer
+  // that has the property. Face view does not show it.
   "mesh": "Body",
   "parts": {},
   // Parts in the expression layer that this avatar does not have.

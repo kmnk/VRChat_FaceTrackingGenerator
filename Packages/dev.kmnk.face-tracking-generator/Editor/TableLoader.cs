@@ -203,8 +203,16 @@ namespace Kmnk.FaceTrackingGenerator
                         m.Parts[p.Name] = new PartTarget { Mesh = m.DefaultMesh, Shape = (string)p.Value };
                     }
                     else if (p.Value is JObject po)
-                        m.Parts[p.Name] = new PartTarget { Mesh = OptStr(po, "mesh", m.DefaultMesh), Shape = Str(po, "shape", file), Scale = PartScale(po, p.Name, file) };
-                    else throw new TableException($"{file}: '{p.Value.Path}' must be a string or {{\"mesh\", \"shape\", \"scale\"}}");
+                    {
+                        // "property" in place of "shape": a material Float or Range property of the renderer. A row with
+                        // both is left out with a warning, so the other parts still work.
+                        if (po["property"] != null && po["shape"] != null) { Warn(m, $"avatar: part {p.Name} has both 'shape' and 'property'; it is left out"); continue; }
+                        if (po["property"] != null)
+                            m.Parts[p.Name] = new PartTarget { Mesh = OptStr(po, "mesh", m.DefaultMesh), Property = Str(po, "property", file), Scale = PartScale(po, p.Name, file) };
+                        else
+                            m.Parts[p.Name] = new PartTarget { Mesh = OptStr(po, "mesh", m.DefaultMesh), Shape = Str(po, "shape", file), Scale = PartScale(po, p.Name, file) };
+                    }
+                    else throw new TableException($"{file}: '{p.Value.Path}' must be a string or {{\"mesh\", \"shape\" or \"property\", \"scale\"}}");
                 }
 
             if (a["afkGroups"] is JArray groups)
@@ -419,11 +427,21 @@ namespace Kmnk.FaceTrackingGenerator
             }
             // A neutral row whose part has no blendshape is left out. An override row's is kept as Don't move: the key moves
             // nothing in that state (spec R5), rather than falling back to the neutral row.
+            // A material property part moves only in a state's fixed amounts: the rows of neutral and the overrides go to
+            // VRChat's Blendshapes Sets, which move blendshapes only. Such a row is left out like a missing part's.
+            bool KeepRow(string where, string part)
+            {
+                if (!Keep(where, part)) return false;
+                if (part == null || !m.Parts[part].IsProperty) return true;
+                Warn(m, $"{where}: part {part} is a material property, which moves only in a state's fixed amounts; the row is left out");
+                m.PropertyPartsInRows.Add(part);
+                return false;
+            }
             void Filter(List<TrackRow> rows, string where, bool overrides)
             {
                 foreach (var r in rows.ToList())
                 {
-                    if (Keep(where, r.Part)) continue;
+                    if (KeepRow(where, r.Part)) continue;
                     if (overrides) r.Part = null; else rows.Remove(r);
                 }
             }

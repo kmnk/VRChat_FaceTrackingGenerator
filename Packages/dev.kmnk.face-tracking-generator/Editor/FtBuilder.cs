@@ -283,7 +283,7 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         var parts = st.Fixed.Where(kv => inGroup(st, PartNames.Region(kv.Key))).ToList();
                         if (parts.Count == 0) continue;
-                        var clip = u.ShapeClip(FaceMotion(group, sm.Name, st.Name), parts.Select(kv => (m.Parts[kv.Key].Mesh, m.Parts[kv.Key].Shape, kv.Value)));
+                        var clip = u.PartClip(FaceMotion(group, sm.Name, st.Name), parts.Select(kv => (m.Parts[kv.Key], kv.Value)));
                         AnimUtil.AddDirectChild(groupTree, clip, SwitchParam(sm.Name, st.Name));
                         groupAny = true;
                     }

@@ -30,7 +30,7 @@ namespace Kmnk.FaceTrackingGenerator
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var dirtyBefore = scene.isDirty;
 
-            var targets = model.Parts.Values.Select(p => p.Mesh + "/" + p.Shape).Distinct().ToList();
+            var targets = model.Parts.Values.Where(p => !p.IsProperty).Select(p => p.Mesh + "/" + p.Shape).Distinct().ToList();
             var shapes = (CliArgs.Get("-ftShapes") ?? string.Join(",", targets.Take(3))).Split(',').Where(s => s != "").ToList();
             var failed = 0;
             ShaderUtil.allowAsyncCompilation = false;

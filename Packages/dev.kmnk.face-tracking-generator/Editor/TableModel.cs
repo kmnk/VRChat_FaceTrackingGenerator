@@ -85,8 +85,16 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class PartTarget
     {
         public string Mesh;   // renderer path from the avatar root
-        public string Shape;  // blendshape name
+        public string Shape;  // blendshape name (null for a material property part)
+        public string Property;  // material Float or Range property name (null for a blendshape part)
+        // The values amounts 0 and 100 give a property part: the Range's limits, or 0 and 1 for a Float
+        // (PropertyParts.Resolve reads them from the renderer's materials before generating).
+        public float PropertyMin = 0, PropertyMax = 1;
         public float Scale = 1;  // multiplies the expression layer's amounts for this avatar (0 to 1)
+        public bool IsProperty => Property != null;
+        // The name a part's target goes by in lists of the face (FaceEval, Cli.Curve): "<mesh>/<blendshape>", or
+        // "<mesh>/material.<property>".
+        public string Key => Mesh + "/" + (IsProperty ? "material." + Property : Shape);
     }
 
     public sealed class AfkGroup
@@ -155,6 +163,8 @@ namespace Kmnk.FaceTrackingGenerator
         public List<string> Notes = new List<string>();
         // Problems found while loading that do not stop loading
         public List<string> Warnings = new List<string>();
+        // Material property parts that neutral or override rows used (those rows are left out; StaticChecker reports them).
+        public SortedSet<string> PropertyPartsInRows = new SortedSet<string>(System.StringComparer.Ordinal);
 
         public InputDef Input(string name) => Inputs.Find(i => i.Name == name);
         public StateMachineDef StateMachine(string name) => StateMachines.Find(s => s.Name == name);

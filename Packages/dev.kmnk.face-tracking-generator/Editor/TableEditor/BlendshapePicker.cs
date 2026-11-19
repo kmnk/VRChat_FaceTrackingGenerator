@@ -9,8 +9,9 @@ using UnityEngine;
 namespace Kmnk.FaceTrackingGenerator
 {
     // The list of blendshapes for a part: a search field, "(None)", then the mesh's blendshapes under headings made
-    // from separator names (such as "=====Mouth=====" or "-----Face-----"). Up/Down move, Enter picks,
-    // Escape closes.
+    // from separator names (such as "=====Mouth=====" or "-----Face-----"). When the renderer's materials have Float or
+    // Range properties, the blendshapes come under "-- Blendshapes --" and each material's properties under
+    // "-- Material: <name> --". Up/Down move, Enter picks, Escape closes.
     public sealed class BlendshapePicker : PopupWindowContent
     {
         const float RowHeight = 18;
@@ -19,19 +20,26 @@ namespace Kmnk.FaceTrackingGenerator
         readonly List<string> names;
         readonly string current;
         readonly Action<string> pick;   // null = (None)
+        readonly Action<string> pickProperty;   // a material property
+        readonly bool currentIsProperty;
+        readonly List<(string material, List<string> properties)> properties;
         readonly Action<string> hover;  // the name under the cursor (null for (None)), for Face View
         readonly Action closed;
         readonly SearchField searchField = new SearchField();
         string search;
         Vector2 scroll;
         int selected = -1;              // index into the visible items
-        List<(string text, bool header)> items;
+        List<(string text, bool header, bool property)> items;
 
-        public BlendshapePicker(IEnumerable<string> blendshapes, string current, Action<string> pick, string search = "", Action<string> hover = null, Action closed = null)
+        public BlendshapePicker(IEnumerable<string> blendshapes, string current, Action<string> pick, string search = "", Action<string> hover = null, Action closed = null,
+            List<(string material, List<string> properties)> properties = null, Action<string> pickProperty = null, bool currentIsProperty = false)
         {
             names = blendshapes.ToList();
             this.current = current;
             this.pick = pick;
+            this.properties = properties;
+            this.pickProperty = pickProperty;
+            this.currentIsProperty = currentIsProperty;
             this.hover = hover;
             this.closed = closed;
             this.search = search ?? "";
@@ -56,24 +64,47 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // (None), then headings and names; a heading is shown only when a name under it is left.
-        public static List<(string text, bool header)> Items(IList<string> names, string search)
+        public static List<(string text, bool header)> Items(IList<string> names, string search) =>
+            Items(names, search, null).Select(i => (i.text, i.header)).ToList();
+
+        // The same with the materials' properties: when there are any, "-- Blendshapes --" before the blendshapes and
+        // "-- Material: <name> --" before each material's properties (a heading only when a name under it is left).
+        public static List<(string text, bool header, bool property)> Items(IList<string> names, string search, IList<(string material, List<string> properties)> properties)
         {
-            var list = new List<(string, bool)> { ("(None)", false) };
+            var list = new List<(string, bool, bool)> { ("(None)", false, false) };
+            var withProperties = properties != null && properties.Any(p => p.properties.Count > 0);
+            // "-- Blendshapes --" goes before the first blendshape left, then the separators' headings as before.
+            string top = withProperties ? "-- Blendshapes --" : null;
             string heading = null;
             foreach (var n in names)
             {
                 if (IsSeparator(n)) { heading = Heading(n); continue; }
                 if (!Matches(n, search)) continue;
-                if (heading != null) { list.Add((heading, true)); heading = null; }
-                list.Add((n, false));
+                if (top != null) { list.Add((top, true, false)); top = null; }
+                if (heading != null) { list.Add((heading, true, false)); heading = null; }
+                list.Add((n, false, false));
             }
+            if (withProperties)
+                foreach (var (material, props) in properties)
+                {
+                    heading = "-- Material: " + material + " --";
+                    foreach (var n in props)
+                    {
+                        if (!Matches(n, search)) continue;
+                        if (heading != null) { list.Add((heading, true, false)); heading = null; }
+                        list.Add((n, false, true));
+                    }
+                }
             return list;
         }
 
+        bool IsCurrent((string text, bool header, bool property) i) =>
+            !i.header && (i.text == "(None)" ? string.IsNullOrEmpty(current) : i.text == current && i.property == currentIsProperty);
+
         void Refresh()
         {
-            items = Items(names, search);
-            selected = items.FindIndex(i => !i.header && i.text == current);
+            items = Items(names, search, properties);
+            selected = items.FindIndex(i => !i.header && i.text != "(None)" && IsCurrent(i));
             if (selected < 0 || !string.IsNullOrEmpty(search)) selected = items.FindIndex(i => !i.header && i.text != "(None)");
             if (selected < 0) selected = 0;
         }
@@ -94,7 +125,8 @@ namespace Kmnk.FaceTrackingGenerator
         {
             if (selected == hovered || hover == null) return;
             hovered = selected;
-            if (selected >= 0 && selected < items.Count && !items[selected].header)
+            // A property row does not change Face View (it draws blendshapes only).
+            if (selected >= 0 && selected < items.Count && !items[selected].header && !items[selected].property)
                 hover(items[selected].text == "(None)" ? null : items[selected].text);
         }
 
@@ -115,14 +147,14 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var r = new Rect(0, i * RowHeight, view.width, RowHeight);
                 if (r.yMax < scroll.y || r.y > scroll.y + listRect.height) continue;
-                var (text, header) = items[i];
+                var (text, header, _) = items[i];
                 if (header)
                 {
                     EditorGUI.LabelField(new Rect(r.x + 6, r.y, r.width, r.height), text, EditorStyles.miniLabel);
                     continue;
                 }
                 if (i == selected) EditorGUI.DrawRect(r, new Color(0.17f, 0.36f, 0.53f));
-                var isCurrent = text == current || (text == "(None)" && string.IsNullOrEmpty(current));
+                var isCurrent = IsCurrent(items[i]);
                 EditorGUI.LabelField(new Rect(r.x + 18, r.y, r.width - 40, r.height), text);
                 if (isCurrent) EditorGUI.LabelField(new Rect(r.xMax - 22, r.y, 20, r.height), "✓");
                 if (Event.current.type == EventType.MouseMove && r.Contains(Event.current.mousePosition) && selected != i)
@@ -167,7 +199,8 @@ namespace Kmnk.FaceTrackingGenerator
         void Choose(int i)
         {
             if (i < 0 || i >= items.Count || items[i].header) return;
-            pick(items[i].text == "(None)" ? null : items[i].text);
+            if (items[i].property) pickProperty?.Invoke(items[i].text);
+            else pick(items[i].text == "(None)" ? null : items[i].text);
             editorWindow.Close();
         }
     }

@@ -41,7 +41,10 @@ namespace Kmnk.FaceTrackingGenerator
     public static partial class TableEditorChecks
     {
         // Prints the items of the blendshape list (BlendshapePicker) for a part of -ftTable and a search text
-        // (-ftPart, -ftSearch): "[FTG] picker: (None) | -- Mouth -- | <blendshape> ...". Headings start with "-- ".
+        // (-ftPart, -ftSearch): "[FTG] picker: (None) | -- Mouth -- | <blendshape> ...". Headings start with "-- ", and
+        // material properties (the renderer's Float and Range properties, as the settings editor lists them) end with
+        // " [property]". "[FTG] picker: ... same-without-properties=<bool>" tells whether the items with no properties
+        // are the blendshape list's items as before.
         public static void Picker() => Cli.Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
@@ -49,11 +52,26 @@ namespace Kmnk.FaceTrackingGenerator
             var mesh = model.Parts.TryGetValue(part, out var t) ? t.Mesh : model.DefaultMesh;
             var prefabPath = !string.IsNullOrEmpty(model.Prefab.Guid) ? UnityEditor.AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab.Path;
             var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) ?? throw new TableLoader.TableException("prefab not found: " + prefabPath);
-            var m = prefab.transform.Find(mesh).GetComponent<SkinnedMeshRenderer>().sharedMesh;
+            var smr = prefab.transform.Find(mesh).GetComponent<SkinnedMeshRenderer>();
+            var m = smr.sharedMesh;
             var names = Enumerable.Range(0, m.blendShapeCount).Select(m.GetBlendShapeName).ToList();
-            var items = BlendshapePicker.Items(names, CliArgs.Get("-ftSearch") ?? "");
-            Debug.Log($"[FTG] picker: blendshapes={names.Count} separators={names.Count(BlendshapePicker.IsSeparator)} items={items.Count}");
-            Debug.Log("[FTG] picker: " + string.Join(" | ", items.Select(i => i.text)));
+            var search = CliArgs.Get("-ftSearch") ?? "";
+            var props = PropertyParts.List(smr) ?? new List<(string, List<string>)>();
+            var items = BlendshapePicker.Items(names, search, props);
+            // The list's items as they were before material properties (0.15.0's BlendshapePicker.Items), to compare with.
+            var before = new List<(string text, bool header)> { ("(None)", false) };
+            string heading = null;
+            foreach (var n in names)
+            {
+                if (BlendshapePicker.IsSeparator(n)) { heading = BlendshapePicker.Heading(n); continue; }
+                if (!BlendshapePicker.Matches(n, search)) continue;
+                if (heading != null) { before.Add((heading, true)); heading = null; }
+                before.Add((n, false));
+            }
+            var bare = BlendshapePicker.Items(names, search, new List<(string, List<string>)>());
+            var same = before.Count == bare.Count && before.Zip(bare, (a, b) => a.text == b.text && a.header == b.header && !b.property).All(x => x);
+            Debug.Log($"[FTG] picker: blendshapes={names.Count} separators={names.Count(BlendshapePicker.IsSeparator)} materials={props.Count} properties={props.Sum(p => p.properties.Count)} items={items.Count} same-without-properties={same.ToString().ToLower()}");
+            Debug.Log("[FTG] picker: " + string.Join(" | ", items.Select(i => i.property ? i.text + " [property]" : i.text)));
             return 0;
         });
     }
@@ -73,7 +91,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var kv in Kmnk.FaceTrackingGenerator.InputParts.Of(model)) Debug.Log($"[FTG] input-parts {kv.Key}: {kv.Value}");
             var prefabPath = !string.IsNullOrEmpty(model.Prefab.Guid) ? UnityEditor.AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab.Path;
             var prefab = string.IsNullOrEmpty(prefabPath) ? null : UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            var targets = model.Parts.Values.Select(p => p.Mesh + "/" + p.Shape).Distinct().ToList();
+            var targets = model.Parts.Values.Where(p => !p.IsProperty).Select(p => p.Mesh + "/" + p.Shape).Distinct().ToList();
             var onAvatar = 0;
             if (prefab != null)
                 foreach (var key in targets)

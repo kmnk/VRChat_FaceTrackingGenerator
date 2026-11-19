@@ -79,9 +79,13 @@ namespace Kmnk.FaceTrackingGenerator
             return missing;
         }
 
-        // Every blendshape the tables can move, and any other key in the weights.
+        // Every blendshape the tables can move, and any other key in the weights. Material property parts' keys
+        // ("<mesh>/material.<name>", FaceEval) are left out: they are not blendshapes, and the preview does not draw them.
         public static IEnumerable<string> Targets(TableModel model, IDictionary<string, float> weights) =>
-            model.Parts.Values.Select(p => p.Mesh + "/" + p.Shape).Concat(weights.Keys).Distinct();
+            model.Parts.Values.Where(p => !p.IsProperty).Select(p => p.Mesh + "/" + p.Shape)
+                .Concat(weights.Keys.Where(k => !IsPropertyKey(Split(k).shape))).Distinct();
+
+        public static bool IsPropertyKey(string shape) => shape.StartsWith("material.", System.StringComparison.Ordinal);
 
         public static (string mesh, string shape) Split(string key)
         {

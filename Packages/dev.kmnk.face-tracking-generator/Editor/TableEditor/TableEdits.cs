@@ -41,8 +41,30 @@ namespace Kmnk.FaceTrackingGenerator
                 return;
             }
             if (parts == null) avatar["parts"] = parts = new JObject();
-            if (parts[part] is JObject o) o["shape"] = shape;
+            if (parts[part] is JObject o) { o.Remove("property"); o["shape"] = shape; }
             else parts[part] = shape;
+        }
+
+        // The material property of a part ({"property"}), or null when the part has none.
+        public static string PartProperty(JObject avatar, string part)
+        {
+            var v = (avatar["parts"] as JObject)?[part] as JObject;
+            return v?["property"]?.Type == JTokenType.String ? (string)v["property"] : null;
+        }
+
+        // Sets the material property of a part; null removes the part from "parts". "shape" is removed; "mesh" and
+        // "scale" are kept.
+        public static void SetPartProperty(JObject avatar, string part, string property)
+        {
+            var parts = avatar["parts"] as JObject;
+            if (property == null)
+            {
+                parts?.Remove(part);
+                return;
+            }
+            if (parts == null) avatar["parts"] = parts = new JObject();
+            if (parts[part] is JObject o) { o.Remove("shape"); o["property"] = property; }
+            else parts[part] = new JObject { ["property"] = property };
         }
 
         // The scale of a part ({"shape", "scale"}), or 1 when it has none.
@@ -199,6 +221,7 @@ namespace Kmnk.FaceTrackingGenerator
             switch (name)
             {
                 case "setPart": SetPart(avatar, (string)op["part"], op["shape"]?.Type == JTokenType.String ? (string)op["shape"] : null); break;
+                case "setPartProperty": SetPartProperty(avatar, (string)op["part"], op["property"]?.Type == JTokenType.String ? (string)op["property"] : null); break;
                 case "setPartScale": SetPartScale(avatar, (string)op["part"], (float)op["scale"]); break;
                 case "setMissing": SetMissing(avatar, (string)op["part"], (bool)op["missing"], removed); break;
                 case "setLayer": SetLayer(avatar, (string)op["controller"], (string)op["list"], (string)op["layer"], (bool)op["on"]); break;

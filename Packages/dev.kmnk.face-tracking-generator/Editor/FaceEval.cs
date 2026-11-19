@@ -19,16 +19,18 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // inputs: "key:<key>" -> the key's value (other names are ignored; missing = 0). states: state machine ->
-        // state (missing = default state). Returns "mesh/shape" -> weight.
-        public static SortedDictionary<string, float> Evaluate(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null, bool desktop = false)
+        // state (missing = default state). Returns "mesh/shape" -> weight. withProperties: also material property parts'
+        // fixed amounts as "mesh/material.<name>" -> amount (Cli.Curve); the windows and checks that draw blendshapes
+        // leave it false.
+        public static SortedDictionary<string, float> Evaluate(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null, bool desktop = false, bool withProperties = false)
         {
             var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
-            foreach (var s in Sources(m, inputs, states, desktop))
+            foreach (var s in Sources(m, inputs, states, desktop, withProperties))
                 result[s.Shape] = Math.Max(result.TryGetValue(s.Shape, out var v) ? v : 0, s.Value);
             return result;
         }
 
-        // The same before the parts become blendshapes: part -> value.
+        // The same before the parts become blendshapes: part -> value (blendshape parts only).
         public static SortedDictionary<string, float> EvaluateParts(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states = null, bool desktop = false)
         {
             var result = new SortedDictionary<string, float>(StringComparer.Ordinal);
@@ -48,7 +50,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         // Every value that moves a blendshape, with where it comes from (the Preview tab's Source column).
         // desktop: the desktop side's sets (the VR side's when false), when the sets are split by side.
-        public static List<Source> Sources(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states, bool desktop = false)
+        // withProperties: also material property parts' fixed amounts (Shape "mesh/material.<name>").
+        public static List<Source> Sources(TableModel m, IDictionary<string, float> inputs, IDictionary<string, string> states, bool desktop = false, bool withProperties = false)
         {
             var st = States(m, states);
             float Key(string k) => inputs != null && inputs.TryGetValue(InputDef.TrackPrefix + k, out var v) ? v : 0;
@@ -73,7 +76,8 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var kv in state.Fixed)
                 {
                     var t = m.Parts[kv.Key];
-                    if (kv.Value > 0) list.Add(new Source { Part = kv.Key, Shape = t.Mesh + "/" + t.Shape, Value = kv.Value, StateMachine = sm.Name, State = state.Name });
+                    if (t.IsProperty && !withProperties) continue;
+                    if (kv.Value > 0) list.Add(new Source { Part = kv.Key, Shape = t.Key, Value = kv.Value, StateMachine = sm.Name, State = state.Name });
                 }
             }
             return list;

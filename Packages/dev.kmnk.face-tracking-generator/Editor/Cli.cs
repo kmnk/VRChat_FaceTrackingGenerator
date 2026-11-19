@@ -97,7 +97,7 @@ namespace Kmnk.FaceTrackingGenerator
                 pairs.ToDictionary(p => p.Item1.StartsWith(InputDef.TrackPrefix) || NativeKeys.Index(p.Item1) < 0 ? p.Item1 : InputDef.TrackPrefix + p.Item1, p => p.Item2);
             void Add(object label, System.Collections.Generic.Dictionary<string, float> set, System.Collections.Generic.Dictionary<string, string> st)
             {
-                var shapes = FaceEval.Evaluate(model, set, st);
+                var shapes = FaceEval.Evaluate(model, set, st, withProperties: true);
                 lines.Add(new JObject { ["label"] = JToken.FromObject(label ?? ""), ["states"] = new JObject(FaceEval.States(model, st).Select(kv => new JProperty(kv.Key, kv.Value))), ["shapes"] = new JObject(shapes.Select(kv => new JProperty(kv.Key, Math.Round(kv.Value, 1)))) }.ToString(Formatting.None));
             }
             var q = CliArgs.Get("-ftQueries");

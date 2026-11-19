@@ -107,12 +107,19 @@ namespace Kmnk.FaceTrackingGenerator
             return clip;
         }
 
-        // A clip that sets blendshapes to constant values.
-        public AnimationClip ShapeClip(string name, IEnumerable<(string mesh, string shape, float value)> values)
+        // A clip that sets parts' targets to constant values: blendshapes to the amounts, material properties to the
+        // values the amounts give (PropertyParts.Value). A material.<name> curve reaches every material of the renderer
+        // that has the property.
+        public AnimationClip PartClip(string name, IEnumerable<(PartTarget target, float amount)> values)
         {
             var clip = NewClip(name);
-            foreach (var (mesh, shape, value) in values)
-                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(mesh, typeof(SkinnedMeshRenderer), "blendShape." + shape), Constant(value, 0));
+            foreach (var (t, amount) in values)
+            {
+                var binding = t.IsProperty
+                    ? EditorCurveBinding.FloatCurve(t.Mesh, typeof(SkinnedMeshRenderer), "material." + t.Property)
+                    : EditorCurveBinding.FloatCurve(t.Mesh, typeof(SkinnedMeshRenderer), "blendShape." + t.Shape);
+                AnimationUtility.SetEditorCurve(clip, binding, Constant(t.IsProperty ? PropertyParts.Value(t, amount) : amount, 0));
+            }
             return clip;
         }
 

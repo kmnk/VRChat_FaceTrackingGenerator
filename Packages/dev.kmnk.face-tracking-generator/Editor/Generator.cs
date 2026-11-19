@@ -93,6 +93,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (withAfk) groups.Add(AfkBuilder.Group());
 
             var visemes = VisemeStop.Build(m, desc, r.Log);
+            PropertyParts.Resolve(m, prefab);
 
             var outputs = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             foreach (var (type, key) in new[] { (VRCAvatarDescriptor.AnimLayerType.FX, "fx"), (VRCAvatarDescriptor.AnimLayerType.Gesture, "gesture"), (VRCAvatarDescriptor.AnimLayerType.Action, "action") })
