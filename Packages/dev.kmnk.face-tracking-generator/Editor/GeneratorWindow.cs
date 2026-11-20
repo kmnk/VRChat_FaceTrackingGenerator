@@ -282,7 +282,7 @@ namespace Kmnk.FaceTrackingGenerator
                     });
                     ShowMessage(5);
                     EditorGUILayout.LabelField("Scenario check (Play Mode)", EditorStyles.boldLabel);
-                    scenario = EditorGUILayout.ObjectField("Scenario .txt", scenario, typeof(UnityEngine.Object), false);
+                    scenario = EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(UnityEngine.Object), false);
                     if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox(EditorText.Get("gen.scenarioTxt"), MessageType.Warning);
                     using (new EditorGUI.DisabledScope(scenario == null || !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt") || model?.VariantPath == null || model?.DefaultMesh == null))
                         if (GUILayout.Button("Run scenario on the generated prefab")) Do(6, () =>
