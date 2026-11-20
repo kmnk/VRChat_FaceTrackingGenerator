@@ -7,8 +7,11 @@
 # 1. Writes <version> into package.json of the development copy (Packages/dev.kmnk.face-tracking-generator/)
 # 2. Opens the project so Unity makes .meta files for new files
 # 3. Copies the package folder to this repository (.meta GUIDs kept) and stages it
+#    The development checks package (Packages/dev.kmnk.face-tracking-generator.checks/) is copied too, but not zipped
 # 4. Zips exactly the staged files of the package folder, with package.json at the root of the zip,
 #    to build/. Attach the zip to the GitHub release v<version>; the VPM listing picks it up from there.
+# 5. With FTG_DENYLIST (a file of names that must not be published, one per line, kept outside this repository),
+#    stops with exit 3 when the repository's tracked files or the zip contain one of them, and removes the zip.
 #
 # The dev project must be on a work branch (or have .ftg-dev-project) and be closed in the editor
 # (see scripts/unity-batch.sh).
@@ -41,6 +44,12 @@ PY
 mkdir -p "$repo/$rel"
 rsync -a --delete --exclude '.DS_Store' "$src/" "$repo/$rel/"
 git -C "$repo" add -A "$rel"
+checks=Packages/$name.checks
+if [ -d "$dev/$checks" ]; then
+  mkdir -p "$repo/$checks"
+  rsync -a --delete --exclude '.DS_Store' "$dev/$checks/" "$repo/$checks/"
+  git -C "$repo" add -A "$checks"
+fi
 
 # 4. zip (paths inside the zip are relative to the package folder)
 out="$repo/build/$name-$version.zip"
@@ -48,3 +57,17 @@ mkdir -p "$repo/build"
 rm -f "$out"
 ( cd "$repo/$rel" && git -C "$repo" ls-files "$rel" | sed "s|^$rel/||" | zip -q -X "$out" -@ )
 echo "build-package: $out ($(unzip -l "$out" | tail -1 | awk '{print $2}') files)"
+# 5. names that must not be published
+if [ -n "${FTG_DENYLIST:-}" ]; then
+  [ -f "$FTG_DENYLIST" ] || { echo "build-package: FTG_DENYLIST not found: $FTG_DENYLIST" >&2; exit 2; }
+  found=$(cd "$repo" && git ls-files -z | xargs -0 grep -I -l -F -f "$FTG_DENYLIST" -- 2>/dev/null || true)
+  inzip=$(unzip -p "$out" | grep -a -c -F -f "$FTG_DENYLIST" || true)
+  if [ -n "$found" ] || [ "${inzip:-0}" != "0" ]; then
+    echo "build-package: stopped. Names from FTG_DENYLIST are in:" >&2
+    [ -n "$found" ] && echo "$found" | sed 's/^/  /' >&2
+    [ "${inzip:-0}" != "0" ] && echo "  the zip ($inzip lines)" >&2
+    rm -f "$out"
+    exit 3
+  fi
+  echo "build-package: FTG_DENYLIST: no names found"
+fi
