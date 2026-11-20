@@ -27,7 +27,7 @@ The version is `version` in `package.json`, `x.y.z`, following Semantic Versioni
 2. The serialized fields of `FtGeneratorSettings`
 3. File paths and `.meta` GUIDs in the package, and the use of `Settings/`
 4. Names in the generated output: parameters (`FaceTrack` / `AFKPlay` defaults, `FT/*`, `AFK/*`) and output paths
-5. Command line entry points (`Cli.*`, `ScenarioRunner.*`) and their arguments
+5. The command line entry point `ScenarioRunner.*` (the generator window's Scenario check uses it) and its arguments. `Cli.*` is not part of this: it is the entry point for development and checks, and may change between versions
 
 - **x**: existing tables or setups stop working, or users have to edit them. Renaming or removing a table key or a component field, changing a key's meaning, changing a GUID or a file location, renaming generated parameters already in use, or replacing how the tool generates (for example Animator layers to VRChat's Face Tracking section)
 - **y**: existing tables keep working and the tool can do more. New optional table keys, new window buttons, commands or checks, changed defaults that need no table edits (tell users), and deprecating a table key before removing it in the next x
