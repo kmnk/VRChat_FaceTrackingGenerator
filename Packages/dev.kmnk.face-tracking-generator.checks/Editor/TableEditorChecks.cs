@@ -17,14 +17,13 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var doc = TableDocument.Open(CliArgs.Require("-ftTable"));
             var editsPath = CliArgs.Get("-ftEdits");
-            var removed = new Dictionary<string, JToken>();
             var n = 0;
             if (editsPath != null)
                 foreach (var line in File.ReadAllLines(editsPath).Where(l => !string.IsNullOrWhiteSpace(l)))
                 {
                     var op = JObject.Parse(line);
                     if ((string)op["table"] == "expression") StateMachineEdit.Apply(doc.Json(TableDocument.Expression), op);
-                    else TableEdits.Apply(doc.Json(TableDocument.Avatar), op, removed, Path.GetDirectoryName(doc.AvatarPath));
+                    else TableEdits.Apply(doc.Json(TableDocument.Avatar), op, Path.GetDirectoryName(doc.AvatarPath));
                     n++;
                 }
             var model = doc.Model();  // the edited tables must still load

@@ -35,13 +35,12 @@ namespace Kmnk.FaceTrackingGenerator
             return new HashSet<string>(used, StringComparer.OrdinalIgnoreCase).Contains(name) ? Problem.Used : Problem.None;
         }
 
-        // Every part name of the tables as written: the avatar layer's parts and missingParts, and the expression
+        // Every part name of the tables as written: the avatar layer's parts and the expression
         // layer's neutral rows, override rows and fixed amounts.
         public static SortedSet<string> Used(JObject avatar, JObject expression)
         {
             var names = new SortedSet<string>(StringComparer.Ordinal);
             if (avatar?["parts"] is JObject parts) foreach (var p in parts.Properties()) names.Add(p.Name);
-            if (avatar?["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) names.Add((string)x);
             foreach (var n in InExpression(expression)) names.Add(n);
             return names;
         }

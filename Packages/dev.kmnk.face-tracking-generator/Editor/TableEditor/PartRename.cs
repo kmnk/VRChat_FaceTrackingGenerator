@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Renaming a face movement (part) in both tables: the avatar table's "parts" and "missingParts", and the expression
+    // Renaming a face movement (part) in both tables: the avatar table's "parts", and the expression
     // table's neutral rows, override rows (values) and fixed amounts (keys). The blendshapes and the generated weights
     // do not change.
     public static class PartRename
@@ -58,9 +58,6 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             RenameKey(avatar["parts"] as JObject);
-            if (avatar["missingParts"] is JArray missing)
-                for (int i = 0; i < missing.Count; i++)
-                    if (missing[i].Type == JTokenType.String && (string)missing[i] == from) missing[i] = to;
             if (expression?["neutral"] is JObject neutral)
                 foreach (var r in neutral.Properties()) RenameValues(r.Value as JObject);
             if (expression?["stateMachines"] is JObject sms)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -184,6 +185,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         // What the loader dropped and why (R23), for reports
         public List<string> Dropped = new List<string>();
+        // Face movements the expression layer uses that have no blendshape or property in the avatar layer (Not set).
+        public SortedSet<string> UnsetParts = new SortedSet<string>(StringComparer.Ordinal);
         // Notes for the generation log that are not problems (e.g. a table key that is no longer used)
         public List<string> Notes = new List<string>();
         // Problems found while loading that do not stop loading

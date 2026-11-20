@@ -1094,10 +1094,10 @@
     "lip",
     "tongue"
   ],
-  "dropped": [],
-  "warnings": [
+  "dropped": [
     "neutral tongue: part tongue.tongueOut is not in the avatar layer"
   ],
+  "warnings": [],
   "notes": [],
   "avatarLayer": {
     "avatarTablePath": "tests/pure/cases/missing-parts/avatar.jsonc",

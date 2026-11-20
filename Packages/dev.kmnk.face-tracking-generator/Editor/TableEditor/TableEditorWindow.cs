@@ -21,14 +21,11 @@ namespace Kmnk.FaceTrackingGenerator
         static readonly string[] ControllerLabels = { "FX", "Gesture", "Action" };
         static readonly VRCAvatarDescriptor.AnimLayerType[] ControllerTypes =
             { VRCAvatarDescriptor.AnimLayerType.FX, VRCAvatarDescriptor.AnimLayerType.Gesture, VRCAvatarDescriptor.AnimLayerType.Action };
-        static readonly Regex NotInAvatar = new Regex(@"part (\S+) is not in the avatar layer");
-
         DefaultAsset table;
         TableDocument doc;
         TableModel model;
         string error;
         TableEditState state;
-        readonly Dictionary<string, JToken> removedParts = new Dictionary<string, JToken>();
 
         int tab;
         Vector2 scroll;
@@ -97,7 +94,7 @@ namespace Kmnk.FaceTrackingGenerator
         // Unsaved edits kept over a domain reload (entering Play Mode, compiling scripts): the window's serialized
         // fields survive it, and OnEnable puts the edits back when the files on disk are still as they were.
         [SerializeField] string keptTable;
-        [SerializeField] string[] keptEdits, keptSaved, keptRemovedParts, keptRemovedValues, keptPending;
+        [SerializeField] string[] keptEdits, keptSaved, keptPending;
 
         void KeepUnsaved()
         {
@@ -106,8 +103,6 @@ namespace Kmnk.FaceTrackingGenerator
             keptTable = doc.AvatarPath;
             keptEdits = doc.Snapshot();
             keptSaved = doc.SavedSnapshot();
-            keptRemovedParts = removedParts.Keys.ToArray();
-            keptRemovedValues = removedParts.Values.Select(v => v.ToString(Newtonsoft.Json.Formatting.None)).ToArray();
             keptPending = pendingParts.ToArray();
         }
 
@@ -123,9 +118,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             doc.Restore(keptEdits);
             state.snapshot = doc.Snapshot();
-            for (int i = 0; i < keptRemovedParts.Length && i < keptRemovedValues.Length; i++) removedParts[keptRemovedParts[i]] = JToken.Parse(keptRemovedValues[i]);
             foreach (var p in keptPending) pendingParts.Add(p);
-            SaveRemoved();
             Rebuild();
             UpdateDirty();
         }
@@ -219,7 +212,6 @@ namespace Kmnk.FaceTrackingGenerator
             preview.Stop();
             doc = null; model = null; error = null;
             pendingParts.Clear();
-            removedParts.Clear();
             switches.Reset();
             UpdateDirty();
             // The Undo history of the previous table (or of the same table before reading it again) must not flow
@@ -311,7 +303,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (ShowLiveFace()) return;
             var avatar = doc.Json(TableDocument.Avatar);
             var shape = selectedPart != null ? TableEdits.PartShape(avatar, selectedPart) : null;
-            if (shape == null || TableEdits.IsMissing(avatar, selectedPart)) { FaceView.Show(model, Prefab(), NoWeights, "Neutral"); return; }
+            if (shape == null) { FaceView.Show(model, Prefab(), NoWeights, "Neutral"); return; }
             var mesh = TableEdits.PartMesh(avatar, selectedPart) ?? model.DefaultMesh;
             FaceView.Show(model, Prefab(), new Dictionary<string, float> { [mesh + "/" + shape] = 100 }, $"{shape} = 100 ({selectedPart})");
         }
@@ -332,7 +324,6 @@ namespace Kmnk.FaceTrackingGenerator
             Undo.RecordObject(state, undoName);
             edit(doc.Json(kind));
             state.snapshot = doc.Snapshot();
-            SaveRemoved();
             EditorUtility.SetDirty(state);
             Rebuild();
             UpdateDirty();
@@ -340,25 +331,10 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
-        // removedParts lives in the window; the Undo state keeps a copy of it with each edit.
-        void SaveRemoved()
-        {
-            state.removedParts = removedParts.Keys.ToArray();
-            state.removedValues = removedParts.Values.Select(v => v.ToString(Newtonsoft.Json.Formatting.None)).ToArray();
-        }
-
-        void LoadRemoved()
-        {
-            removedParts.Clear();
-            for (int i = 0; i < state.removedParts.Length && i < state.removedValues.Length; i++)
-                removedParts[state.removedParts[i]] = JToken.Parse(state.removedValues[i]);
-        }
-
         void OnUndoRedo()
         {
             if (doc == null || state == null) return;
             doc.Restore(state.snapshot);
-            LoadRemoved();
             Rebuild();
             UpdateDirty();
             Repaint();
@@ -738,7 +714,6 @@ namespace Kmnk.FaceTrackingGenerator
             var all = new SortedSet<string>(used, StringComparer.Ordinal);
             all.UnionWith(pendingParts);
             if (avatar["parts"] is JObject parts) foreach (var p in parts.Properties()) all.Add(p.Name);
-            if (avatar["missingParts"] is JArray mp) foreach (var x in mp.Where(x => x.Type == JTokenType.String)) all.Add((string)x);
             return all.Where(p => p.Contains('.'))
                 .OrderBy(p => PartNames.Region(p), StringComparer.Ordinal)
                 .ThenBy(p => PartNames.IsForm(p) && PartNames.Middle(p) != null ? 1 : 0)
@@ -780,17 +755,16 @@ namespace Kmnk.FaceTrackingGenerator
         void DrawParts(JObject avatar, GameObject prefab, string defaultMesh)
         {
             var rows = PartRows(avatar);
-            int mapped = 0, missing = 0, notSet = 0;
+            int mapped = 0, notSet = 0;
             foreach (var (part, _) in rows)
             {
-                if (TableEdits.IsMissing(avatar, part)) missing++;
-                else if (TableEdits.PartShape(avatar, part) != null || TableEdits.PartProperty(avatar, part) != null) mapped++;
+                if (TableEdits.PartShape(avatar, part) != null || TableEdits.PartProperty(avatar, part) != null) mapped++;
                 else notSet++;
             }
-            Heading("Face movements", $"{mapped} set · {missing} missing · {notSet} not set");
+            Heading("Face movements", $"{mapped} set · {notSet} not set");
             partFilter = EditorGUILayout.TextField(partFilter, EditorStyles.toolbarSearchField);
 
-            const float partW = 150, missW = 60, scaleW = 130;
+            const float partW = 150, scaleW = 130;
             if (scaleHeading == null)
             {
                 scaleHeading = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleRight };
@@ -803,7 +777,6 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.Label(new GUIContent("Movement", EditorText.Get("tip.movement")), EditorStyles.miniBoldLabel, GUILayout.Width(partW));
                 GUILayout.Label(new GUIContent("Blendshape / Property", EditorText.Get("tip.blendshape")), EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label(new GUIContent("Scale", EditorText.Get("tip.scale")), EditorStyles.miniBoldLabel, GUILayout.Width(scaleW));
-                GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
                 GUILayout.Space(24);
             }
             var shapeCache = new Dictionary<string, List<string>>();
@@ -855,7 +828,6 @@ namespace Kmnk.FaceTrackingGenerator
                         ShowNewPart(plus, null, region + ".");
                 }
                 if (regionFolded) continue;
-                var isMissing = TableEdits.IsMissing(avatar, part);
                 var shape = TableEdits.PartShape(avatar, part);
                 var mesh = TableEdits.PartMesh(avatar, part) ?? defaultMesh;
                 if (!shapeCache.TryGetValue(mesh ?? "", out var shapes)) shapeCache[mesh ?? ""] = shapes = ShapesOf(prefab, mesh);
@@ -879,8 +851,7 @@ namespace Kmnk.FaceTrackingGenerator
 
                     GUIContent content;
                     var color = GUI.contentColor;
-                    if (isMissing) content = new GUIContent("—");
-                    else if (prop != null)
+                    if (prop != null)
                     {
                         // A material property: "<property> (<material>)", or marked as the blendshape not in the mesh.
                         // Without the renderer (no prefab, no renderer at the path) the name alone, as for a blendshape.
@@ -892,7 +863,7 @@ namespace Kmnk.FaceTrackingGenerator
                     else if (shape == null) { content = new GUIContent("Not set", EditorGUIUtility.IconContent("console.warnicon.sml").image); GUI.contentColor = new Color(1f, 0.76f, 0.03f); }
                     else if (shapes != null && !shapes.Contains(shape)) { content = new GUIContent(shape + " (not in mesh)", EditorGUIUtility.IconContent("console.erroricon.sml").image); GUI.contentColor = new Color(1f, 0.42f, 0.42f); }
                     else content = new GUIContent(shape);
-                    using (new EditorGUI.DisabledScope(isMissing || shapes == null))
+                    using (new EditorGUI.DisabledScope(shapes == null))
                     {
                         var r = GUILayoutUtility.GetRect(content, EditorStyles.popup, GUILayout.ExpandWidth(true), GUILayout.MinWidth(80));
                         var open = EditorGUI.DropdownButton(r, content, FocusType.Keyboard, EditorStyles.popup)
@@ -916,7 +887,7 @@ namespace Kmnk.FaceTrackingGenerator
                     GUI.contentColor = color;
 
                     // Scale: only for a part with a blendshape or a property. Written when Enter is pressed or the field is left.
-                    if (!isMissing && (shape != null || prop != null))
+                    if (shape != null || prop != null)
                     {
                         var scale = TableEdits.PartScale(avatar, part);
                         EditorGUI.BeginChangeCheck();
@@ -925,13 +896,10 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                     else GUILayout.Space(scaleW + 4);
 
-                    EditorGUI.BeginChangeCheck();
-                    var m = GUILayout.Toggle(isMissing, new GUIContent("", EditorText.Get("tip.missing")), GUILayout.Width(missW));
-                    if (EditorGUI.EndChangeCheck()) { var p = part; Edit("Set FT missing part", a => TableEdits.SetMissing(a, p, m, removedParts)); }
                     if (TrashButton(used, EditorText.Get("part.cannotRemove")))
                         {
                             var p = part;
-                            if (pendingParts.Remove(p) && TableEdits.PartShape(avatar, p) == null && TableEdits.PartProperty(avatar, p) == null && !TableEdits.IsMissing(avatar, p)) Repaint();
+                            if (pendingParts.Remove(p) && TableEdits.PartShape(avatar, p) == null && TableEdits.PartProperty(avatar, p) == null) Repaint();
                             else Edit("Remove FT face movement", a => TableEdits.RemovePart(a, p));
                             GUIUtility.ExitGUI();
                         }
@@ -1007,14 +975,11 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var map = new Dictionary<string, string> { [from] = to };
             foreach (var kv in map.Where(kv => pendingParts.Contains(kv.Key)).ToList()) { pendingParts.Remove(kv.Key); pendingParts.Add(kv.Value); }
-            // A movement marked Missing keeps the blendshape to put back under its new name.
-            if (removedParts.TryGetValue(from, out var removedShape)) { removedParts.Remove(from); removedParts[to] = removedShape; }
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
             Undo.RecordObject(state, "Rename FT face movement");
             PartRename.Apply(avatar, expression, from, to, pendingParts);
             state.snapshot = doc.Snapshot();
-            SaveRemoved();
             EditorUtility.SetDirty(state);
             Rebuild();
             UpdateDirty();
@@ -1266,7 +1231,7 @@ namespace Kmnk.FaceTrackingGenerator
                         if (GUILayout.Button(string.Format(EditorText.Get("overlap.notUse"), part), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
                         {
                             var p = part;
-                            Edit("Do not use FT movement", a => TableEdits.SetMissing(a, p, true, removedParts));
+                            Edit("Do not use FT movement", a => TableEdits.SetPart(a, p, null));
                             changed = true;
                         }
                     }

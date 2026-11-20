@@ -96,45 +96,8 @@ namespace Kmnk.FaceTrackingGenerator
             else o["scale"] = Math.Round((double)scale, 4);
         }
 
-        // Removes a part from the avatar table ("parts" and "missingParts").
-        public static void RemovePart(JObject avatar, string part)
-        {
-            (avatar["parts"] as JObject)?.Remove(part);
-            if (avatar["missingParts"] is JArray list)
-                foreach (var x in list.Where(x => x.Type == JTokenType.String && (string)x == part).ToList()) x.Remove();
-        }
-
-        public static bool IsMissing(JObject avatar, string part) =>
-            avatar["missingParts"] is JArray a && a.Any(x => x.Type == JTokenType.String && (string)x == part);
-
-        // Marks a part as missing: adds it to "missingParts" and removes it from "parts", because the generator
-        // uses a part that is in "parts" even when it is also in "missingParts". The removed value goes to
-        // `removed` so that unmarking can put it back.
-        public static void SetMissing(JObject avatar, string part, bool missing, IDictionary<string, JToken> removed = null)
-        {
-            var list = avatar["missingParts"] as JArray;
-            if (missing)
-            {
-                if (list == null) avatar["missingParts"] = list = new JArray();
-                if (!IsMissing(avatar, part)) list.Add(part);
-                if ((avatar["parts"] as JObject)?[part] is JToken old)
-                {
-                    if (removed != null) removed[part] = old.DeepClone();
-                    ((JObject)avatar["parts"]).Remove(part);
-                }
-            }
-            else
-            {
-                if (list != null)
-                    foreach (var x in list.Where(x => x.Type == JTokenType.String && (string)x == part).ToList()) x.Remove();
-                if (removed != null && removed.TryGetValue(part, out var back) && (avatar["parts"] as JObject)?[part] == null)
-                {
-                    if (!(avatar["parts"] is JObject)) avatar["parts"] = new JObject();
-                    avatar["parts"][part] = back;
-                    removed.Remove(part);
-                }
-            }
-        }
+        // Removes a part from the avatar table.
+        public static void RemovePart(JObject avatar, string part) => (avatar["parts"] as JObject)?.Remove(part);
 
         // ---- layers
 
@@ -200,14 +163,13 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- operations as JSON (TableEditorChecks.Edit)
         //   {"op": "setPart", "part": "eye.close_L", "shape": "..."}          shape null removes the part
         //   {"op": "setPartScale", "part": "mouth.smile", "scale": 0.7}         1 removes the scale
-        //   {"op": "setMissing", "part": "eye.happy", "missing": true}
         //   {"op": "setLayer", "controller": "fx", "list": "stopWhileFaceTrack", "layer": "Left Hand", "on": true}
         //   {"op": "setString", "key": "mesh", "value": "Body"}
         //   {"op": "setBool", "key": "stopAutoEyes", "value": true}
         //   {"op": "setAssetRef", "key": "prefab", "guid": "...", "path": "Assets/..."}
         //   {"op": "addMeasurement", "source": "<path>", "side": "vr"}        copies the file to Measurements/ (tableDir)
         //   {"op": "removeMeasurement", "index": 0}
-        public static void Apply(JObject avatar, JObject op, IDictionary<string, JToken> removed = null, string tableDir = null)
+        public static void Apply(JObject avatar, JObject op, string tableDir = null)
         {
             var name = (string)op["op"];
             switch (name)
@@ -215,7 +177,6 @@ namespace Kmnk.FaceTrackingGenerator
                 case "setPart": SetPart(avatar, (string)op["part"], op["shape"]?.Type == JTokenType.String ? (string)op["shape"] : null); break;
                 case "setPartProperty": SetPartProperty(avatar, (string)op["part"], op["property"]?.Type == JTokenType.String ? (string)op["property"] : null); break;
                 case "setPartScale": SetPartScale(avatar, (string)op["part"], (float)op["scale"]); break;
-                case "setMissing": SetMissing(avatar, (string)op["part"], (bool)op["missing"], removed); break;
                 case "setLayer": SetLayer(avatar, (string)op["controller"], (string)op["list"], (string)op["layer"], (bool)op["on"]); break;
                 case "setString": SetString(avatar, (string)op["key"], (string)op["value"]); break;
                 case "setBool": SetBool(avatar, (string)op["key"], (bool)op["value"]); break;

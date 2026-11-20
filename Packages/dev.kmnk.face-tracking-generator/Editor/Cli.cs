@@ -52,6 +52,7 @@ namespace Kmnk.FaceTrackingGenerator
             // A table's {guid, path} that the generation reads by its path (AssetRefs): a warning, as generating prints it.
             foreach (var w in AssetRefs.Warnings(model)) Debug.Log("[FTG] " + w);
             var findings = StaticChecker.Check(model, fx);
+            if (model.UnsetParts.Count > 0) Debug.Log($"[FTG] check: not set {model.UnsetParts.Count} ({string.Join(", ", model.UnsetParts)})");
             var variant = model.VariantPath != null ? AssetDatabase.LoadAssetAtPath<GameObject>(model.VariantPath) : null;
             var desc = variant != null ? variant.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;
             if (desc == null) Debug.Log("[FTG] check: no generated Prefab Variant at " + model.VariantPath + " (Face Tracking section not checked)");

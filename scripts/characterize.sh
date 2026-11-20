@@ -41,11 +41,11 @@ run() {
   [ $code -eq 0 ] || { echo "$log" | sed -n '/^--- errors/,/^--- git/p'; status=1; }
 }
 
-run "$project" Kmnk.FaceTrackingGenerator.Characterize.Run "${ipc[@]}" -ftCases "$cases" -ftOut "$out"
+run "$project" Kmnk.FaceTrackingGenerator.Characterize.Run ${ipc[@]+"${ipc[@]}"} -ftCases "$cases" -ftOut "$out"
 
 while read -r id table scenario avatar mesh ndmf; do
   [ -z "${id:-}" ] || [ -z "${scenario:-}" ] && continue
-  run --no-quit "$project" Kmnk.FaceTrackingGenerator.ScenarioRunner.Run "${ipc[@]}" \
+  run --no-quit "$project" Kmnk.FaceTrackingGenerator.ScenarioRunner.Run ${ipc[@]+"${ipc[@]}"} \
     -ftScenario "$scenario" -ftOut "$out/$id/scenario.jsonl" -ftAvatar "$avatar" -ftMesh "$mesh" -ftNdmf "${ndmf:-false}"
   if [ "${ndmf:-false}" = "true" ]; then
     folder=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["outputFolder"])' "$out/$id/load.json" 2>/dev/null)

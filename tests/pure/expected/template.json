@@ -258,8 +258,7 @@
     "lip",
     "tongue"
   ],
-  "dropped": [],
-  "warnings": [
+  "dropped": [
     "neutral brow: part brow.browDownLeft is not in the avatar layer",
     "neutral brow: part brow.browDownRight is not in the avatar layer",
     "neutral brow: part brow.browInnerUp is not in the avatar layer",
@@ -313,6 +312,7 @@
     "neutral nose: part nose.noseSneerRight is not in the avatar layer",
     "neutral tongue: part tongue.tongueOut is not in the avatar layer"
   ],
+  "warnings": [],
   "notes": [],
   "avatarLayer": {
     "avatarTablePath": "tests/pure/cases/template/avatar.jsonc",

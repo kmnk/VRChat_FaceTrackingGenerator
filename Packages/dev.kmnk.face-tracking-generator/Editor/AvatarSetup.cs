@@ -100,7 +100,7 @@ namespace Kmnk.FaceTrackingGenerator
             return new JObject { ["guid"] = AssetDatabase.AssetPathToGUID(path), ["path"] = path };
         }
 
-        // For the parts of the expression table that have no blendshape and are not marked missing: the blendshape whose
+        // For the parts of the expression table that have no blendshape: the blendshape whose
         // name equals the part's name after the dot, ignoring capitals (spec R5), on the face mesh, else on another mesh
         // of the avatar (written with its mesh). Others stay Not set. Edits parts; returns whether it set any.
         static bool FillParts(JObject parts, JObject avatar, JObject expr, GameObject prefab, SkinnedMeshRenderer face, List<string> log)
@@ -108,11 +108,10 @@ namespace Kmnk.FaceTrackingGenerator
             var meshes = new[] { face }.Concat(prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(x => x != face && x.sharedMesh != null))
                 .Select(x => (path: AnimationUtility.CalculateTransformPath(x.transform, prefab.transform), shapes: Enumerable.Range(0, x.sharedMesh.blendShapeCount).Select(x.sharedMesh.GetBlendShapeName).ToList()))
                 .ToList();
-            var missing = new HashSet<string>((avatar["missingParts"] as JArray)?.Select(x => (string)x) ?? new string[0]);
             int found = 0, notFound = 0;
             foreach (var part in PartNames.Used(avatar, expr))
             {
-                if (parts[part] != null || missing.Contains(part) || !PartNames.IsForm(part)) continue;
+                if (parts[part] != null || !PartNames.IsForm(part)) continue;
                 var movement = PartNames.Movement(part);
                 string shape = null, mesh = null;
                 foreach (var (path, shapes) in meshes)

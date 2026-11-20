@@ -11,8 +11,8 @@ namespace Kmnk.FaceTrackingGenerator
 {
     // Repeats window operations that the settings editor's fixes are about, and prints the state as [FTG] repro lines.
     // Run with scripts/unity-gui.sh (an editor with windows):
-    //   Kmnk.FaceTrackingGenerator.WindowRepro.Run -ftRepro <missing-undo|reload|switch-undo|state-face> -ftTable <avatar.jsonc>
-    //     [-ftTable2 <another avatar.jsonc> (switch-undo)] [-ftPart <part> (missing-undo, state-face)]
+    //   Kmnk.FaceTrackingGenerator.WindowRepro.Run -ftRepro <reload|switch-undo|state-face> -ftTable <avatar.jsonc>
+    //     [-ftTable2 <another avatar.jsonc> (switch-undo)] [-ftPart <part> (state-face)]
     //   Kmnk.FaceTrackingGenerator.WindowRepro.ManualBake -ftAvatar <prefab with FtGeneratorSettings>  (batchmode works)
     // The tables are not saved, except switch-undo, which saves the first table unchanged.
     [InitializeOnLoad]
@@ -42,7 +42,6 @@ namespace Kmnk.FaceTrackingGenerator
                 w.Show();
                 switch (which)
                 {
-                    case "missing-undo": MissingUndo(w, CliArgs.Get("-ftPart") ?? "eye.eyeBlinkLeft"); break;
                     case "reload": Reload(w); return false;
                     case "switch-undo": SwitchUndo(w, table, CliArgs.Require("-ftTable2")); break;
                     case "state-face": StateFace(w, CliArgs.Get("-ftPart") ?? "eye.eyeBlinkLeft"); break;
@@ -50,26 +49,6 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 return true;
             });
-        }
-
-        // Missing on, Missing off, Undo, Missing off again: the part's blendshape should come back.
-        static void MissingUndo(TableEditorWindow w, string part)
-        {
-            var removed = (IDictionary<string, JToken>)Field(w, "removedParts");
-            string Shape() => TableEdits.PartShape(w.AvatarJson, part) ?? "";
-            Debug.Log($"[FTG] repro missing-undo: start part={part} shape={Shape()}");
-            // Each edit is its own Undo step, as two clicks in different frames are.
-            Undo.IncrementCurrentGroup();
-            w.EditAvatar("Set FT missing part", a => TableEdits.SetMissing(a, part, true, removed));
-            Undo.IncrementCurrentGroup();
-            w.EditAvatar("Set FT missing part", a => TableEdits.SetMissing(a, part, false, removed));
-            Undo.IncrementCurrentGroup();
-            Debug.Log($"[FTG] repro missing-undo: off shape={Shape()}");
-            Undo.PerformUndo();
-            Undo.IncrementCurrentGroup();
-            Debug.Log($"[FTG] repro missing-undo: undo missing={TableEdits.IsMissing(w.AvatarJson, part).ToString().ToLower()} shape={Shape()}");
-            w.EditAvatar("Set FT missing part", a => TableEdits.SetMissing(a, part, false, removed));
-            Debug.Log($"[FTG] repro missing-undo: off again shape={Shape()}");
         }
 
         // An unsaved edit, then a domain reload (as entering Play Mode or compiling does).

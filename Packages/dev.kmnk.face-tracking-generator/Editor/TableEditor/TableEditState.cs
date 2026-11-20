@@ -6,9 +6,5 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class TableEditState : ScriptableObject
     {
         public string[] snapshot;
-        // The blendshapes of the face movements that Missing took out of the avatar table (part -> JSON), so that
-        // turning Missing off puts them back. Recorded with the tables, so that Undo restores them too.
-        public string[] removedParts = new string[0];
-        public string[] removedValues = new string[0];
     }
 }

@@ -28,7 +28,6 @@ namespace Kmnk.FaceTrackingGenerator
 
             var tables = Obj(avatar, "tables", avatarTablePath);
             var exprPath = Path.Combine(dir, Str(tables, "expression", avatarTablePath));
-            var missingParts = StrList(avatar["missingParts"]);
             // 0.12.1 removed the input table: transitions compare tracking keys. An old "tables.input" is not read.
             if (tables["input"] != null)
                 m.Notes.Add("avatar table: 'tables.input' is not read since 0.12.1 (transitions compare tracking keys)");
@@ -40,7 +39,7 @@ namespace Kmnk.FaceTrackingGenerator
             // 0.15.0 to 0.17.0 computed the other device's values from the recordings for the main device.
             if (avatar["measurementsMain"] != null)
                 Warn(m, "avatar table: 'measurementsMain' is not used since 0.18.0: the values for VR and desktop are written in the expression table (remove it)");
-            Resolve(m, missingParts);
+            Resolve(m);
             return m;
         }
 
@@ -382,7 +381,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // ---- dropping what the device or avatar does not have (R23)
 
-        static void Resolve(TableModel m, List<string> missingParts)
+        static void Resolve(TableModel m)
         {
             // The tracking keys the transitions compare: forwarded to the Animator as FT/In/<key> (Forward to Animator,
             // a Custom expression of the key alone).
@@ -419,13 +418,14 @@ namespace Kmnk.FaceTrackingGenerator
             }
 
             // Rows of parts the avatar layer does not set (R23).
-            var missingPartSet = new HashSet<string>(missingParts);
             bool Keep(string where, string part)
             {
                 if (part == null || m.Parts.ContainsKey(part)) return true;
                 var msg = $"{where}: part {part} is not in the avatar layer";
-                if (missingPartSet.Contains(part)) { if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg); }
-                else Warn(m, msg);
+                // Not set (no blendshape in the avatar layer yet) is not a mistake: the row is left out, and Check
+                // says how many there are in one line (UnsetParts) instead of one finding per row.
+                if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg);
+                m.UnsetParts.Add(part);
                 return false;
             }
             // A neutral row whose part has no blendshape is left out. An override row's is kept as Don't move: the key moves
