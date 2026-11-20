@@ -5,12 +5,12 @@
 #   scripts/test-table-save.sh <project> <avatar.jsonc> <work dir> [<edits.jsonl>]
 #
 #   <project>       Unity project with the generator (development copy)
-#   <avatar.jsonc>  The avatar table of the set to check. The three tables are copied; the originals are not written
+#   <avatar.jsonc>  The avatar table of the set to check. The two tables are copied; the originals are not written
 #   <work dir>      An empty or new directory outside the project (Unity deletes the project's Temp/ when it opens)
 #   <edits.jsonl>   Optional edits (TableEdits.Apply operations) for the third step
 #
 # Steps and checks:
-#   1. Save all three tables unchanged. Cli.Load output equals the output for the original tables
+#   1. Save both tables unchanged. Cli.Load output equals the output for the original tables
 #   2. Save again. The files do not change (cmp)
 #   3. With <edits.jsonl>: apply the edits and save. Prints the Cli.Load difference and `git diff --no-index`
 #      against step 2, for the caller to compare with what the edits should change
