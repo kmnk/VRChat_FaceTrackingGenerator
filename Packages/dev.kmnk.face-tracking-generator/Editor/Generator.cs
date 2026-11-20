@@ -74,8 +74,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var r = new Result();
             foreach (var n in m.Notes) r.Log.Add("note: " + n);
-            // The table's warnings, so that every entry point (the window, NDMF, the command line) shows them.
+            // The table's warnings, so that every entry point (the window, NDMF, the command line) shows them. The
+            // prefab's and the menu's references warn where they are read (ResolvePath, MenuBuilder); the AFK clips' here.
             foreach (var w in m.Warnings) r.Log.Add("warning: " + w);
+            r.Log.AddRange(AssetRefs.Warnings(m).Where(w => w.Contains(" AFK clip ")));
             var prefabPath = ResolvePath(m.Prefab, "prefab", r);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) ?? throw new TableLoader.TableException("prefab not found: " + prefabPath);
             var desc = prefab.GetComponent<VRCAvatarDescriptor>() ?? throw new TableLoader.TableException("no VRCAvatarDescriptor on " + prefabPath);
@@ -172,10 +174,16 @@ namespace Kmnk.FaceTrackingGenerator
             own.AddRange(desc.baseAnimationLayers.Select(l => (UnityEngine.Object)l.animatorController));
             if (desc.expressionsMenu != null) own.AddRange(MenuBuilder.AllMenus(desc.expressionsMenu, new HashSet<VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionsMenu>()));
             var paths = own.Where(o => o != null).Select(AssetDatabase.GetAssetPath).Append(prefabPath);
-            var inside = paths.FirstOrDefault(p => p != null && p.StartsWith(folder, StringComparison.Ordinal));
+            var inside = paths.FirstOrDefault(p => p != null && p.StartsWith(folder, StringComparison.Ordinal) && !GeneratorMenu(p.Substring(folder.Length)));
             if (inside != null)
                 throw new TableLoader.TableException($"outputFolder {m.OutputFolder} holds the avatar's own {inside}; choose a folder for the generator only");
         }
+
+        // A menu the generator itself wrote into the output folder, which an avatar's own menu can point to: the state
+        // submenus (Menus/<state machine>.asset) and the submenu of 0.16.x and earlier's "Add toggles to menu"
+        // (Menu_<name>.asset), and the copies (Menu/<n>_<name>.asset).
+        static bool GeneratorMenu(string pathInFolder) =>
+            System.Text.RegularExpressions.Regex.IsMatch(pathInFolder, $@"^({FtNames.StateMenusFolder}/[^/]+|Menu_[^/]+|{FtNames.MenuCopiesFolder}/\d+_[^/]+)\.asset$");
 
         static string ResolvePath(AssetRef a, string what, Result r)
         {

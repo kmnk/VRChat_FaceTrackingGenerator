@@ -448,7 +448,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (doc != null && doc.IsDirty())
                 {
                     var old = GUI.contentColor;
-                    GUI.contentColor = new Color(1f, 0.76f, 0.03f);
+                    GUI.contentColor = UnsavedColor;
                     GUILayout.Label("Unsaved changes");
                     GUI.contentColor = old;
                 }
@@ -652,6 +652,8 @@ namespace Kmnk.FaceTrackingGenerator
             catch (Exception e) { Debug.LogException(e); EditorUtility.DisplayDialog("Fill from Prefab", e.Message, "OK"); }
         }
         internal AvatarSetup.FillResult lastFill;  // for the checks
+        // The color of "unsaved" (this window's Save and the State Machine window's Unsaved changes).
+        internal static readonly Color UnsavedColor = new Color(1f, 0.76f, 0.03f);
         int lastOverlaps;
         float lastLabelWidth;
 
@@ -1009,11 +1011,14 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var map = new Dictionary<string, string> { [from] = to };
             foreach (var kv in map.Where(kv => pendingParts.Contains(kv.Key)).ToList()) { pendingParts.Remove(kv.Key); pendingParts.Add(kv.Value); }
+            // A movement marked Missing keeps the blendshape to put back under its new name.
+            if (removedParts.TryGetValue(from, out var removedShape)) { removedParts.Remove(from); removedParts[to] = removedShape; }
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
             Undo.RecordObject(state, "Rename FT face movement");
             PartRename.Apply(avatar, expression, from, to, pendingParts);
             state.snapshot = doc.Snapshot();
+            SaveRemoved();
             EditorUtility.SetDirty(state);
             Rebuild();
             UpdateDirty();

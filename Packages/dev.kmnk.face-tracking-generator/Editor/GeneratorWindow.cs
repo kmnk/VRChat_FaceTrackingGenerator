@@ -83,6 +83,7 @@ namespace Kmnk.FaceTrackingGenerator
         // The settings file field: opens the file, records the choice for this project and brings back its avatar.
         void ChooseTable(DefaultAsset picked)
         {
+            ClearMessage();
             table = picked;
             ProjectSelection.SetTable(TablePath);
             Reload();
@@ -184,6 +185,8 @@ namespace Kmnk.FaceTrackingGenerator
             Reload();
         }
 
+        void ClearMessage() { message = ""; messageStep = 0; messageType = MessageType.None; }
+
         void ShowMessage(int step)
         {
             if (messageStep == step && !string.IsNullOrEmpty(message)) EditorGUILayout.HelpBox(message, messageType);
@@ -208,31 +211,35 @@ namespace Kmnk.FaceTrackingGenerator
             else if (model == null && loadError != null) EditorGUILayout.HelpBox(string.Format(EditorText.Get("gen.tableError"), loadError), MessageType.Warning);
 
             Step("gen.step1", "gen.help1");
-            using (new EditorGUILayout.HorizontalScope())
+            // The buttons go under the name when the window is too narrow for one row.
+            var oneRow = position.width >= EditorGUIUtility.labelWidth + 120 + 70 + 150 + 30;
+            if (oneRow) EditorGUILayout.BeginHorizontal();
+            EditorGUI.BeginChangeCheck();
+            var typed = EditorGUILayout.TextField("Avatar name", newName);
+            if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
+            if (!oneRow) { EditorGUILayout.BeginHorizontal(); GUILayout.FlexibleSpace(); }
+            if (GUILayout.Button("Create", GUILayout.Width(70))) Do(1, () => (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
+            if (GUILayout.Button("Create from Folder…", GUILayout.Width(150)))
             {
-                EditorGUI.BeginChangeCheck();
-                var typed = EditorGUILayout.TextField("Avatar name", newName);
-                if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
-                if (GUILayout.Button("Create", GUILayout.Width(70))) Do(1, () => (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
-                if (GUILayout.Button("Create from Folder…", GUILayout.Width(150)))
-                {
-                    var folder = EditorUtility.OpenFolderPanel("Create from Folder", "", "");
-                    if (!string.IsNullOrEmpty(folder)) Do(1, () => (SelectCreated(TableShare.CreateFromFolder(newName, folder)), MessageType.Info));
-                    GUIUtility.ExitGUI();  // the folder panel was modal; start the layout again
-                }
+                var folder = EditorUtility.OpenFolderPanel("Create from Folder", "", "");
+                if (!string.IsNullOrEmpty(folder)) Do(1, () => (SelectCreated(TableShare.CreateFromFolder(newName, folder)), MessageType.Info));
+                EditorGUILayout.EndHorizontal();
+                GUIUtility.ExitGUI();  // the folder panel was modal; start the layout again
             }
+            EditorGUILayout.EndHorizontal();
             ShowMessage(1);
 
             using (new EditorGUI.DisabledScope(model == null))
             {
                 Step("gen.step2", "gen.help2");
-                if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) TableEditorWindow.OpenTable(TablePath);
+                if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) { ClearMessage(); TableEditorWindow.OpenTable(TablePath); }
 
                 Step("gen.step3", "gen.help3");
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Check")) Do(3, Check);
-                    showCurves = GUILayout.Toggle(showCurves, "Response curves", "Button");
+                    var curves = GUILayout.Toggle(showCurves, "Response curves", "Button");
+                    if (curves != showCurves) { ClearMessage(); showCurves = curves; }
                 }
                 ShowMessage(3);
                 if (showCurves && model != null) Curves();
@@ -288,7 +295,10 @@ namespace Kmnk.FaceTrackingGenerator
             if (model == null) throw new TableLoader.TableException(loadError ?? "no settings file");
             var fx = AssetDatabase.LoadAssetAtPath<AnimatorController>(FtNames.Controller(model.OutputFolder, "FX"));
             var f = StaticChecker.Check(model, fx);
-            return f.Count == 0 ? (EditorText.Get("gen.checkNone"), MessageType.Info) : (string.Format(EditorText.Get("gen.checkFindings"), f.Count, string.Join("\n", f)), MessageType.Warning);
+            var refs = AssetRefs.Warnings(model);
+            var text = f.Count == 0 ? EditorText.Get("gen.checkNone") : string.Format(EditorText.Get("gen.checkFindings"), f.Count, string.Join("\n", f));
+            if (refs.Count > 0) text += "\n" + string.Join("\n", refs);
+            return (text, f.Count == 0 && refs.Count == 0 ? MessageType.Info : MessageType.Warning);
         }
 
         // For the checks: press Check as the button does, and what the result shows.

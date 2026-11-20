@@ -11,7 +11,7 @@ namespace Kmnk.FaceTrackingGenerator
         public const string MouthActive = "FT/MouthActive";
         public const string InputPrefix = "FT/In/";
         public static string SwitchParam(string sm, string state) => "FT/Sw/" + sm + "/" + state;
-        public static string MenuParam(string sm) => "FT/Menu/" + sm;
+        public static string MenuParam(string sm) => MenuParamPrefix + sm;
         public static string FaceMotion(string group) => "FT/Face/" + group;
         public static string DeviceWeight(string device) => DeviceLayer + "/" + device;
         public const string AfkPlaying = "AFK/Playing";
@@ -42,6 +42,8 @@ namespace Kmnk.FaceTrackingGenerator
         public const string OutputRoot = "Assets/FaceTrackingGeneratorOutput/";
         public const string BuildFolder = "Build";   // the build-time output, inside the output folder
         public const string StateMenusFolder = "Menus";   // the state machines' submenus, inside the menu folder
+        public const string MenuCopiesFolder = "Menu";    // the copies of the avatar's menus, inside the output folder
+        public const string MenuParamPrefix = "FT/Menu/";
         public static string Controller(string folder, string type) => $"{folder}/{type}.controller";
         public static string ExpressionParameters(string folder) => folder + "/ExpressionParameters.asset";
         public static string Variant(string folder, string avatar) => $"{folder}/{avatar}_FT.prefab";

@@ -171,7 +171,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         static GUIStyle unsavedStyle;
-        static GUIStyle UnsavedStyle => unsavedStyle ?? (unsavedStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = new Color(1f, 0.6f, 0.2f) } });
+        static GUIStyle UnsavedStyle => unsavedStyle ?? (unsavedStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = TableEditorWindow.UnsavedColor } });
 
         void DrawWindow()
         {

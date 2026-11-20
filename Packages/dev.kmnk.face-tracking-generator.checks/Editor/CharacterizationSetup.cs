@@ -161,6 +161,38 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
+        // G13: an avatar whose own menu points to the generator's state submenu in the output folder, as the "Add toggles
+        // to menu" button of 0.16.x and earlier wrote it. Generates G4's tables as CharG13 once, then makes the avatar.
+        //   scripts/unity-batch.sh <project> Kmnk.FaceTrackingGenerator.CharacterizationSetup.MakeLegacy -ftOut Assets/FTGCharacterization
+        public static void MakeLegacy() => Cli.Run(() =>
+        {
+            var outDir = CliArgs.Require("-ftOut");
+            var g4 = SettingsRoot + "/CharG4/avatar.jsonc";
+            var basePath = (string)JObject.Parse(File.ReadAllText(g4), Jsonc)["prefab"]["path"];
+            var g13 = CopyTables(g4, "CharG13", a => { });
+            Call(() => Cli.Generate(), "-ftTable", g13);
+            var model = TableLoader.Load(g13);
+            var stateMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(MenuInstaller.StateMenuPath(model, "Emotion")) ?? throw new TableLoader.TableException("no state menu");
+            var g13Avatar = Variant(basePath, outDir + "/G13Avatar.prefab", d =>
+            {
+                var menu = CopyAsset(d.expressionsMenu, outDir + "/G13Menu.asset");
+                menu.controls.Add(new VRCExpressionsMenu.Control { name = "Emotion", type = VRCExpressionsMenu.Control.ControlType.SubMenu, subMenu = stateMenu, parameter = new VRCExpressionsMenu.Control.Parameter { name = "" }, subParameters = new VRCExpressionsMenu.Control.Parameter[0], labels = new VRCExpressionsMenu.Control.Label[0] });
+                EditorUtility.SetDirty(menu);
+                d.expressionsMenu = menu;
+                var s = d.gameObject.AddComponent<FtGeneratorSettings>();
+                s.avatarTablePath = g13;
+                s.avatarTableGuid = AssetDatabase.AssetPathToGUID(g13);
+            });
+            var text = JObject.Parse(File.ReadAllText(g13), Jsonc);
+            SetPrefab(text, g13Avatar);
+            text["menu"] = Ref(outDir + "/G13Menu.asset");
+            File.WriteAllText(g13, text.ToString(Formatting.Indented) + "\n");
+            AssetDatabase.ImportAsset(g13);
+            Log("G13", g13, g13Avatar);
+            AssetDatabase.SaveAssets();
+            return 0;
+        });
+
         static void Call(System.Action cli, params string[] args)
         {
             var keep = Cli.KeepRunning;

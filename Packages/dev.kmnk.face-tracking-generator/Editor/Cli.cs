@@ -50,10 +50,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (fx == null) Debug.Log("[FTG] check: no generated FX controller at " + fxPath + " (table checks only)");
             if (fx != null) Debug.Log($"[FTG] check: controller {AssetDatabase.GetAssetPath(fx)} ({fx.layers.Length} layers, {AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(fx)).Length} objects)");
             // A table's {guid, path} that the generation reads by its path (AssetRefs): a warning, as generating prints it.
-            var refWarnings = new System.Collections.Generic.List<string>();
-            AssetRefs.Path(model.Prefab, "prefab", refWarnings);
-            AssetRefs.Path(model.Menu, "menu", refWarnings);
-            foreach (var w in refWarnings) Debug.Log("[FTG] " + w);
+            foreach (var w in AssetRefs.Warnings(model)) Debug.Log("[FTG] " + w);
             var findings = StaticChecker.Check(model, fx);
             var variant = model.VariantPath != null ? AssetDatabase.LoadAssetAtPath<GameObject>(model.VariantPath) : null;
             var desc = variant != null ? variant.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;

@@ -38,7 +38,7 @@ namespace Kmnk.FaceTrackingGenerator
             bool HasAssetSubMenu(string sm) => m.AssetMenuFolder != m.MenuFolder
                 && all.Any(x => x.controls.Any(c => c.subMenu != null && AssetDatabase.GetAssetPath(c.subMenu) == $"{m.AssetMenuFolder}/{FtNames.StateMenusFolder}/{sm}.asset"));
 
-            var dir = $"{m.OutputFolder}/Menu";
+            var dir = $"{m.OutputFolder}/{FtNames.MenuCopiesFolder}";
             System.IO.Directory.CreateDirectory(dir);
             var copies = new List<VRCExpressionsMenu>();
             for (int i = 0; i < chain.Count; i++)
@@ -125,7 +125,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 if (System.IO.Path.GetDirectoryName(path).Replace('\\', '/') != dir || kept.Contains(path)) continue;
                 var mine = stateMenus
-                    ? AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(path)?.controls.All(c => c.type == VRCExpressionsMenu.Control.ControlType.Toggle && (c.parameter?.name ?? "").StartsWith("FT/Menu/")) == true
+                    ? AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(path)?.controls.All(c => c.type == VRCExpressionsMenu.Control.ControlType.Toggle && (c.parameter?.name ?? "").StartsWith(FtNames.MenuParamPrefix)) == true
                     : System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(path), @"^\d+_.+\.asset$");
                 if (!mine) { log.Add("menu: kept " + path + " (not a menu the generator writes)"); continue; }
                 AssetDatabase.DeleteAsset(path);

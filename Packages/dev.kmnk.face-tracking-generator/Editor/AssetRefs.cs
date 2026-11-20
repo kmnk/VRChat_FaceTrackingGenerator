@@ -21,5 +21,17 @@ namespace Kmnk.FaceTrackingGenerator
             if (!string.IsNullOrEmpty(a.Guid) && !string.IsNullOrEmpty(a.Path)) log?.Add($"warning: {what} guid {a.Guid} is not in this project; using the path {a.Path}");
             return string.IsNullOrEmpty(a.Path) ? null : a.Path;
         }
+
+        // The warnings for the table's references (prefab, menu, AFK clips), as generating and Check print them.
+        public static List<string> Warnings(TableModel m)
+        {
+            var log = new List<string>();
+            Path(m.Prefab, "prefab", log);
+            Path(m.Menu, "menu", log);
+            var c = m.AfkClips;
+            foreach (var (r, what) in new[] { (c.ActionIntro, "AFK clip actionIntro"), (c.ActionLoop, "AFK clip actionLoop"), (c.ActionOutro, "AFK clip actionOutro"), (c.FxIntro, "AFK clip fxIntro"), (c.FxLoop, "AFK clip fxLoop"), (c.FxOutro, "AFK clip fxOutro") })
+                Path(r, what, log);
+            return log;
+        }
     }
 }
