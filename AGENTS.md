@@ -9,7 +9,9 @@ Unity Editor tool that generates face tracking (FT) layers for VRChat avatars fr
 - `Packages/dev.kmnk.face-tracking-generator/Runtime/` - `FtGeneratorSettings` (assembly `Kmnk.FaceTrackingGenerator.Runtime`)
 - `Packages/dev.kmnk.face-tracking-generator/Templates/` - simple templates of the two tables (avatar, expression) and device lists
 - `Assets/Kmnk/FaceTrackingGenerator/Settings/` - personal settings copied from the templates, outside the package so updates keep them. Not in this repository; tracked in each private avatar project
+- `Packages/dev.kmnk.face-tracking-generator.checks/` - development checks (assembly `Kmnk.FaceTrackingGenerator.Checks`: `TableEditorChecks`, the characterization cases, window repros). Copied by `scripts/build-package.sh` but not in the zip; the generator gives it access with `InternalsVisibleTo`
 - `scripts/` - commands for development (not in the package)
+- `tests/pure/` - cases and expected results of `scripts/test-pure.sh`
 
 ## Rules for this public repository
 
@@ -136,13 +138,12 @@ All take `-ftTable <avatar table>` (a path relative to the project root works) a
 | `Cli.ExportTables`, `Cli.ImportTables` | The settings editor's Share menu: copy the expression table of `-ftTable` byte for byte to the folder `-ftDir`, or list the tables the folder's would change and, with `-ftApply 1`, overwrite them (the avatar table is never copied). A missing or unreadable table in the folder stops with exit 2 before anything is written. `Cli.CreateSettings -ftFrom <folder>` makes the settings from the templates with the folder's expression table | `[FTG] share: exported ... (overwrote: <names>\|none)`, `[FTG] share: changes=<names>\|none`, `[FTG] share: imported <names>` |
 | `Cli.BuildVariant` | Writes the Prefab Variant of the build-time output (`-ftOut <prefab path>`): the avatar with `FtGeneratorSettings` | `[FTG] build variant: wrote <path>` |
 | `Cli.FindAfk` | Prints the AFK clips `AfkFinder` finds in controllers (`-ftController "<path>;..."`) | `[FTG] afk found <controller>/<layer>: intro=... loop=... outro=...` |
-| `Cli.ExportPackage` | Exports a `.unitypackage` from a list of paths (`-ftList`, `-ftOut`). Not used by the release since 0.5.0 | `[FTG] package: exported ...` |
 
 The editor window `Tools/Kmnk/Face Tracking Generator` calls the same functions. It cannot be drawn in batchmode (`-nographics`); check its drawing in the editor.
 
 ### Table editor checks (`Kmnk.FaceTrackingGenerator.TableEditorChecks`)
 
-The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Settings Editor`) calls the same code as these methods. Exit 0 on success, 1 when a check fails, 2 on errors.
+These are in the checks package (`Packages/dev.kmnk.face-tracking-generator.checks/`); the project needs it next to the generator. The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Settings Editor`) calls the same code as these methods. Exit 0 on success, 1 when a check fails, 2 on errors.
 
 | Method | What it does | Success |
 | --- | --- | --- |
@@ -174,7 +175,7 @@ The settings editor (`TableEditorWindow`, menu `Tools/Kmnk/Face Tracking Setting
 scripts/build-package.sh <version> [<dev project>]   # or set FTG_DEV_PROJECT
 ```
 
-Writes the version into `package.json` of the development copy, copies `Packages/dev.kmnk.face-tracking-generator/` here, stages it, and zips the staged files to `build/dev.kmnk.face-tracking-generator-<version>.zip` (`package.json` at the root of the zip). Before pushing, search the tracked files, `git log -p` and the zip for the avatars' blendshape names (none may be found).
+Writes the version into `package.json` of the development copy, copies `Packages/dev.kmnk.face-tracking-generator/` (and the checks package, which is not zipped) here, stages them, and zips the staged files of the generator to `build/dev.kmnk.face-tracking-generator-<version>.zip` (`package.json` at the root of the zip). Set `FTG_DENYLIST` to a file of names that must not be published (avatar, blendshape and project names, one per line; keep it in the private development project): the script then stops with exit 3 and removes the zip when a tracked file or the zip contains one. Before pushing, also search `git log -p` for them.
 
 ### Releasing
 
