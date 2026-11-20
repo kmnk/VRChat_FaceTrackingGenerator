@@ -74,7 +74,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["faceview.noPrefab"] = ("Choose the prefab in the Avatar tab.", "Avatar のタブで prefab を選んでください。"),
             ["faceview.noTable"] = ("Choose the settings file in the settings editor.", "設定エディタで設定ファイルを選んでください。"),
             ["gen.step1"] = ("1. Create the FT settings", "1. FT の設定を作る"),
-            ["gen.help1"] = ("Type the avatar's name and press Create to make the FT settings in Settings/<name>/. You can also make them from a folder exported with Share in another project. Skip this when you have them.", "アバターの名前を入れて Create を押すと、FT の設定を Settings/<名前>/ に作ります。別のプロジェクトの Share で書き出したフォルダからも作れます。設定がもうあれば要りません。"),
+            ["gen.help1"] = ("Type the avatar's name and press Create to make the FT settings in Settings/<name>/. You can also make them from a folder exported with Share in another project.", "アバターの名前を入れて Create を押すと、FT の設定を Settings/<名前>/ に作ります。別のプロジェクトの Share で書き出したフォルダからも作れます。"),
             ["share.overwrite"] = ("The folder already has {0}. Overwrite?", "フォルダに {0} が既にあります。上書きしますか？"),
             ["share.exported"] = ("Exported to {0}", "{0} に書き出しました"),
             ["share.noChanges"] = ("The folder's expression settings are the same as these settings. Nothing changes.", "フォルダの表情の設定は、この設定と同じです。変わるファイルはありません。"),
@@ -82,7 +82,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.step2"] = ("2. Edit the settings", "2. 設定を編集する"),
             ["gen.help2"] = ("In the settings editor, choose the avatar, the blendshape of each face movement, the menu toggles and the AFK animation, check the face in Preview, and save. Change each state's movements in State Machine.", "設定エディタで、アバター・顔の動きのシェイプキー・メニューのトグル・AFK のアニメーションを決め、Preview で顔を確かめて保存します。表情ごとの動きは State Machine で直します。"),
             ["gen.step3"] = ("3. Check the settings", "3. 設定を確かめる"),
-            ["gen.help3"] = ("Look for mistakes and gaps in the settings. Fix them until there are no findings.", "設定の誤りや抜けを調べます。指摘が無くなるまで直します。"),
+            ["gen.help3"] = ("Looks for mistakes and gaps in the settings. When it finds some, read them and fix the settings in the settings editor.", "設定の誤りや抜けを調べます。指摘が出たら、内容を見て設定エディタで直してください。"),
             ["gen.step4"] = ("4. Attach to the avatar", "4. アバターに付ける"),
             ["gen.help4"] = ("Choose your avatar in the scene and press the button to add the settings component. FT is made on Play and upload; the avatar itself is not changed.", "シーンのアバターを選んで押すと、設定のコンポーネントを付けます。Play とアップロードのときに FT が作られ、アバター自体は書き換えません。"),
             ["gen.helpAdvanced"] = ("Generate writes controllers with FT and a Prefab Variant to files for checking. Scenario check plays a scenario file in Play Mode and records it.", "Generate は、FT を付けた controller と Prefab Variant をファイルに書き出して確かめるためのものです。Scenario check は、場面のファイルを Play Mode で流して記録します。"),
@@ -170,6 +170,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.curvesNote"] = ("Other keys are 0 and the state machines are in their default state.", "ほかのキーは 0 で、State Machine は最初の状態です。"),
             ["inspector.noFile"] = ("No settings file. Make one in the Face Tracking Generator window or choose it here.", "設定ファイルがありません。Face Tracking Generator の窓で作るか、ここで選んでください。"),
             ["inspector.info"] = ("Face tracking is generated when you enter Play Mode and when you upload (NDMF). The avatar itself is not changed.", "Play Mode に入るときとアップロードのときに FT を作ります。アバター自体は書き換えません。"),
+            ["gen.exists"] = ("Settings/{0}/ already exists, so nothing was made. To use it, choose its avatar.jsonc in Settings file; to make new settings, type another name.", "Settings/{0}/ はもうあるので、作っていません。使うなら Settings file でその avatar.jsonc を選び、新しく作るなら別の名前を入れてください。"),
         };
 
         // The text in the current language, or null when the language is Off (help texts are not shown).

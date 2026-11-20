@@ -63,6 +63,7 @@ namespace Kmnk.FaceTrackingGenerator
                     var chooseAvatar = CliArgs.Get("-ftChooseAvatar");  // as the "Avatar in scene" field does ("none" clears)
                     if (chooseAvatar != null) g.ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
                     if (CliArgs.Get("-ftGenPress") == "check") g.PressCheckForCapture();
+                    if (CliArgs.Get("-ftGenPress") == "create") g.PressCreateForCapture();
                     if (CliArgs.Get("-ftOpenTableEditor") == "1")
                     {
                         var te = TableEditorWindow.OpenTable(tablePath);

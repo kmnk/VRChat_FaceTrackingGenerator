@@ -185,6 +185,10 @@ namespace Kmnk.FaceTrackingGenerator
             Reload();
         }
 
+        // Settings of the typed name are there already (Create does not overwrite them).
+        bool SettingsExist() => !string.IsNullOrWhiteSpace(newName) && Directory.Exists($"{Paths.SettingsRoot}/{newName}");
+        (string, MessageType) Exists() => (string.Format(EditorText.Get("gen.exists"), newName), MessageType.Warning);
+
         void ClearMessage() { message = ""; messageStep = 0; messageType = MessageType.None; }
 
         void ShowMessage(int step)
@@ -218,10 +222,13 @@ namespace Kmnk.FaceTrackingGenerator
             var typed = EditorGUILayout.TextField("Avatar name", newName);
             if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
             if (!oneRow) { EditorGUILayout.BeginHorizontal(); GUILayout.FlexibleSpace(); }
-            if (GUILayout.Button("Create", GUILayout.Width(70))) Do(1, () => (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
+            if (GUILayout.Button("Create", GUILayout.Width(70)))
+                Do(1, () => SettingsExist() ? Exists() : (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
             if (GUILayout.Button("Create from Folder…", GUILayout.Width(150)))
             {
                 ClearMessage();
+                // Settings of that name are never overwritten: say so before asking for the folder.
+                if (SettingsExist()) { Do(1, Exists); EditorGUILayout.EndHorizontal(); GUIUtility.ExitGUI(); }
                 var folder = EditorUtility.OpenFolderPanel("Create from Folder", "", "");
                 if (!string.IsNullOrEmpty(folder)) Do(1, () => (SelectCreated(TableShare.CreateFromFolder(newName, folder)), MessageType.Info));
                 EditorGUILayout.EndHorizontal();
@@ -304,6 +311,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // For the checks: press Check as the button does, and what the result shows.
         internal void PressCheckForCapture() => Do(3, Check);
+        internal void PressCreateForCapture() => Do(1, () => SettingsExist() ? Exists() : (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
         internal string MessageState() => $"message type={(messageType == MessageType.Error ? "error" : messageType == MessageType.Warning ? "warning" : messageType == MessageType.Info ? "info" : "none")} step={messageStep}";
 
         // After Create: the new settings become the chosen ones, as if picked in Settings file.
