@@ -145,7 +145,7 @@ Generating (the generated files can change for the tables named here):
 - A hand-written state machine name with characters other than letters, digits and `_`, or one that differs from another only in capitals, is an error when the settings are read
 - Generating keeps menus in the output folder that it did not write, and stops when `outputFolder` holds the avatar's own files
 - Saving the toggle names or the AFK clips from the command line never leaves a broken settings file
-- Face movements left **Not set** are no longer a warning for each row that uses them: Check shows how many there are in one line and does not count them as findings, and the generation log lists them with the dropped rows
+- Face movements left **Not set** are no longer a warning for each row that uses them: Check shows how many there are in one line and does not count them as findings, and the generation log no longer shows them (`Cli.Load` lists them as dropped)
 - **Missing** is gone from the Avatar tab, and `missingParts` in `avatar.jsonc` is not read (it is not an error). Those movements stay unused, now as Not set; **Fill from Prefab** may now set them, so when a blendshape breaks an expression, fix it in that state instead (`null` for the key, another face movement, `strength`, or the region `"off"`)
 
 ## License

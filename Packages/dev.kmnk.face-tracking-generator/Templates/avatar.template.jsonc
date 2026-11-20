@@ -25,7 +25,6 @@
   // that has the property. Face view does not show it.
   "mesh": "Body",
   "parts": {},
-  // Parts in the expression layer that this avatar does not have.
 
   // ft-measure recordings (https://github.com/kmnk/ft-measure), relative to this file, each for "vr" or "desktop":
   // "measurements": [{ "file": "Measurements/vr_20261116-195154.jsonl", "side": "vr" }, { "file": "...", "side": "desktop" }]
