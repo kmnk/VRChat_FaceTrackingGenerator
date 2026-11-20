@@ -126,6 +126,11 @@ The windows:
 - The generator window has four steps: create, edit (in the settings editor), check, attach. Fill, the toggle names and the AFK clips moved to the settings editor's Avatar tab (**Fill from Prefab**, **Menu**, **AFK animation**), where Undo takes them back and **Save** writes them; the generator window no longer writes the settings files and has no Reload
 - The settings editor keeps unsaved edits when you enter Play Mode or scripts compile, and Undo no longer brings back another settings file's contents after you open it or read it again. Turning Missing off after an Undo puts the blendshape back. After choosing a state in the State Machine window, a row you select stays in Face view after edits
 - The State Machine window has **Save**, a hint when nothing is selected, and **Fixed face movements**; the component's Inspector shows the settings file and opens it
+- The windows keep only the text you need where you are: the gray descriptions that repeated the labels are gone, the meaning of a field is in its tooltip (hover over it), and the details are here; the generator window has a **Manual** link to this page
+- **Create** and **Create from Folder…** make nothing when settings of that name exist, and say so (before, they failed with an error)
+- Preview: the line under **Try expressions** says how many face movements add up; **Menu** is above the sliders; **Device** starts with **None**; the slider names are not cut
+- The settings editor's Avatar tab shows a gray hint in the empty **Submenu name**; the `Tools/Kmnk` menu lists the windows in the order you use them
+- The windows say settings file, expression settings and State Machine for the same things everywhere
 
 Generating (the generated files can change for the tables named here):
 
