@@ -1,0 +1,50 @@
+{
+  "name": "PureTemplate",
+  "tables": {
+    "expression": "expression.jsonc"
+  },
+  "prefab": {
+    "guid": "",
+    "path": "Assets/MyAvatar/MyAvatar.prefab"
+  },
+  "mesh": "Body",
+  "parts": {},
+  "missingParts": [],
+  "overwriteFaceTracking": false,
+  "eyeGazeMode": "FaceTracking",
+  "faceTrackParameter": "FaceTrack",
+  "afkPlayParameter": "AFKPlay",
+  "menu": {
+    "guid": "",
+    "path": "Assets/MyAvatar/Menu.asset"
+  },
+  "faceTrackLabel": "FaceTrack",
+  "afkPlayLabel": "AFK",
+  "subMenu": null,
+  "afkGroups": [
+    {
+      "parameters": [
+        "AFK"
+      ],
+      "wait": 6
+    }
+  ],
+  "layers": {
+    "fx": {
+      "remove": [],
+      "weights": {},
+      "stopWhileFaceTrack": [
+        "Left Hand",
+        "Right Hand"
+      ]
+    }
+  },
+  "afkClips": {
+    "actionIntro": null,
+    "actionLoop": null,
+    "actionOutro": null,
+    "fxIntro": null,
+    "fxLoop": null,
+    "fxOutro": null
+  }
+}

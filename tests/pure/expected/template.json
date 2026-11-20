@@ -1,0 +1,386 @@
+{
+  "avatar": "PureTemplate",
+  "prefab": "Assets/MyAvatar/MyAvatar.prefab",
+  "inputs": [
+    {
+      "name": "BrowLowererRight",
+      "key": "BrowLowererRight",
+      "parameter": "FT/In/BrowLowererRight",
+      "expression": "BrowLowererRight",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "BrowLowererLeft",
+      "key": "BrowLowererLeft",
+      "parameter": "FT/In/BrowLowererLeft",
+      "expression": "BrowLowererLeft",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "MouthCornerPullRight",
+      "key": "MouthCornerPullRight",
+      "parameter": "FT/In/MouthCornerPullRight",
+      "expression": "MouthCornerPullRight",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "MouthCornerPullLeft",
+      "key": "MouthCornerPullLeft",
+      "parameter": "FT/In/MouthCornerPullLeft",
+      "expression": "MouthCornerPullLeft",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "MouthFrownRight",
+      "key": "MouthFrownRight",
+      "parameter": "FT/In/MouthFrownRight",
+      "expression": "MouthFrownRight",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "MouthFrownLeft",
+      "key": "MouthFrownLeft",
+      "parameter": "FT/In/MouthFrownLeft",
+      "expression": "MouthFrownLeft",
+      "expressionFrom": "built-in"
+    },
+    {
+      "name": "key:BrowLowererRight",
+      "key": "BrowLowererRight",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    },
+    {
+      "name": "key:BrowLowererLeft",
+      "key": "BrowLowererLeft",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    },
+    {
+      "name": "key:MouthCornerPullRight",
+      "key": "MouthCornerPullRight",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    },
+    {
+      "name": "key:MouthCornerPullLeft",
+      "key": "MouthCornerPullLeft",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    },
+    {
+      "name": "key:MouthFrownRight",
+      "key": "MouthFrownRight",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    },
+    {
+      "name": "key:MouthFrownLeft",
+      "key": "MouthFrownLeft",
+      "parameter": null,
+      "expression": null,
+      "expressionFrom": "tracking key"
+    }
+  ],
+  "neutral": {
+    "brow": [],
+    "cheek": [],
+    "eye": [],
+    "gaze": [],
+    "jaw": [],
+    "lip": [],
+    "nose": [],
+    "tongue": []
+  },
+  "stateMachines": [
+    {
+      "name": "Emotion",
+      "states": [
+        {
+          "name": "neutral",
+          "menu": 0,
+          "regions": {},
+          "fixed": {}
+        },
+        {
+          "name": "joy",
+          "menu": 1,
+          "regions": {},
+          "fixed": {}
+        },
+        {
+          "name": "angry",
+          "menu": 2,
+          "regions": {},
+          "fixed": {}
+        },
+        {
+          "name": "sad",
+          "menu": 3,
+          "regions": {},
+          "fixed": {}
+        }
+      ],
+      "transitions": [
+        {
+          "from": "neutral",
+          "to": "joy",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthCornerPullLeft",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "neutral",
+          "to": "joy",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthCornerPullRight",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "joy",
+          "to": "neutral",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthCornerPullLeft",
+              "<",
+              0.4
+            ],
+            [
+              "MouthCornerPullRight",
+              "<",
+              0.4
+            ]
+          ]
+        },
+        {
+          "from": "neutral",
+          "to": "angry",
+          "duration": 0.2,
+          "when": [
+            [
+              "BrowLowererLeft",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "neutral",
+          "to": "angry",
+          "duration": 0.2,
+          "when": [
+            [
+              "BrowLowererRight",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "angry",
+          "to": "neutral",
+          "duration": 0.2,
+          "when": [
+            [
+              "BrowLowererLeft",
+              "<",
+              0.4
+            ],
+            [
+              "BrowLowererRight",
+              "<",
+              0.4
+            ]
+          ]
+        },
+        {
+          "from": "neutral",
+          "to": "sad",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthFrownLeft",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "neutral",
+          "to": "sad",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthFrownRight",
+              ">",
+              0.5
+            ]
+          ]
+        },
+        {
+          "from": "sad",
+          "to": "neutral",
+          "duration": 0.2,
+          "when": [
+            [
+              "MouthFrownLeft",
+              "<",
+              0.4
+            ],
+            [
+              "MouthFrownRight",
+              "<",
+              0.4
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "stopWhileTalking": [
+    "jaw",
+    "lip",
+    "tongue"
+  ],
+  "dropped": [],
+  "warnings": [
+    "neutral brow: part brow.browDownLeft is not in the avatar layer",
+    "neutral brow: part brow.browDownRight is not in the avatar layer",
+    "neutral brow: part brow.browInnerUp is not in the avatar layer",
+    "neutral brow: part brow.browOuterUpLeft is not in the avatar layer",
+    "neutral brow: part brow.browOuterUpRight is not in the avatar layer",
+    "neutral cheek: part cheek.cheekPuff is not in the avatar layer",
+    "neutral cheek: part cheek.cheekSquintLeft is not in the avatar layer",
+    "neutral cheek: part cheek.cheekSquintRight is not in the avatar layer",
+    "neutral eye: part eye.eyeBlinkLeft is not in the avatar layer",
+    "neutral eye: part eye.eyeSquintLeft is not in the avatar layer",
+    "neutral eye: part eye.eyeWideLeft is not in the avatar layer",
+    "neutral eye: part eye.eyeBlinkRight is not in the avatar layer",
+    "neutral eye: part eye.eyeSquintRight is not in the avatar layer",
+    "neutral eye: part eye.eyeWideRight is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookUpLeft is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookDownLeft is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookInLeft is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookOutLeft is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookUpRight is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookDownRight is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookInRight is not in the avatar layer",
+    "neutral gaze: part gaze.eyeLookOutRight is not in the avatar layer",
+    "neutral jaw: part jaw.jawOpen is not in the avatar layer",
+    "neutral jaw: part jaw.jawForward is not in the avatar layer",
+    "neutral jaw: part jaw.jawLeft is not in the avatar layer",
+    "neutral jaw: part jaw.jawRight is not in the avatar layer",
+    "neutral jaw: part jaw.mouthClose is not in the avatar layer",
+    "neutral lip: part lip.mouthFunnel is not in the avatar layer",
+    "neutral lip: part lip.mouthPucker is not in the avatar layer",
+    "neutral lip: part lip.mouthLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthRight is not in the avatar layer",
+    "neutral lip: part lip.mouthSmileLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthFrownLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthDimpleLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthStretchLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthPressLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthLowerDownLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthUpperUpLeft is not in the avatar layer",
+    "neutral lip: part lip.mouthSmileRight is not in the avatar layer",
+    "neutral lip: part lip.mouthFrownRight is not in the avatar layer",
+    "neutral lip: part lip.mouthDimpleRight is not in the avatar layer",
+    "neutral lip: part lip.mouthStretchRight is not in the avatar layer",
+    "neutral lip: part lip.mouthPressRight is not in the avatar layer",
+    "neutral lip: part lip.mouthLowerDownRight is not in the avatar layer",
+    "neutral lip: part lip.mouthUpperUpRight is not in the avatar layer",
+    "neutral lip: part lip.mouthRollUpper is not in the avatar layer",
+    "neutral lip: part lip.mouthRollLower is not in the avatar layer",
+    "neutral lip: part lip.mouthShrugUpper is not in the avatar layer",
+    "neutral lip: part lip.mouthShrugLower is not in the avatar layer",
+    "neutral nose: part nose.noseSneerLeft is not in the avatar layer",
+    "neutral nose: part nose.noseSneerRight is not in the avatar layer",
+    "neutral tongue: part tongue.tongueOut is not in the avatar layer"
+  ],
+  "notes": [],
+  "avatarLayer": {
+    "avatarTablePath": "tests/pure/cases/template/avatar.jsonc",
+    "prefab": {
+      "guid": "",
+      "path": "Assets/MyAvatar/MyAvatar.prefab"
+    },
+    "variant": "Assets/FaceTrackingGeneratorOutput/PureTemplate/PureTemplate_FT.prefab",
+    "outputFolder": "Assets/FaceTrackingGeneratorOutput/PureTemplate",
+    "menuFolder": "Assets/FaceTrackingGeneratorOutput/PureTemplate",
+    "mesh": "Body",
+    "parts": {},
+    "faceTrackParameter": "FaceTrack",
+    "afkPlayParameter": "AFKPlay",
+    "faceTrackLabel": "FaceTrack",
+    "afkPlayLabel": "AFK",
+    "menu": {
+      "guid": "",
+      "path": "Assets/MyAvatar/Menu.asset"
+    },
+    "subMenu": null,
+    "afkGroups": [
+      {
+        "parameters": [
+          "AFK"
+        ],
+        "wait": 6.0
+      }
+    ],
+    "afkClips": {
+      "actionIntro": null,
+      "actionLoop": null,
+      "actionOutro": null,
+      "fxIntro": null,
+      "fxLoop": null,
+      "fxOutro": null
+    },
+    "overwriteFaceTracking": false,
+    "eyeGazeMode": "FaceTracking",
+    "layers": {
+      "fx": {
+        "remove": [],
+        "weights": {},
+        "stopWhileFaceTrack": [
+          "Left Hand",
+          "Right Hand"
+        ],
+        "muteWhileFaceTrack": []
+      }
+    },
+    "measurements": {
+      "vr": null,
+      "desktop": null
+    },
+    "propertyPartsInRows": []
+  },
+  "faces": {
+    "rest vr": {},
+    "rest desktop": {},
+    "all keys 1 vr": {},
+    "all keys 1 desktop": {},
+    "state Emotion/neutral vr": {},
+    "state Emotion/neutral desktop": {},
+    "state Emotion/joy vr": {},
+    "state Emotion/joy desktop": {},
+    "state Emotion/angry vr": {},
+    "state Emotion/angry desktop": {},
+    "state Emotion/sad vr": {},
+    "state Emotion/sad desktop": {}
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "error": "tests/pure/cases/unknown-key/expression.jsonc: 'neutral.jaw.JawWide': 'JawWide' is not a tracking key of the Face Tracking section"
+}

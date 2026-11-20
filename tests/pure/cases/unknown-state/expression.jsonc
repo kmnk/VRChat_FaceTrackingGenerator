@@ -1,0 +1,114 @@
+{
+  "stopWhileTalking": [
+    "jaw",
+    "lip",
+    "tongue"
+  ],
+  "neutral": {
+    "gaze": {
+      "EyeLookUpLeft": "gaze.eyeLookUpLeft",
+      "EyeLookDownLeft": "gaze.eyeLookDownLeft",
+      "EyeLookInLeft": "gaze.eyeLookInLeft",
+      "EyeLookOutLeft": "gaze.eyeLookOutLeft",
+      "EyeLookUpRight": "gaze.eyeLookUpRight",
+      "EyeLookDownRight": "gaze.eyeLookDownRight",
+      "EyeLookInRight": "gaze.eyeLookInRight",
+      "EyeLookOutRight": "gaze.eyeLookOutRight"
+    },
+    "eye": {
+      "EyeClosedLeft": "eye.eyeBlinkLeft",
+      "EyeSquintLeft": "eye.eyeSquintLeft",
+      "EyeWideLeft": "eye.eyeWideLeft",
+      "EyeClosedRight": "eye.eyeBlinkRight",
+      "EyeSquintRight": "eye.eyeSquintRight",
+      "EyeWideRight": "eye.eyeWideRight"
+    },
+    "brow": {
+      "BrowLowererLeft": "brow.browDownLeft",
+      "BrowPinchLeft": "brow.browDownLeft",
+      "BrowLowererRight": "brow.browDownRight",
+      "BrowPinchRight": "brow.browDownRight",
+      "BrowInnerUpLeft": "brow.browInnerUp",
+      "BrowInnerUpRight": "brow.browInnerUp",
+      "BrowOuterUpLeft": "brow.browOuterUpLeft",
+      "BrowOuterUpRight": "brow.browOuterUpRight"
+    },
+    "nose": {
+      "NoseSneerLeft": "nose.noseSneerLeft",
+      "NoseSneerRight": "nose.noseSneerRight"
+    },
+    "cheek": {
+      "CheekPuffLeft": "cheek.cheekPuff",
+      "CheekPuffRight": "cheek.cheekPuff",
+      "CheekSquintLeft": "cheek.cheekSquintLeft",
+      "CheekSquintRight": "cheek.cheekSquintRight"
+    },
+    "jaw": {
+      "JawOpen": "jaw.jawOpen",
+      "JawForward": "jaw.jawForward",
+      "JawLeft": "jaw.jawLeft",
+      "JawRight": "jaw.jawRight",
+      "MouthClosed": "jaw.mouthClose"
+    },
+    "lip": {
+      "LipFunnelUpperLeft": "lip.mouthFunnel",
+      "LipFunnelUpperRight": "lip.mouthFunnel",
+      "LipFunnelLowerLeft": "lip.mouthFunnel",
+      "LipFunnelLowerRight": "lip.mouthFunnel",
+      "LipPuckerUpperLeft": "lip.mouthPucker",
+      "LipPuckerUpperRight": "lip.mouthPucker",
+      "LipPuckerLowerLeft": "lip.mouthPucker",
+      "LipPuckerLowerRight": "lip.mouthPucker",
+      "MouthUpperLeft": "lip.mouthLeft",
+      "MouthLowerLeft": "lip.mouthLeft",
+      "MouthUpperRight": "lip.mouthRight",
+      "MouthLowerRight": "lip.mouthRight",
+      "MouthCornerPullLeft": "lip.mouthSmileLeft",
+      "MouthCornerSlantLeft": "lip.mouthSmileLeft",
+      "MouthFrownLeft": "lip.mouthFrownLeft",
+      "MouthDimpleLeft": "lip.mouthDimpleLeft",
+      "MouthStretchLeft": "lip.mouthStretchLeft",
+      "MouthPressLeft": "lip.mouthPressLeft",
+      "MouthLowerDownLeft": "lip.mouthLowerDownLeft",
+      "MouthUpperUpLeft": "lip.mouthUpperUpLeft",
+      "MouthCornerPullRight": "lip.mouthSmileRight",
+      "MouthCornerSlantRight": "lip.mouthSmileRight",
+      "MouthFrownRight": "lip.mouthFrownRight",
+      "MouthDimpleRight": "lip.mouthDimpleRight",
+      "MouthStretchRight": "lip.mouthStretchRight",
+      "MouthPressRight": "lip.mouthPressRight",
+      "MouthLowerDownRight": "lip.mouthLowerDownRight",
+      "MouthUpperUpRight": "lip.mouthUpperUpRight",
+      "LipSuckUpperLeft": "lip.mouthRollUpper",
+      "LipSuckUpperRight": "lip.mouthRollUpper",
+      "LipSuckLowerLeft": "lip.mouthRollLower",
+      "LipSuckLowerRight": "lip.mouthRollLower",
+      "MouthRaiserUpper": "lip.mouthShrugUpper",
+      "MouthRaiserLower": "lip.mouthShrugLower"
+    },
+    "tongue": {
+      "TongueOut": "tongue.tongueOut"
+    }
+  },
+  "stateMachines": {
+    "Emotion": {
+      "states": {
+        "neutral": {}
+      },
+      "transitions": [
+        {
+          "from": "neutral",
+          "to": "joy",
+          "when": [
+            [
+              "JawOpen",
+              ">",
+              0.5
+            ]
+          ],
+          "duration": 0.1
+        }
+      ]
+    }
+  }
+}

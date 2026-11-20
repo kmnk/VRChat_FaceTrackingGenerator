@@ -1,0 +1,105 @@
+{
+  "name": "PureOldKeys",
+  "tables": {
+    "expression": "expression.jsonc",
+    "input": "input.jsonc"
+  },
+  "prefab": {
+    "guid": "",
+    "path": "Assets/MyAvatar/MyAvatar.prefab"
+  },
+  "mesh": "Body",
+  "parts": {
+    "gaze.eyeLookUpLeft": "eyeLookUpLeft",
+    "gaze.eyeLookDownLeft": "eyeLookDownLeft",
+    "gaze.eyeLookInLeft": "eyeLookInLeft",
+    "gaze.eyeLookOutLeft": "eyeLookOutLeft",
+    "gaze.eyeLookUpRight": "eyeLookUpRight",
+    "gaze.eyeLookDownRight": "eyeLookDownRight",
+    "gaze.eyeLookInRight": "eyeLookInRight",
+    "gaze.eyeLookOutRight": "eyeLookOutRight",
+    "eye.eyeBlinkLeft": "eyeBlinkLeft",
+    "eye.eyeSquintLeft": "eyeSquintLeft",
+    "eye.eyeWideLeft": "eyeWideLeft",
+    "eye.eyeBlinkRight": "eyeBlinkRight",
+    "eye.eyeSquintRight": "eyeSquintRight",
+    "eye.eyeWideRight": "eyeWideRight",
+    "brow.browDownLeft": "browDownLeft",
+    "brow.browDownRight": "browDownRight",
+    "brow.browInnerUp": "browInnerUp",
+    "brow.browOuterUpLeft": "browOuterUpLeft",
+    "brow.browOuterUpRight": "browOuterUpRight",
+    "nose.noseSneerLeft": "noseSneerLeft",
+    "nose.noseSneerRight": "noseSneerRight",
+    "cheek.cheekPuff": "cheekPuff",
+    "cheek.cheekSquintLeft": "cheekSquintLeft",
+    "cheek.cheekSquintRight": "cheekSquintRight",
+    "jaw.jawOpen": "jawOpen",
+    "jaw.jawForward": "jawForward",
+    "jaw.jawLeft": "jawLeft",
+    "jaw.jawRight": "jawRight",
+    "jaw.mouthClose": "mouthClose",
+    "lip.mouthFunnel": "mouthFunnel",
+    "lip.mouthPucker": "mouthPucker",
+    "lip.mouthLeft": "mouthLeft",
+    "lip.mouthRight": "mouthRight",
+    "lip.mouthSmileLeft": "mouthSmileLeft",
+    "lip.mouthFrownLeft": "mouthFrownLeft",
+    "lip.mouthDimpleLeft": "mouthDimpleLeft",
+    "lip.mouthStretchLeft": "mouthStretchLeft",
+    "lip.mouthPressLeft": "mouthPressLeft",
+    "lip.mouthLowerDownLeft": "mouthLowerDownLeft",
+    "lip.mouthUpperUpLeft": "mouthUpperUpLeft",
+    "lip.mouthSmileRight": "mouthSmileRight",
+    "lip.mouthFrownRight": "mouthFrownRight",
+    "lip.mouthDimpleRight": "mouthDimpleRight",
+    "lip.mouthStretchRight": "mouthStretchRight",
+    "lip.mouthPressRight": "mouthPressRight",
+    "lip.mouthLowerDownRight": "mouthLowerDownRight",
+    "lip.mouthUpperUpRight": "mouthUpperUpRight",
+    "lip.mouthRollUpper": "mouthRollUpper",
+    "lip.mouthRollLower": "mouthRollLower",
+    "lip.mouthShrugUpper": "mouthShrugUpper",
+    "lip.mouthShrugLower": "mouthShrugLower",
+    "tongue.tongueOut": "tongueOut"
+  },
+  "missingParts": [],
+  "overwriteFaceTracking": false,
+  "eyeGazeMode": "FaceTracking",
+  "faceTrackParameter": "FaceTrack",
+  "afkPlayParameter": "AFKPlay",
+  "menu": {
+    "guid": "",
+    "path": "Assets/MyAvatar/Menu.asset"
+  },
+  "faceTrackLabel": "FaceTrack",
+  "afkPlayLabel": "AFK",
+  "subMenu": null,
+  "afkGroups": [
+    {
+      "parameters": [
+        "AFK"
+      ],
+      "wait": 6
+    }
+  ],
+  "layers": {
+    "fx": {
+      "remove": [],
+      "weights": {},
+      "stopWhileFaceTrack": [
+        "Left Hand",
+        "Right Hand"
+      ]
+    }
+  },
+  "afkClips": {
+    "actionIntro": null,
+    "actionLoop": null,
+    "actionOutro": null,
+    "fxIntro": null,
+    "fxLoop": null,
+    "fxOutro": null
+  },
+  "measurementsMain": "vr"
+}

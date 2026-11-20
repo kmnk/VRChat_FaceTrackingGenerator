@@ -1,0 +1,3 @@
+{
+  "error": "tests/pure/cases/dropped-and-range/expression.jsonc: 'stateMachines.Emotion.states.joy.fixed['lip.mouthSmileLeft']' must be 0 to 100"
+}

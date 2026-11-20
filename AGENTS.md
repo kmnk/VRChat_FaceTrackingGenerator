@@ -112,13 +112,23 @@ Records what the generator does for a set of cases so that a refactoring can be 
 - Success: exit 0, and `diff -r <baseline out dir> <out dir>` prints nothing for a change that should not change behaviour. Running it twice on the same code gives no difference (the output folders are kept, so this also checks that generating again changes nothing)
 - Keep baselines whose cases use purchased avatars in the private development project, not here
 
+### Tests outside Unity (`scripts/test-pure.sh`)
+
+```
+scripts/test-pure.sh <project> [--write]
+```
+
+Compiles the table loading and face value code of the project's package (`TableModel`, `TableLoader`, `NativeSets`, `NativeInputs`, `FaceEval`, `Measurements`, `PartNames`, `FtExpression`, `ModelJson`) with the mono and csc that come with Unity, loads each `tests/pure/cases/<case>/avatar.jsonc`, and compares the model and the faces with `tests/pure/expected/<case>.json`. It takes about a second, so it can run after each small step. `--write` writes the expected files from the current code (only when a change of behaviour is intended). Write the cases with ARKit names and made-up names only.
+
+- Success: exit 0 and `pure: cases=<n> failed=0`. A difference prints `pure: <case> differs` and leaves the actual JSON in `$TMPDIR/pure-<case>.json`
+
 ### Generator commands (`Kmnk.FaceTrackingGenerator.Cli`)
 
 All take `-ftTable <avatar table>` (a path relative to the project root works) and exit 0 on success, 1 when checks find problems, 2 on errors. Results are logged as `[FTG] ...` lines.
 
 | Method | What it does | Success |
 | --- | --- | --- |
-| `Cli.Load` | Reads the two tables and writes the resolved model (`-ftOut <json>`) | `[FTG] load: inputs=...`; dropped rows and warnings are listed |
+| `Cli.Load` | Reads the two tables and writes the resolved model (`-ftOut <json>`); `-ftFull 1` adds the avatar table as resolved (`avatarLayer`: parts with mesh, scale and property, menu, layers, AFK, Face Tracking options, output paths, recordings) | `[FTG] load: inputs=...`; dropped rows and warnings are listed |
 | `Cli.Generate` | Copies the avatar's controllers and Expression Parameters to the output folder, adds FT and AFK layers, updates the Prefab Variant | `[FTG] wrote ...`; running it twice leaves `git status` empty (in a project that ignores the output folder, copy the folder after each run and compare with `diff -r`) |
 | `Cli.Check` | Static checks of the tables and the generated FX (`-ftFx` to check another controller), and of the Face Tracking section of the generated Prefab Variant: one Forward to Animator behavior per input with its expression, and no warnings from the SDK's `FaceTrackingExpressionValidator`; that every menu control of the Variant and of the original prefab uses parameters in its Expression Parameters (`menu: ... which is not in the Expression Parameters`, as the SDK's build panel reports) | `[FTG] check: face tracking <variant>: enabled=True allKeys=True behaviors=<n>`, `[FTG] check: menu <variant>: <menu asset>: <controls>` per menu, `[FTG] check: findings=0` |
 | `Cli.Curve` | The face as `FaceEval` computes it, without Unity's Animator: `-ftQueries <jsonl>` (`{"label", "set": {key: value}, "state": {state machine: state}}`) or one query with `-ftSet "Key=value,..."` and `-ftStates "StateMachine=state,..."`; `-ftDesktop 1` for the desktop side's Blendshapes Sets; `-ftOut <jsonl>` to write them | `[FTG] curve: {"label", "states", "shapes"}` per query |
