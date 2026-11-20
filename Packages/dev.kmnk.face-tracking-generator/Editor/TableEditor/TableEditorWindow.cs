@@ -661,7 +661,7 @@ namespace Kmnk.FaceTrackingGenerator
         internal string AvatarCaptureState()
         {
             var a = doc?.Json(TableDocument.Avatar);
-            var afk = AfkFinder.AfkKeys.Count(k => a?["afkClips"]?[k] is JObject);
+            var afk = AfkFinder.AfkKeys.Count(k => (a?["afkClips"] as JObject)?[k] is JObject);
             return $"fill={(lastFill != null).ToString().ToLower()} afk={afk}/{AfkFinder.AfkKeys.Length} dirty={hasUnsavedChanges.ToString().ToLower()} subMenu={(a?["subMenu"]?.Type == JTokenType.String ? (string)a["subMenu"] : "null")}";
         }
         internal string PreviewCaptureState() => $"overlaps={lastOverlaps} label-width={lastLabelWidth:0}";

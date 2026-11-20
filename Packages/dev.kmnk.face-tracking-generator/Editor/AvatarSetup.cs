@@ -58,7 +58,7 @@ namespace Kmnk.FaceTrackingGenerator
                 r.Menu = desc.expressionsMenu;
                 r.Log.Add("menu: " + AssetDatabase.GetAssetPath(desc.expressionsMenu));
             }
-            r.AfkClips = AfkFinder.AfkKeys.Select(k => AfkBuilder.Load(TableLoader.AssetRefOf(avatarTable["afkClips"]?[k]))).ToArray();
+            r.AfkClips = AfkFinder.AfkKeys.Select(k => AfkBuilder.Load(TableLoader.AssetRefOf((avatarTable["afkClips"] as JObject)?[k]))).ToArray();
             r.AfkChanged = AfkFinder.Fill(r.AfkClips, desc, r.Log);
             r.Parts = (avatarTable["parts"] as JObject)?.DeepClone() as JObject ?? new JObject();
             if (face != null) r.PartsChanged = FillParts(r.Parts, avatarTable, expressionTable, prefab, face, r.Log);

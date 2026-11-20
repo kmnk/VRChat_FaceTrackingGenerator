@@ -221,6 +221,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (GUILayout.Button("Create", GUILayout.Width(70))) Do(1, () => (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
             if (GUILayout.Button("Create from Folder…", GUILayout.Width(150)))
             {
+                ClearMessage();
                 var folder = EditorUtility.OpenFolderPanel("Create from Folder", "", "");
                 if (!string.IsNullOrEmpty(folder)) Do(1, () => (SelectCreated(TableShare.CreateFromFolder(newName, folder)), MessageType.Info));
                 EditorGUILayout.EndHorizontal();
