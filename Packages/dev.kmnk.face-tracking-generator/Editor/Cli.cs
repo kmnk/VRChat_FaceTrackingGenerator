@@ -17,7 +17,10 @@ namespace Kmnk.FaceTrackingGenerator
         public static void Load() => Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
-            var json = ModelJson.ToJson(model).ToString(Formatting.Indented);
+            var o = ModelJson.ToJson(model);
+            // -ftFull 1: also the avatar layer as resolved (the default output stays as before).
+            if (CliArgs.Get("-ftFull") == "1") o["avatarLayer"] = ModelJson.Avatar(model);
+            var json = o.ToString(Formatting.Indented);
             var outPath = CliArgs.Get("-ftOut");
             if (outPath != null) File.WriteAllText(outPath, json + "\n");
             else Debug.Log(json);
@@ -32,7 +35,6 @@ namespace Kmnk.FaceTrackingGenerator
         public static void Generate() => Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
-            foreach (var w in model.Warnings) Debug.Log("[FTG] warning: " + w);
             var r = Generator.Generate(model);
             foreach (var l in r.Log) Debug.Log("[FTG] " + l);
             foreach (var w in r.Written) Debug.Log("[FTG] wrote " + w);
@@ -43,10 +45,15 @@ namespace Kmnk.FaceTrackingGenerator
         public static void Check() => Run(() =>
         {
             var model = TableLoader.Load(CliArgs.Require("-ftTable"));
-            var fxPath = CliArgs.Get("-ftFx", model.OutputFolder + "/FX.controller");
+            var fxPath = CliArgs.Get("-ftFx", FtNames.Controller(model.OutputFolder, "FX"));
             var fx = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(fxPath);
             if (fx == null) Debug.Log("[FTG] check: no generated FX controller at " + fxPath + " (table checks only)");
             if (fx != null) Debug.Log($"[FTG] check: controller {AssetDatabase.GetAssetPath(fx)} ({fx.layers.Length} layers, {AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(fx)).Length} objects)");
+            // A table's {guid, path} that the generation reads by its path (AssetRefs): a warning, as generating prints it.
+            var refWarnings = new System.Collections.Generic.List<string>();
+            AssetRefs.Path(model.Prefab, "prefab", refWarnings);
+            AssetRefs.Path(model.Menu, "menu", refWarnings);
+            foreach (var w in refWarnings) Debug.Log("[FTG] " + w);
             var findings = StaticChecker.Check(model, fx);
             var variant = model.VariantPath != null ? AssetDatabase.LoadAssetAtPath<GameObject>(model.VariantPath) : null;
             var desc = variant != null ? variant.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;
@@ -67,7 +74,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 foreach (var l in StaticChecker.MenuSummary(desc)) Debug.Log($"[FTG] check: menu {model.VariantPath}: {l}");
                 findings.AddRange(StaticChecker.MenuParameters(desc, model.VariantPath));
-                var src = !string.IsNullOrEmpty(model.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(model.Prefab.Guid) : model.Prefab?.Path;
+                var src = AssetRefs.Path(model.Prefab, "prefab");
                 var orig = AssetDatabase.LoadAssetAtPath<GameObject>(src)?.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>();
                 if (orig != null) findings.AddRange(StaticChecker.MenuParameters(orig, src));
                 if (orig != null)
@@ -162,18 +169,6 @@ namespace Kmnk.FaceTrackingGenerator
             return 0;
         });
 
-        // Exports a .unitypackage. -ftList: a file of asset paths (files and their parent folders), one per line.
-        public static void ExportPackage() => Run(() =>
-        {
-            var paths = File.ReadAllLines(CliArgs.Require("-ftList")).Select(l => l.Trim()).Where(l => l != "").ToArray();
-            foreach (var p in paths)
-                if (!File.Exists(p) && !Directory.Exists(p)) throw new FileNotFoundException("not in the project: " + p);
-            var outPath = CliArgs.Require("-ftOut");
-            AssetDatabase.ExportPackage(paths, outPath, ExportPackageOptions.Default);
-            Debug.Log($"[FTG] package: exported {paths.Length} paths to {outPath}");
-            return File.Exists(outPath) ? 0 : 2;
-        });
-
         // Writes a Prefab Variant for the build-time output (-ftOut <prefab path>): the avatar with FtGeneratorSettings.
         public static void BuildVariant() => Run(() =>
         {
@@ -208,68 +203,19 @@ namespace Kmnk.FaceTrackingGenerator
 
         static string P(UnityEngine.Object o) => o == null ? "-" : AssetDatabase.GetAssetPath(o);
 
+        // Development checks that call several commands in one run set this: the exit code goes to LastExitCode and
+        // Unity keeps running.
+        internal static bool KeepRunning;
+        internal static int LastExitCode;
+
         internal static void Run(Func<int> body)
         {
             int code;
             try { code = body(); }
             catch (TableLoader.TableException e) { Debug.Log("[FTG] error: " + e.Message); code = 2; }
             catch (Exception e) { Debug.LogException(e); Debug.Log("[FTG] error: " + e.Message); code = 2; }
+            if (KeepRunning) { LastExitCode = code; return; }
             EditorApplication.Exit(code);
-        }
-    }
-
-    public static class ModelJson
-    {
-        // A strength per device as {"vr", "desktop"}, else a number, so that the output of a table without them stays as before.
-        public static JToken Strength(TrackRow r) =>
-            r.StrengthByDevice ? new JObject { ["vr"] = r.StrengthVr, ["desktop"] = r.StrengthDesktop } : (JToken)r.StrengthVr;
-
-        static JObject Row(TrackRow r, TableModel m) => new JObject
-        {
-            ["key"] = r.Key, ["part"] = r.Part, ["strength"] = Strength(r),
-            ["shape"] = r.Part != null && m.Parts.TryGetValue(r.Part, out var t) ? t.Shape : null,
-        };
-
-        public static JObject ToJson(TableModel m)
-        {
-            return new JObject
-            {
-                ["avatar"] = m.AvatarName,
-                ["prefab"] = m.Prefab?.Path,
-                ["inputs"] = new JArray(m.Inputs.Select(i => new JObject { ["name"] = i.Name, ["key"] = i.Key, ["parameter"] = i.Parameter, ["expression"] = i.Expression, ["expressionFrom"] = i.IsTrack ? "tracking key" : i.ExpressionFromTable ? "table" : "built-in" })),
-                ["neutral"] = new JObject(m.Neutral.Select(kv => new JProperty(kv.Key, new JArray(kv.Value.Select(r => Row(r, m)))))),
-                ["stateMachines"] = new JArray(m.StateMachines.Select(sm => new JObject
-                {
-                    ["name"] = sm.Name,
-                    ["states"] = new JArray(sm.States.Select(st =>
-                    {
-                        var o = new JObject
-                        {
-                            ["name"] = st.Name,
-                            ["menu"] = st.Menu ? sm.MenuValue(st.Name) : 0,
-                            ["regions"] = new JObject(st.Regions.Select(kv => new JProperty(kv.Key, kv.Value.Off ? (JToken)TableLoader.Off : new JArray(kv.Value.Rows.Select(r => Row(r, m)))))),
-                            ["fixed"] = new JObject(st.Fixed.Select(kv => new JProperty(kv.Key, kv.Value))),
-                        };
-                        // Only when set, so that the output of a table without it stays as before.
-                        if (st.StopVisemesAny) o["stopVisemes"] = st.StopVisemesByDevice ? (JToken)Device.Of(st.StopVisemesDesktop) : true;
-                        return o;
-                    })),
-                    ["transitions"] = new JArray(sm.Transitions.Select(t =>
-                    {
-                        var o = new JObject
-                        {
-                            ["from"] = t.From, ["to"] = t.To, ["duration"] = t.Duration,
-                            ["when"] = new JArray(t.When.Select(c => new JArray(c.Input, c.Op, c.Value))),
-                        };
-                        if (t.Device != null) o["device"] = t.Device;
-                        return o;
-                    })),
-                })),
-                ["stopWhileTalking"] = new JArray(m.StopWhileTalking),
-                ["dropped"] = new JArray(m.Dropped),
-                ["warnings"] = new JArray(m.Warnings),
-                ["notes"] = new JArray(m.Notes),
-            };
         }
     }
 }

@@ -10,13 +10,13 @@ namespace Kmnk.FaceTrackingGenerator
     public sealed class RenamePartPopup : PopupWindowContent
     {
         readonly string from;
-        readonly Func<string, bool, PartRename.Problem> check;
-        readonly Action<string, bool> rename;
+        readonly Func<string, PartRename.Problem> check;
+        readonly Action<string> rename;
         string name;
         bool focused;
         int caretFrames;
 
-        public RenamePartPopup(string from, Func<string, bool, PartRename.Problem> check, Action<string, bool> rename)
+        public RenamePartPopup(string from, Func<string, PartRename.Problem> check, Action<string> rename)
         {
             this.from = from;
             this.check = check;
@@ -46,7 +46,7 @@ namespace Kmnk.FaceTrackingGenerator
                 caretFrames++;
                 editorWindow.Repaint();
             }
-            var problem = check(name, false);
+            var problem = check(name);
             var ja = EditorText.Current == EditorText.Language.Japanese;
             if (problem == PartRename.Problem.None && name != from)
             {
@@ -70,7 +70,7 @@ namespace Kmnk.FaceTrackingGenerator
                 using (new EditorGUI.DisabledScope(!ok))
                     if (GUILayout.Button("Rename", GUILayout.Width(70)) || (enter && ok))
                     {
-                        rename(name, false);
+                        rename(name);
                         editorWindow.Close();
                         GUIUtility.ExitGUI();
                     }

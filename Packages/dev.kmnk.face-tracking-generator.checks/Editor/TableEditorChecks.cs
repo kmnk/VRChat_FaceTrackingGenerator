@@ -12,7 +12,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         // Opens the tables, applies the edits (-ftEdits, JSON Lines of TableEdits.Apply operations on the avatar table,
         // or StateMachineEdit.Apply operations on the expression table with "table": "expression"), and saves. -ftAll
-        // saves all three tables even when they are unchanged.
+        // saves both tables even when they are unchanged.
         public static void Edit() => Cli.Run(() =>
         {
             var doc = TableDocument.Open(CliArgs.Require("-ftTable"));

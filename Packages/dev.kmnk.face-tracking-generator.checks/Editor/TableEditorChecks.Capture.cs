@@ -37,7 +37,23 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorWindow window;
                 var help = CliArgs.Get("-ftHelp");
                 if (help != null) EditorText.Override = help == "ja" ? EditorText.Language.Japanese : help == "off" ? EditorText.Language.Off : EditorText.Language.English;
-                if (which == "generator")
+                if (which == "inspector")
+                {
+                    // The Inspector of a new GameObject with FtGeneratorSettings: -ftInspectorTable <avatar.jsonc> | missing | none
+                    var go = new GameObject("CaptureAvatar");
+                    var settings = go.AddComponent<FtGeneratorSettings>();
+                    var it = CliArgs.Get("-ftInspectorTable") ?? "none";
+                    if (it == "missing") { settings.avatarTablePath = "Assets/Missing/avatar.jsonc"; settings.avatarTableGuid = "0123456789abcdef0123456789abcdef"; }
+                    else if (it != "none") { settings.avatarTablePath = it; settings.avatarTableGuid = AssetDatabase.AssetPathToGUID(it); }
+                    var byGuid = AssetDatabase.GUIDToAssetPath(settings.avatarTableGuid ?? "");
+                    var found = string.IsNullOrEmpty(settings.avatarTablePath) ? null
+                        : AssetDatabase.LoadAssetAtPath<DefaultAsset>(string.IsNullOrEmpty(byGuid) ? settings.avatarTablePath : byGuid);
+                    Debug.Log($"[FTG] capture: inspector table={(it == "none" ? "none" : found != null ? "found" : "missing")}");
+                    Selection.activeGameObject = go;
+                    var inspectorType = typeof(Editor).Assembly.GetType("UnityEditor.InspectorWindow");
+                    window = EditorWindow.GetWindow(inspectorType);
+                }
+                else if (which == "generator")
                 {
                     var g = EditorWindow.GetWindow<GeneratorWindow>("Face Tracking Generator");
                     var tablePath = CliArgs.Get("-ftTable");
@@ -46,6 +62,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (avatarName != null) g.SetAvatarName(avatarName);
                     var chooseAvatar = CliArgs.Get("-ftChooseAvatar");  // as the "Avatar in scene" field does ("none" clears)
                     if (chooseAvatar != null) g.ChooseAvatar(chooseAvatar == "none" ? null : GameObject.Find(chooseAvatar) ?? throw new ArgumentException("not in the scene: " + chooseAvatar));
+                    if (CliArgs.Get("-ftGenPress") == "check") g.PressCheckForCapture();
                     if (CliArgs.Get("-ftOpenTableEditor") == "1")
                     {
                         var te = TableEditorWindow.OpenTable(tablePath);
@@ -86,9 +103,12 @@ namespace Kmnk.FaceTrackingGenerator
                         Grab(window, outPath);
                         Debug.Log($"[FTG] capture: wrote {outPath} ({window.position.width}x{window.position.height})");
                         if (window is GeneratorWindow gen) Debug.Log($"[FTG] capture: selection window=generator {gen.SelectionState()}");
+                        if (window is GeneratorWindow gen2) Debug.Log($"[FTG] capture: generator {gen2.MessageState()}");
                         var shown = window as TableEditorWindow ?? TableEditorWindow.Current;
                         if (shown != null) Debug.Log($"[FTG] capture: selection window=table {shown.SelectionState()}");
                         if (shown != null) Debug.Log($"[FTG] capture: live {shown.LiveCaptureState()}");
+                        if (shown != null) Debug.Log($"[FTG] capture: avatar {shown.AvatarCaptureState()}");
+                        if (shown != null) Debug.Log($"[FTG] capture: preview {shown.PreviewCaptureState()}");
                         if (shown != null) foreach (var line in shown.DevicesCaptureLines()) Debug.Log(line);
                         var face = FaceViewWindow.Find();
                         if (face != null)
@@ -142,6 +162,8 @@ namespace Kmnk.FaceTrackingGenerator
                 Debug.Log($"[FTG] capture: live end={liveEnd} window-open={(te != null).ToString().ToLower()} live-running={(te != null && te.LiveRunning).ToString().ToLower()} port-free={TableEditorWindow.PortFree(port).ToString().ToLower()}");
                 EditorApplication.Exit(0);
             }
+            if (frame == 20 && CliArgs.Get("-ftAvatarFill") == "1") TableEditorWindow.Current?.FillForCapture();
+            if (frame == 25 && CliArgs.Get("-ftAvatarFillUndo") == "1") Undo.PerformUndo();
             if (frame == 30)
             {
                 // "-ftHelpAfter en|ja|off": change the language after the window is open, as the settings editor's Help does.

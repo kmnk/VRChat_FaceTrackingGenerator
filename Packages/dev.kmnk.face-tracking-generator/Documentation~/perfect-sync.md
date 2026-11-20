@@ -104,8 +104,9 @@ Blendshapes Set `FTG/neutral/<region>` (the template's `neutral`; a state that o
   rule for mappings in different Blendshapes Sets; that it also holds inside one set has not been checked in VRChat.
 - **Part names `<region>.<ARKit name>`**: the part after the dot is the blend shape name, so the generator can fill the
   mapping by name (the last part of a name, also in `<region>.<state>.<name>`); the region decides the Blendshapes Set
-  and which parts stop while talking. Names that differ only in capitals are refused, as VMagicMirror
-  does not promise how such names behave.
+  and which parts stop while talking. The settings editor refuses a new part name that differs from a used one only in
+  capitals, as VMagicMirror does not promise how such names behave; a hand-written table with such names is loaded as
+  it is (the loader refuses only state machine names that differ only in capitals).
 - **Regions**: VRCFT's Unified Expressions groups, by the group of the keys: gaze (Eye Gaze), eye, brow, nose, cheek,
   jaw, lip, tongue. `mouthClose` is in jaw because VRCFT puts `MouthClosed` in its Jaw group. `noseSneer*` is in nose,
   although VRCFT puts `NoseSneer*` in its Lip group: the name says nose, and a nose wrinkle should not stop while talking.

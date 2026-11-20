@@ -14,7 +14,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Eye and mouth Tracking Control are never written here.
     public sealed class AfkBuilder
     {
-        public const string Playing = "AFK/Playing";
+        public const string Playing = FtNames.AfkPlaying;
         const float PrepareBlend = 0.5f;   // the same as the avatars' own AFK (Playable Layer Control)
         const float BlendOutBlend = 0.25f;
 
@@ -27,8 +27,7 @@ namespace Kmnk.FaceTrackingGenerator
         public static AnimationClip Load(AssetRef r)
         {
             if (r == null) return null;
-            var path = !string.IsNullOrEmpty(r.Guid) ? AssetDatabase.GUIDToAssetPath(r.Guid) : r.Path;
-            if (string.IsNullOrEmpty(path)) path = r.Path;
+            var path = AssetRefs.Path(r, "AFK clip");
             return string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
         }
 
@@ -50,7 +49,7 @@ namespace Kmnk.FaceTrackingGenerator
             var u = new AnimUtil(action);
             Params(u);
             var wd = action.layers.SelectMany(l => l.stateMachine.states).Select(s => s.state.writeDefaultValues).DefaultIfEmpty(false).First();
-            var layer = u.NewLayer("AFK/Action");
+            var layer = u.NewLayer(FtNames.AfkActionLayer);
             ActionLayers.Add(layer);
             Build(u, layer.stateMachine, wd, Mode.Action,
                 Load(m.AfkClips.ActionIntro), Load(m.AfkClips.ActionLoop), Load(m.AfkClips.ActionOutro));
@@ -63,11 +62,11 @@ namespace Kmnk.FaceTrackingGenerator
             var u = new AnimUtil(fx);
             Params(u);
             u.EnsureParameter(Playing, AnimatorControllerParameterType.Float);
-            var face = u.NewLayer("AFK/FX");
+            var face = u.NewLayer(FtNames.AfkFaceLayer);
             FxLayers.Add(face);
             Build(u, face.stateMachine, true, Mode.Face,
                 Load(m.AfkClips.FxIntro), Load(m.AfkClips.FxLoop), Load(m.AfkClips.FxOutro));
-            var flag = u.NewLayer("AFK/Flag");
+            var flag = u.NewLayer(FtNames.AfkFlagLayer);
             FxLayers.Add(flag);
             Build(u, flag.stateMachine, true, Mode.Flag,
                 Load(m.AfkClips.ActionIntro), Load(m.AfkClips.ActionLoop), Load(m.AfkClips.ActionOutro));
@@ -78,15 +77,15 @@ namespace Kmnk.FaceTrackingGenerator
         void Params(AnimUtil u)
         {
             u.EnsureParameter(m.AfkPlayParameter, AnimatorControllerParameterType.Bool);
-            u.EnsureParameter("VRCEmote", AnimatorControllerParameterType.Int);
-            u.EnsureParameter(FtBuilder.One, AnimatorControllerParameterType.Float, 1);
+            u.EnsureParameter(FtNames.VRCEmote, AnimatorControllerParameterType.Int);
+            u.EnsureParameter(FtNames.One, AnimatorControllerParameterType.Float, 1);
             foreach (var p in m.AfkGroups.SelectMany(g => g.Parameters)) u.EnsureParameter(p, AnimatorControllerParameterType.Bool);
         }
 
         void Build(AnimUtil u, AnimatorStateMachine sm, bool wd, Mode mode, AnimationClip intro, AnimationClip loop, AnimationClip outro)
         {
             var flag = m.AfkPlayParameter;
-            var prefix = mode == Mode.Action ? "AFK/Action" : mode == Mode.Face ? "AFK/FX" : "AFK/Flag";
+            var prefix = mode == Mode.Action ? FtNames.AfkActionLayer : mode == Mode.Face ? FtNames.AfkFaceLayer : FtNames.AfkFlagLayer;
 
             // Flag mode: a parameter clip as long as the clip it stands for, so exit times match the Action layer.
             Motion M(string name, AnimationClip clip, float playing)
@@ -128,7 +127,7 @@ namespace Kmnk.FaceTrackingGenerator
             // Start only while no emote and no avatar AFK is playing, so the Action weight is not fought over.
             var start = AnimUtil.Transition(idle, prepare);
             u.When(start, flag, true);
-            start.AddCondition(AnimatorConditionMode.Equals, 0, "VRCEmote");
+            start.AddCondition(AnimatorConditionMode.Equals, 0, FtNames.VRCEmote);
             foreach (var p in m.AfkGroups.SelectMany(g => g.Parameters)) u.When(start, p, false);
 
             var first = introS ?? loopS;

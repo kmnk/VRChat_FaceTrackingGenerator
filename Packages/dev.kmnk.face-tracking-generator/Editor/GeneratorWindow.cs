@@ -16,20 +16,17 @@ namespace Kmnk.FaceTrackingGenerator
     {
         DefaultAsset table;
         TableModel model;
-        string message = "";
+        string message = "", loadError;
         Vector2 scroll;
-        readonly AnimationClip[] afk = new AnimationClip[6];
-        static readonly string[] AfkLabels = { "Action Intro", "Action Loop", "Action Outro", "FX Intro", "FX Loop", "FX Outro" };
         string newName = "MyAvatar";
         int curveInput;
         // Unity imports .txt as TextAsset, so the field accepts any asset (a .txt file is expected).
         UnityEngine.Object scenario;
-        string menuFace, menuAfk, menuSub;
-        // The avatar of steps 2 and 7, remembered per settings file and scene (ProjectSelection), shared with the settings editor.
+        // The avatar of step 4, remembered per settings file and scene (ProjectSelection), shared with the settings editor.
         GameObject avatar;
         string avatarSource = "none";  // saved, prefab, selected, chosen or none (for the checks)
 
-        [MenuItem("Tools/Kmnk/Face Tracking Generator")]
+        [MenuItem("Tools/Kmnk/Face Tracking Generator", false, 0)]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
 
         void OnEnable()
@@ -107,13 +104,13 @@ namespace Kmnk.FaceTrackingGenerator
             ProjectSelection.AvatarName = typed;
         }
 
-        // For TableEditorChecks.Capture: what steps 1, 2 and 7 show.
+        // For TableEditorChecks.Capture: what steps 1 and 4 show.
         internal string SelectionState()
         {
             string HierarchyPath(Transform t) => t.parent == null ? t.name : HierarchyPath(t.parent) + "/" + t.name;
             var a = avatar != null ? HierarchyPath(avatar.transform) : "none";
             var can = (model != null && avatar != null).ToString().ToLower();
-            return $"table={TablePath ?? "none"} avatar={a} source={avatarSource} fill={can} attach={can} name={newName}";
+            return $"table={TablePath ?? "none"} avatar={a} source={avatarSource} attach={can} name={newName}";
         }
 
         string TablePath => table != null ? AssetDatabase.GetAssetPath(table) : null;
@@ -121,16 +118,14 @@ namespace Kmnk.FaceTrackingGenerator
         void Reload()
         {
             model = null;
-            menuFace = menuAfk = menuSub = null;
+            loadError = null;
+            tableTime = expressionTime = default;
             if (TablePath == null) return;
-            try
-            {
-                model = TableLoader.Load(TablePath);
-                var c = model.AfkClips;
-                var refs = new[] { c.ActionIntro, c.ActionLoop, c.ActionOutro, c.FxIntro, c.FxLoop, c.FxOutro };
-                for (int i = 0; i < 6; i++) afk[i] = AfkBuilder.Load(refs[i]);
-            }
-            catch (Exception e) { message = "Table error: " + e.Message; }
+            tableTime = File.Exists(TablePath) ? File.GetLastWriteTimeUtc(TablePath) : default;
+            var ep = TableLoader.ExpressionPath(TablePath);
+            expressionTime = ep != null && File.Exists(ep) ? File.GetLastWriteTimeUtc(ep) : default;
+            try { model = TableLoader.Load(TablePath); }
+            catch (Exception e) { loadError = e.Message; }
         }
 
         void OnSelectionChange()
@@ -146,8 +141,12 @@ namespace Kmnk.FaceTrackingGenerator
             Reload();
         }
 
-        // Steps in the order of the README's Use section. The buttons call the same code as before.
+        // Steps in the order of the README's Use section. The buttons call the same code as the command line.
         bool showCurves, showAdvanced;
+        // The result of the last button, shown under the step that has the button (1 to 4, 5 Generate, 6 Scenario).
+        int messageStep;
+        MessageType messageType = MessageType.None;
+        DateTime tableTime, expressionTime;
 
         void Step(string titleKey, string helpKey)
         {
@@ -173,16 +172,30 @@ namespace Kmnk.FaceTrackingGenerator
             }
         }
 
+        // The settings files changed on disk (saved by the settings editor, or edited by hand): read them again, so that
+        // Check and the other buttons always see the saved settings.
+        void ReloadWhenChanged()
+        {
+            if (TablePath == null) return;
+            var t = File.Exists(TablePath) ? File.GetLastWriteTimeUtc(TablePath) : default;
+            var ep = TableLoader.ExpressionPath(TablePath);
+            var e = ep != null && File.Exists(ep) ? File.GetLastWriteTimeUtc(ep) : default;
+            if (t == tableTime && e == expressionTime) return;
+            Reload();
+        }
+
+        void ShowMessage(int step)
+        {
+            if (messageStep == step && !string.IsNullOrEmpty(message)) EditorGUILayout.HelpBox(message, messageType);
+        }
+
         void OnGUI()
         {
+            ReloadWhenChanged();
             scroll = EditorGUILayout.BeginScrollView(scroll);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUI.BeginChangeCheck();
-                table = (DefaultAsset)EditorGUILayout.ObjectField("Settings file", table, typeof(DefaultAsset), false);
-                if (EditorGUI.EndChangeCheck()) ChooseTable(table);
-                if (GUILayout.Button("Reload", GUILayout.Width(70))) Reload();
-            }
+            EditorGUI.BeginChangeCheck();
+            table = (DefaultAsset)EditorGUILayout.ObjectField(EditorText.Label("Settings file", "tip.table"), table, typeof(DefaultAsset), false);
+            if (EditorGUI.EndChangeCheck()) ChooseTable(table);
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.FlexibleSpace();
@@ -191,101 +204,51 @@ namespace Kmnk.FaceTrackingGenerator
                 var lang = EditorGUILayout.Popup((int)EditorText.Current, EditorText.Choices, GUILayout.Width(80));
                 if (EditorGUI.EndChangeCheck()) EditorText.Current = (EditorText.Language)lang;
             }
-            if (model != null)
-                EditorGUILayout.LabelField($"{model.AvatarName}: inputs {model.Inputs.Count(i => !i.IsTrack)}, neutral rows {model.Neutral.Sum(kv => kv.Value.Count)}, state machines {model.StateMachines.Count}, movements {model.Parts.Count}, dropped {model.Dropped.Count}, warnings {model.Warnings.Count}", EditorStyles.miniLabel);
+            if (TablePath == null) EditorGUILayout.HelpBox(EditorText.Get("gen.noTable"), MessageType.Warning);
+            else if (model == null && loadError != null) EditorGUILayout.HelpBox(string.Format(EditorText.Get("gen.tableError"), loadError), MessageType.Warning);
 
             Step("gen.step1", "gen.help1");
-            var createLabel = "Create Settings/" + newName;
-            var fromLabel = createLabel + " from a folder…";
-            // Both buttons get the width of the longer label, right-aligned one above the other.
-            var createWidth = Mathf.Max(GUI.skin.button.CalcSize(new GUIContent(createLabel)).x, GUI.skin.button.CalcSize(new GUIContent(fromLabel)).x);
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUI.BeginChangeCheck();
                 var typed = EditorGUILayout.TextField("Avatar name", newName);
                 if (EditorGUI.EndChangeCheck()) SetAvatarName(typed);
-                if (GUILayout.Button(createLabel, GUILayout.Width(createWidth))) Do(() => SelectCreated(TableWriter.CreateFromTemplates(newName)));
-            }
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button(fromLabel, GUILayout.Width(createWidth)))
+                if (GUILayout.Button("Create", GUILayout.Width(70))) Do(1, () => (SelectCreated(TableWriter.CreateFromTemplates(newName)), MessageType.Info));
+                if (GUILayout.Button("Create from Folder…", GUILayout.Width(150)))
                 {
-                    var folder = EditorUtility.OpenFolderPanel(fromLabel, "", "");
-                    if (!string.IsNullOrEmpty(folder)) Do(() => SelectCreated(TableShare.CreateFromFolder(newName, folder)));
+                    var folder = EditorUtility.OpenFolderPanel("Create from Folder", "", "");
+                    if (!string.IsNullOrEmpty(folder)) Do(1, () => (SelectCreated(TableShare.CreateFromFolder(newName, folder)), MessageType.Info));
                     GUIUtility.ExitGUI();  // the folder panel was modal; start the layout again
                 }
             }
+            ShowMessage(1);
 
             using (new EditorGUI.DisabledScope(model == null))
             {
                 Step("gen.step2", "gen.help2");
-                var sel = avatar;
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUI.BeginChangeCheck();
-                    var picked = (GameObject)EditorGUILayout.ObjectField("Avatar in scene", avatar, typeof(GameObject), true);
-                    if (EditorGUI.EndChangeCheck() && (picked == null || picked.scene.IsValid())) { ChooseAvatar(picked); sel = picked; }
-                    using (new EditorGUI.DisabledScope(sel == null))
-                        if (GUILayout.Button("Fill prefab, mesh and menu from it")) Do(() =>
-                        {
-                            var log = AvatarSetup.FillTable(TablePath, sel);
-                            Reload();
-                            return "Filled the avatar table\n" + string.Join("\n", log);
-                        });
-                }
-
-                Step("gen.step3", "gen.help3");
                 if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) TableEditorWindow.OpenTable(TablePath);
 
-                Step("gen.step4", "gen.help4");
+                Step("gen.step3", "gen.help3");
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Check")) Do(() =>
-                    {
-                        var fx = AssetDatabase.LoadAssetAtPath<AnimatorController>(model.OutputFolder + "/FX.controller");
-                        var f = StaticChecker.Check(model, fx);
-                        return f.Count == 0 ? "Check: no findings" : "Check: " + f.Count + " findings\n" + string.Join("\n", f);
-                    });
+                    if (GUILayout.Button("Check")) Do(3, Check);
                     showCurves = GUILayout.Toggle(showCurves, "Response curves", "Button");
                 }
+                ShowMessage(3);
                 if (showCurves && model != null) Curves();
 
-                Step("gen.step5", "gen.help5");
-                if (model != null)
-                {
-                    menuFace = EditorGUILayout.TextField("FT toggle name", menuFace ?? model.FaceTrackLabel);
-                    menuAfk = EditorGUILayout.TextField("AFK toggle name", menuAfk ?? model.AfkPlayLabel);
-                    menuSub = EditorGUILayout.TextField("Submenu (empty: none)", menuSub ?? model.SubMenu ?? "");
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        if (GUILayout.Button("Save names")) Do(() =>
-                        {
-                            TableWriter.SetTopLevel(TablePath, "faceTrackLabel", TableWriter.StringJson(menuFace));
-                            TableWriter.SetTopLevel(TablePath, "afkPlayLabel", TableWriter.StringJson(menuAfk));
-                            TableWriter.SetTopLevel(TablePath, "subMenu", string.IsNullOrWhiteSpace(menuSub) ? "null" : TableWriter.StringJson(menuSub));
-                            Reload();
-                            return "Saved toggle names. Generating puts the toggles into the generated menu (the avatar's own menu is not changed).";
-                        });
-                    }
-                }
-
-                Step("gen.step6", "gen.help6");
-                for (int i = 0; i < 6; i++) afk[i] = (AnimationClip)EditorGUILayout.ObjectField(AfkLabels[i], afk[i], typeof(AnimationClip), false);
-                if (GUILayout.Button("Save AFK clips")) Do(() =>
-                {
-                    TableWriter.SetAfkClips(TablePath, afk);
-                    Reload();
-                    return "Saved AFK clips to " + TablePath;
-                });
-
-                Step("gen.step7", "gen.help7");
+                Step("gen.step4", "gen.help4");
+                var sel = avatar;
+                EditorGUI.BeginChangeCheck();
+                var picked = (GameObject)EditorGUILayout.ObjectField("Avatar in scene", avatar, typeof(GameObject), true);
+                if (EditorGUI.EndChangeCheck() && (picked == null || picked.scene.IsValid())) { ChooseAvatar(picked); sel = picked; }
                 using (new EditorGUI.DisabledScope(sel == null))
-                    if (GUILayout.Button("Add settings component (build-time FT)")) Do(() =>
+                    if (GUILayout.Button("Add Settings Component")) Do(4, () =>
                     {
                         AvatarSetup.AddSettings(sel, TablePath);
-                        return $"Added Face Tracking Generator Settings to {sel.name}. FT is generated on Play and upload.";
+                        return (string.Format(EditorText.Get("gen.attached"), sel.name), MessageType.Info);
                     });
+                ShowMessage(4);
 
                 EditorGUILayout.Space(6);
                 showAdvanced = EditorGUILayout.Foldout(showAdvanced, "Advanced: Generate files, Scenario check", true);
@@ -293,44 +256,60 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var adv = EditorText.Help("gen.helpAdvanced");
                     if (adv != null) EditorGUILayout.LabelField(adv, HelpStyle);
-                    if (GUILayout.Button("Generate")) Do(() =>
+                    if (GUILayout.Button("Generate")) Do(5, () =>
                     {
+                        Reload();
                         var r = Generator.Generate(model);
-                        return "Generated\n" + string.Join("\n", r.Log.Concat(r.Written.Select(w => "wrote " + w)));
+                        var warn = r.Log.Any(l => l.StartsWith("warning:") || l.StartsWith("notice:"));
+                        return (string.Format(EditorText.Get("gen.generated"), string.Join("\n", r.Log.Concat(r.Written.Select(w => "wrote " + w)))), warn ? MessageType.Warning : MessageType.Info);
                     });
+                    ShowMessage(5);
                     EditorGUILayout.LabelField("Scenario check (Play Mode)", EditorStyles.boldLabel);
-                    scenario = EditorGUILayout.ObjectField("scenario .txt", scenario, typeof(UnityEngine.Object), false);
-                    if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox("Choose a scenario .txt file.", MessageType.Warning);
+                    scenario = EditorGUILayout.ObjectField("Scenario .txt", scenario, typeof(UnityEngine.Object), false);
+                    if (scenario != null && !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt")) EditorGUILayout.HelpBox(EditorText.Get("gen.scenarioTxt"), MessageType.Warning);
                     using (new EditorGUI.DisabledScope(scenario == null || !AssetDatabase.GetAssetPath(scenario).EndsWith(".txt") || model?.VariantPath == null || model?.DefaultMesh == null))
-                        if (GUILayout.Button("Run scenario on the generated prefab")) Do(() =>
+                        if (GUILayout.Button("Run scenario on the generated prefab")) Do(6, () =>
                         {
                             var sp = AssetDatabase.GetAssetPath(scenario);
                             var outPath = Path.ChangeExtension(sp, null) + ".last.jsonl";
                             ScenarioRunner.RunInEditor(sp, outPath, model.VariantPath, model.DefaultMesh);
-                            return "Running " + sp + " -> " + outPath;
+                            return (string.Format(EditorText.Get("gen.running"), sp, outPath), MessageType.Info);
                         });
+                    ShowMessage(6);
                 }
             }
-
-            EditorGUILayout.Space();
-            EditorGUILayout.HelpBox(message, MessageType.None);
             EditorGUILayout.EndScrollView();
         }
 
-        // After Create Settings: the new settings become the chosen ones, as if picked in Settings file.
+        // Check: the saved settings (read again first) and the generated FX.
+        (string, MessageType) Check()
+        {
+            Reload();
+            if (model == null) throw new TableLoader.TableException(loadError ?? "no settings file");
+            var fx = AssetDatabase.LoadAssetAtPath<AnimatorController>(FtNames.Controller(model.OutputFolder, "FX"));
+            var f = StaticChecker.Check(model, fx);
+            return f.Count == 0 ? (EditorText.Get("gen.checkNone"), MessageType.Info) : (string.Format(EditorText.Get("gen.checkFindings"), f.Count, string.Join("\n", f)), MessageType.Warning);
+        }
+
+        // For the checks: press Check as the button does, and what the result shows.
+        internal void PressCheckForCapture() => Do(3, Check);
+        internal string MessageState() => $"message type={(messageType == MessageType.Error ? "error" : messageType == MessageType.Warning ? "warning" : messageType == MessageType.Info ? "info" : "none")} step={messageStep}";
+
+        // After Create: the new settings become the chosen ones, as if picked in Settings file.
         string SelectCreated(string dest)
         {
             table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(dest);
             ProjectSelection.SetTable(dest);
             Reload();
             RestoreAvatar();
-            return "Created " + dest;
+            return string.Format(EditorText.Get("gen.created"), dest);
         }
 
-        void Do(Func<string> action)
+        void Do(int step, Func<(string text, MessageType type)> action)
         {
-            try { message = action(); }
-            catch (Exception e) { message = "Error: " + e.Message; Debug.LogException(e); }
+            messageStep = step;
+            try { (message, messageType) = action(); }
+            catch (Exception e) { message = string.Format(EditorText.Get("gen.failed"), e.Message); messageType = MessageType.Error; Debug.LogException(e); }
         }
 
         static readonly Color[] Colors = { Color.red, Color.green, Color.cyan, Color.yellow, Color.magenta, new Color(1, 0.5f, 0), Color.white, new Color(0.6f, 0.6f, 1) };
@@ -370,103 +349,7 @@ namespace Kmnk.FaceTrackingGenerator
                 EditorGUILayout.LabelField("  " + shapes[k] + $"  (max {samples.Max(s => s.TryGetValue(shapes[k], out var v) ? v : 0):0.#})");
                 GUI.color = old;
             }
-            EditorGUILayout.HelpBox("Other keys are 0 and the state machines are in their default state.", MessageType.None);
-        }
-    }
-
-    // Small text edits of the tables that keep comments and the other lines.
-    public static class TableWriter
-    {
-        static readonly string[] AfkKeys = { "actionIntro", "actionLoop", "actionOutro", "fxIntro", "fxLoop", "fxOutro" };
-
-        public static void SetAfkClips(string avatarTable, AnimationClip[] clips)
-        {
-            var sb = new StringBuilder("{\n");
-            for (int i = 0; i < 6; i++)
-            {
-                var c = clips[i];
-                sb.Append($"    \"{AfkKeys[i]}\": {(c == null ? "null" : AssetRefJson(c))}{(i < 5 ? "," : "")}\n");
-            }
-            sb.Append("  }");
-            SetTopLevel(avatarTable, "afkClips", sb.ToString());
-        }
-
-        public static string AssetRefJson(UnityEngine.Object o)
-        {
-            var path = AssetDatabase.GetAssetPath(o);
-            return $"{{\"guid\": \"{AssetDatabase.AssetPathToGUID(path)}\", \"path\": \"{path}\"}}";
-        }
-
-        public static string StringJson(string s) => Newtonsoft.Json.JsonConvert.ToString(s);
-
-        // Replaces the value of a top-level key ("  \"key\": value" at two spaces), keeping comments and the other
-        // lines. Adds the key at the end when it is missing. valueJson must be valid JSON.
-        public static void SetTopLevel(string avatarTable, string key, string valueJson)
-        {
-            var text = File.ReadAllText(avatarTable);
-            var m = System.Text.RegularExpressions.Regex.Match(text, "(?m)^  \"" + System.Text.RegularExpressions.Regex.Escape(key) + "\":[ \\t]*");
-            if (m.Success)
-            {
-                var start = m.Index + m.Length;
-                var end = ValueEnd(text, start);
-                text = text.Substring(0, start) + valueJson + text.Substring(end);
-            }
-            else
-            {
-                var last = text.LastIndexOf('}');
-                text = text.Substring(0, last).TrimEnd() + ",\n  \"" + key + "\": " + valueJson + "\n}\n";
-            }
-            File.WriteAllText(avatarTable, text);
-            TableLoader.Read(avatarTable);  // still valid JSON
-            AssetDatabase.ImportAsset(avatarTable);
-        }
-
-        // End index (exclusive) of the JSON value that starts at i.
-        static int ValueEnd(string t, int i)
-        {
-            if (t[i] == '{' || t[i] == '[')
-            {
-                int depth = 0; var inStr = false;
-                for (int k = i; k < t.Length; k++)
-                {
-                    var c = t[k];
-                    if (inStr) { if (c == '\\') k++; else if (c == '"') inStr = false; continue; }
-                    if (c == '"') inStr = true;
-                    else if (c == '{' || c == '[') depth++;
-                    else if ((c == '}' || c == ']') && --depth == 0) return k + 1;
-                }
-                throw new FormatException("unbalanced value");
-            }
-            if (t[i] == '"')
-            {
-                for (int k = i + 1; k < t.Length; k++)
-                {
-                    if (t[k] == '\\') { k++; continue; }
-                    if (t[k] == '"') return k + 1;
-                }
-                throw new FormatException("unterminated string");
-            }
-            int e = i;
-            while (e < t.Length && t[e] != ',' && t[e] != '\n' && t[e] != '}') e++;
-            return e;
-        }
-
-        // Copies the two templates from the package to Settings/<name>/ and returns the avatar table path.
-        public static string CreateFromTemplates(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-                throw new ArgumentException("invalid name: " + name);
-            var dir = $"{Paths.SettingsRoot}/{name}";
-            if (Directory.Exists(dir)) throw new IOException(dir + " already exists");
-            Directory.CreateDirectory(dir);
-            foreach (var t in new[] { "expression", "avatar" })
-            {
-                var text = File.ReadAllText($"{Paths.Templates}/{t}.template.jsonc");
-                if (t == "avatar") text = text.Replace("\"name\": \"MyAvatar\"", $"\"name\": \"{name}\"");
-                File.WriteAllText($"{dir}/{t}.jsonc", text);
-            }
-            AssetDatabase.Refresh();
-            return dir + "/avatar.jsonc";
+            EditorGUILayout.HelpBox(EditorText.Get("gen.curvesNote"), MessageType.None);
         }
     }
 }

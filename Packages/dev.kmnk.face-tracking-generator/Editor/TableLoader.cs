@@ -56,7 +56,13 @@ namespace Kmnk.FaceTrackingGenerator
         public static JObject Read(string path)
         {
             if (!File.Exists(path)) throw new TableException("table not found: " + path);
-            using (var reader = new JsonTextReader(new StringReader(File.ReadAllText(path))))
+            return Parse(File.ReadAllText(path), path);
+        }
+
+        // Parses a table's text as Read does (comments allowed, duplicate keys refused). path is for messages.
+        public static JObject Parse(string text, string path)
+        {
+            using (var reader = new JsonTextReader(new StringReader(text)))
             {
                 try
                 {
@@ -115,62 +121,9 @@ namespace Kmnk.FaceTrackingGenerator
             return new AssetRef { Guid = OptStr(o, "guid", null), Path = OptStr(o, "path", null) };
         }
 
-        // ---- left/right pairs
-
-        static IEnumerable<(string name, JToken value)> Expand(JObject container, string file)
-        {
-            foreach (var p in container.Properties())
-            {
-                if (!(p.Value is JObject entry) || entry["sides"] == null)
-                {
-                    yield return (p.Name, p.Value);
-                    continue;
-                }
-                var sides = new List<Dictionary<string, string>>();
-                if (entry["sides"] is JArray arr)
-                    foreach (var s in arr) sides.Add(new Dictionary<string, string> { ["side"] = (string)s });
-                else if (entry["sides"] is JObject so)
-                    foreach (var sp in so.Properties())
-                    {
-                        var vars = new Dictionary<string, string> { ["side"] = sp.Name };
-                        if (sp.Value is JObject vo) foreach (var vp in vo.Properties()) vars[vp.Name] = (string)vp.Value;
-                        sides.Add(vars);
-                    }
-                else throw new TableException($"{file}: '{entry.Path}.sides' must be an array or an object");
-
-                foreach (var vars in sides)
-                {
-                    var name = Sub(p.Name, vars);
-                    if (name == p.Name) throw new TableException($"{file}: '{entry.Path}' has sides but its name has no {{side}}");
-                    var clone = (JObject)entry.DeepClone();
-                    clone.Remove("sides");
-                    yield return (name, SubToken(clone, vars));
-                }
-            }
-        }
-
-        static string Sub(string s, Dictionary<string, string> vars)
-        {
-            foreach (var kv in vars) s = s.Replace("{" + kv.Key + "}", kv.Value);
-            return s;
-        }
-
-        static JToken SubToken(JToken t, Dictionary<string, string> vars)
-        {
-            switch (t)
-            {
-                case JObject o:
-                    var n = new JObject();
-                    foreach (var p in o.Properties()) n.Add(Sub(p.Name, vars), SubToken(p.Value, vars));
-                    return n;
-                case JArray a:
-                    return new JArray(a.Select(x => SubToken(x, vars)));
-                case JValue v when v.Type == JTokenType.String:
-                    return new JValue(Sub((string)v, vars));
-                default:
-                    return t.DeepClone();
-            }
-        }
+        // An asset reference as written in a table ({"guid", "path"}), or null when it is not one.
+        public static AssetRef AssetRefOf(JToken t) =>
+            t is JObject o ? new AssetRef { Guid = (string)o["guid"], Path = (string)o["path"] } : null;
 
         // ---- avatar layer
 
@@ -179,10 +132,11 @@ namespace Kmnk.FaceTrackingGenerator
             m.AvatarName = Str(a, "name", file);
             m.Prefab = Ref(a["prefab"], file);
             if (m.Prefab == null) throw new TableException($"{file}: 'prefab' is required");
-            m.OutputFolder = OptStr(a, "outputFolder", "Assets/FaceTrackingGeneratorOutput/" + m.AvatarName);
+            m.OutputFolder = OptStr(a, "outputFolder", FtNames.OutputRoot + m.AvatarName);
             m.MenuFolder = m.OutputFolder;
+            m.AssetMenuFolder = m.OutputFolder;
             // The Prefab Variant goes into the output folder unless the table says where.
-            m.VariantPath = OptStr(a, "variant", $"{m.OutputFolder}/{m.AvatarName}_FT.prefab");
+            m.VariantPath = OptStr(a, "variant", FtNames.Variant(m.OutputFolder, m.AvatarName));
             m.DefaultMesh = OptStr(a, "mesh", null);
             Removed(a, file, "gaze", "the eyes move in the Face Tracking section");
             Removed(a, file, "stopAutoEyes", "the eyelids move in the Face Tracking section");
@@ -280,9 +234,21 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (!(o["stateMachines"] is JObject sms)) throw new TableException($"{file}: 'stateMachines' must be an object");
                 foreach (var sp in sms.Properties())
+                {
+                    // The name goes into Blendshapes Set, parameter, layer and menu asset names (as the State Machine
+                    // window allows them).
+                    if (!IsMachineName(sp.Name))
+                        throw new TableException($"{file}: 'stateMachines.{sp.Name}': a state machine name is letters, digits and _ only");
+                    var same = m.StateMachines.FirstOrDefault(x => string.Equals(x.Name, sp.Name, StringComparison.OrdinalIgnoreCase));
+                    if (same != null)
+                        throw new TableException($"{file}: 'stateMachines.{sp.Name}': the name differs from '{same.Name}' only in capitals (their menu files would be the same)");
                     m.StateMachines.Add(StateMachine(sp, m, file));
+                }
             }
         }
+
+        // A state machine name: letters, digits and _.
+        public static bool IsMachineName(string name) => !string.IsNullOrEmpty(name) && System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z0-9_]+$");
 
         // Rows of a region: tracking key -> "part", {"part", "strength"} or (override only) null for "Don't move". The
         // strength is a number for both devices or {"vr": n, "desktop": n} (a device not written: 1).
@@ -392,7 +358,7 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var c in (t["when"] as JArray ?? new JArray()).OfType<JArray>())
                 {
                     if (c.Count != 3 && c.Count != 4) throw new TableException($"{file}: '{c.Path}' must be [tracking key, \">\" or \"<\", value]");
-                    // The Face Tracking section's key ("v2/" may be written, as in neutral).
+                    // The Face Tracking section's key ("v2/" may be written here; neutral's rows refuse it).
                     var cond = new Condition { Input = NativeInputs.NameOf((string)c[0]), Op = (string)c[1], Value = Num(c[2], file) };
                     // The desktop value of 0.13.x development builds: a transition for one device is written with "device".
                     if (c.Count == 4)

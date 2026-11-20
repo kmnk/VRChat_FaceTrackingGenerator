@@ -43,7 +43,7 @@ namespace Kmnk.FaceTrackingGenerator
         float lift = 0.03f, yaw;
         int lastSize;
 
-        [MenuItem("Tools/Kmnk/Face Tracking Face View")]
+        [MenuItem("Tools/Kmnk/Face Tracking Face View", false, 3)]
         public static FaceViewWindow Open()
         {
             var w = GetWindow<FaceViewWindow>("FT Face View");

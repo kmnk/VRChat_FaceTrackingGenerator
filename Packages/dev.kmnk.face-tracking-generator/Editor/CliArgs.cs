@@ -6,9 +6,12 @@ namespace Kmnk.FaceTrackingGenerator
     // Reads "-name value" pairs from the Unity command line.
     static class CliArgs
     {
+        // Arguments used in place of the command line (development checks that call several commands in one run).
+        internal static string[] Override;
+
         public static string Get(string name, string def = null)
         {
-            var a = Environment.GetCommandLineArgs();
+            var a = Override ?? Environment.GetCommandLineArgs();
             var i = Array.IndexOf(a, name);
             return i >= 0 && i + 1 < a.Length ? a[i + 1] : def;
         }

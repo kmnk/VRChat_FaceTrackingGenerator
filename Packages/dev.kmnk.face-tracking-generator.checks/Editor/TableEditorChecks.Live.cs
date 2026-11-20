@@ -107,7 +107,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (tablePath != null && values != null)
                     {
                         var model = TableLoader.Load(tablePath);
-                        var inputs = LiveInputs(values);
+                        var inputs = OscFace.Inputs(values);
                         var states = new SwitchTracker().Update(model, inputs);
                         var weights = FaceEval.Evaluate(model, inputs, states);
                         Debug.Log("[FTG] live: states " + string.Join(",", states.Select(kv => kv.Key + "=" + kv.Value)));
@@ -136,15 +136,6 @@ namespace Kmnk.FaceTrackingGenerator
             Debug.Log($"[FTG] live: failed={failed}");
             return failed == 0 ? 0 : 1;
         });
-
-        // The Preview's inputs ("key:<key>") from the 102 received values, as the settings editor fills them.
-        internal static Dictionary<string, float> LiveInputs(float[] values)
-        {
-            var inputs = new Dictionary<string, float>();
-            var names = NativeKeys.Names.ToList();
-            for (int i = 0; i < names.Count && i < values.Length; i++) inputs[InputDef.TrackPrefix + names[i]] = values[i];
-            return inputs;
-        }
 
         // A received value against an expected one: the sender sends round(v x 255) / 255.
         static bool Near(float got, float expected) => Math.Abs(got - (float)Math.Round(expected * 255) / 255) < 1e-4f;

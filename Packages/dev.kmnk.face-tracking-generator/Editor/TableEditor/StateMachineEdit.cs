@@ -104,7 +104,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // A state machine name: letters, digits and _ (it goes into Blendshapes Set, parameter and menu asset names).
-        public static bool IsMachineName(string name) => !string.IsNullOrEmpty(name) && System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z0-9_]+$");
+        public static bool IsMachineName(string name) => TableLoader.IsMachineName(name);
 
         // Another state machine has the name, without regard to capitals (the menu asset files would collide).
         public static bool MachineNameUsed(JObject e, string name, string except = null) =>

@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // Resolved model of the three tables (input, expression, avatar). TableLoader builds it.
+    // Resolved model of the two tables (expression, avatar). TableLoader builds it.
 
     public sealed class InputDef
     {
@@ -12,7 +12,6 @@ namespace Kmnk.FaceTrackingGenerator
         public string Parameter;        // Animator parameter the generated layers read: FT/In/<Name> (Forward to Animator writes it)
         public string Expression;       // Custom expression from the tracking keys
         public bool ExpressionFromTable;  // true: the table's "expression"; false: built in (NativeInputs)
-        public string Sync;             // "none" or "float8" as written in the table. Not used: inputs come from the Face Tracking section and are not synced
         // A tracking key used by the rows of neutral and the states (name "key:<key>"). Never
         // forwarded to the Animator. Used by the settings editor and FaceEval as the key's value.
         public bool IsTrack;
@@ -149,9 +148,12 @@ namespace Kmnk.FaceTrackingGenerator
         public AssetRef Prefab;
         public string VariantPath;
         public string OutputFolder;
-        // The folder of the state machines' submenus (Menus/<name>.asset). The build-time output changes OutputFolder
-        // but not this, so that the avatar's menu points to one asset.
+        // The folder of the state machines' submenus (Menus/<name>.asset): the output folder (Build/ for the build-time
+        // output, so that a build does not write the asset output).
         public string MenuFolder;
+        // Where the asset output keeps them. The build-time output does not add a state submenu again when the avatar's
+        // own menu already has this one (the "Add toggles to menu" button of 0.16.x and earlier wrote it there).
+        public string AssetMenuFolder;
         public string DefaultMesh;
         public SortedDictionary<string, PartTarget> Parts = new SortedDictionary<string, PartTarget>(System.StringComparer.Ordinal);
         public string FaceTrackParameter = "FaceTrack";

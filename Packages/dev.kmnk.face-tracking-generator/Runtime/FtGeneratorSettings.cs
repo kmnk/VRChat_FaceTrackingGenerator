@@ -7,6 +7,7 @@ namespace Kmnk.FaceTrackingGenerator
     // Points to the avatar table only; it is not uploaded.
     [DisallowMultipleComponent]
     [AddComponentMenu("Kmnk/Face Tracking Generator Settings")]
+    [HelpURL("https://github.com/kmnk/VRChat_FaceTrackingGenerator#use")]
     public sealed class FtGeneratorSettings : MonoBehaviour, IEditorOnly
     {
         [Tooltip("Asset path of the avatar table (avatar.jsonc)")]

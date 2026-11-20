@@ -100,13 +100,13 @@ namespace Kmnk.FaceTrackingGenerator
         static IEnumerable<(AnimatorStateMachine, AnimatorState)> States(AnimatorStateMachine root) =>
             Machines(root).SelectMany(sm => sm.states.Select(s => (sm, s.state)));
 
-        // Fills the empty ones of the six AFK clips of the avatar table; returns the result lines (spec-afk R4).
-        public static List<string> FillTable(string avatarTable, VRCAvatarDescriptor desc)
+        // The six AFK clips of the avatar table, in the order of "afkClips".
+        public static readonly string[] AfkKeys = { "actionIntro", "actionLoop", "actionOutro", "fxIntro", "fxLoop", "fxOutro" };
+
+        // Fills the empty ones of the six AFK clips from the avatar's own AFK layers; returns whether it filled any
+        // (spec-afk R4). The result lines go to log.
+        public static bool Fill(AnimationClip[] clips, VRCAvatarDescriptor desc, List<string> log)
         {
-            var log = new List<string>();
-            var c = TableLoader.Load(avatarTable).AfkClips;
-            var clips = new[] { c.ActionIntro, c.ActionLoop, c.ActionOutro, c.FxIntro, c.FxLoop, c.FxOutro }.Select(AfkBuilder.Load).ToArray();
-            var keys = new[] { "actionIntro", "actionLoop", "actionOutro", "fxIntro", "fxLoop", "fxOutro" };
             var changed = false;
             foreach (var (type, label, at) in new[] { (VRCAvatarDescriptor.AnimLayerType.Action, "Action", 0), (VRCAvatarDescriptor.AnimLayerType.FX, "FX", 3) })
             {
@@ -119,7 +119,7 @@ namespace Kmnk.FaceTrackingGenerator
                 var got = new[] { f0.Intro, f0.Loop, f0.Outro };
                 for (int i = 0; i < 3; i++)
                 {
-                    var k = keys[at + i];
+                    var k = AfkKeys[at + i];
                     if (clips[at + i] != null) { log.Add($"afk {k}: kept"); continue; }
                     if (got[i] == null) { log.Add($"afk {k}: none ({label}: {ctrl.name}/{f0.Layer})"); continue; }
                     clips[at + i] = got[i];
@@ -127,8 +127,7 @@ namespace Kmnk.FaceTrackingGenerator
                     log.Add($"afk {k}: {AssetDatabase.GetAssetPath(got[i])} ({label}: {ctrl.name}/{f0.Layer})");
                 }
             }
-            if (changed) TableWriter.SetAfkClips(avatarTable, clips);
-            return log;
+            return changed;
         }
     }
 }

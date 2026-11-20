@@ -12,11 +12,7 @@ namespace Kmnk.FaceTrackingGenerator
     {
         public enum Problem { None, Form, Used, Region }
 
-        // The old -> new names this rename writes. (The "together" of left/right pairs was removed in 0.12.0.)
-        public static Dictionary<string, string> Map(IEnumerable<string> allNames, string from, string to, bool together = false) =>
-            new Dictionary<string, string> { [from] = to };
-
-        public static Problem Check(JObject avatar, JObject expression, string from, string to, bool together = false, ICollection<string> extraNames = null)
+        public static Problem Check(JObject avatar, JObject expression, string from, string to, ICollection<string> extraNames = null)
         {
             var others = PartNames.Used(avatar, expression).Concat(extraNames ?? new string[0]).Where(n => n != from);
             switch (PartNames.Check(to, others))
@@ -42,9 +38,9 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // Renames in both tables. Returns the map of names it wrote, or null when Check finds a problem.
-        public static Dictionary<string, string> Apply(JObject avatar, JObject expression, string from, string to, bool together = false, ICollection<string> extraNames = null)
+        public static Dictionary<string, string> Apply(JObject avatar, JObject expression, string from, string to, ICollection<string> extraNames = null)
         {
-            if (Check(avatar, expression, from, to, together, extraNames) != Problem.None) return null;
+            if (Check(avatar, expression, from, to, extraNames) != Problem.None) return null;
             void RenameKey(JObject o)
             {
                 var p = o?.Property(from);
@@ -73,7 +69,7 @@ namespace Kmnk.FaceTrackingGenerator
                     if (st["regions"] is JObject regions) foreach (var r in regions.Properties()) RenameValues(r.Value as JObject);
                     RenameKey(st["fixed"] as JObject);
                 }
-            return Map(null, from, to);
+            return new Dictionary<string, string> { [from] = to };
         }
     }
 }

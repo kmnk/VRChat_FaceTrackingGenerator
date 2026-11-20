@@ -37,13 +37,13 @@ namespace Kmnk.FaceTrackingGenerator
     // (FTG/<state machine>/<state>/<region>).
     public static class NativeSets
     {
-        public const string Prefix = "FTG/";
+        public const string Prefix = FtNames.SetPrefix;
         public const string NeutralName = "neutral";
         public const int MaxNameLength = 100;
         public const float MaxLerpSpeed = 100;
         // VRChat's built-in parameter: 1 in VR, 0 on desktop. With strengths per device, the sets of each side are on only
         // on that side; transitions for one device have it as a condition.
-        public const string SideParameter = "VRMode";
+        public const string SideParameter = FtNames.VRMode;
         public const string DesktopPrefix = Prefix + "desktop/";
 
         public sealed class Row
@@ -85,8 +85,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         // Whether a set has weight 1 on a side (FaceEval, the static checks): a set of both sides, or of that side.
         public static bool On(SetDef set, bool desktop) => set.Side == null || set.Side == (desktop ? Measurements.Desktop : Measurements.Vr);
-
-        public static string Region(string part) => PartNames.Region(part);
 
         // The rows of a region while a state overrides it: the neutral rows, with the state's rows in place of the same
         // keys (Don't move takes the key out) and the state's other keys added.
@@ -135,7 +133,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var sets = new List<SetDef>();
             var talk = new HashSet<string>(m.StopWhileTalking);
-            Cond Gate(string region) => new Cond { Param = talk.Contains(region) ? FtBuilder.MouthActive : FtBuilder.Active, High = true };
+            Cond Gate(string region) => new Cond { Param = talk.Contains(region) ? FtNames.MouthActive : FtNames.Active, High = true };
 
             SetDef Make(string name, string region, IEnumerable<TrackRow> rows)
             {
@@ -156,7 +154,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (set.Rows.Count == 0) continue;
                 var conds = new SortedSet<Cond> { Gate(kv.Key) };
                 var takers = Takers(m, kv.Key).ToList();
-                foreach (var (sm, st) in takers) conds.Add(new Cond { Param = FtBuilder.SwitchParam(sm.Name, st.Name), High = false });
+                foreach (var (sm, st) in takers) conds.Add(new Cond { Param = FtNames.SwitchParam(sm.Name, st.Name), High = false });
                 set.Conditions = conds.ToList();
                 set.LerpSpeed = Lerp(takers.Select(x => x.sm).Distinct());
                 sets.Add(set);
@@ -170,7 +168,7 @@ namespace Kmnk.FaceTrackingGenerator
                         if (set.Rows.Count == 0) continue;
                         set.StateMachine = sm.Name;
                         set.State = st.Name;
-                        set.Conditions = new SortedSet<Cond> { Gate(kv.Key), new Cond { Param = FtBuilder.SwitchParam(sm.Name, st.Name), High = true } }.ToList();
+                        set.Conditions = new SortedSet<Cond> { Gate(kv.Key), new Cond { Param = FtNames.SwitchParam(sm.Name, st.Name), High = true } }.ToList();
                         set.LerpSpeed = Lerp(new[] { sm });
                         sets.Add(set);
                     }

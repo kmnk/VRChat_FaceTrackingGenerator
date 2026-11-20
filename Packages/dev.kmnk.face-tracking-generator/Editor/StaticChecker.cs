@@ -160,9 +160,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         static void MissingShapes(TableModel m, List<string> f)
         {
-            var path = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
-            if (!string.IsNullOrEmpty(m.Prefab?.Guid) && m.Prefab.Path != null && path != m.Prefab.Path)
-                f.Add($"asset: prefab path in the table is {m.Prefab.Path}, but the guid points to {path}");
+            // A stale GUID is a warning of the generation log, not a finding: generation uses the path.
+            var path = AssetRefs.Path(m.Prefab, "prefab");
             var prefab = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null) { f.Add("asset: prefab not found: " + path); return; }
             foreach (var part in m.UsedParts().OrderBy(x => x, StringComparer.Ordinal))
@@ -185,7 +184,7 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- 2a. layer names in the table's "layers" that the avatar's controllers do not have (generation leaves them out)
         static void MissingLayers(TableModel m, List<string> f)
         {
-            var path = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
+            var path = AssetRefs.Path(m.Prefab, "prefab");
             var desc = string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path)?.GetComponent<VRCAvatarDescriptor>();
             if (desc == null) return;   // MissingShapes reports a missing prefab
             foreach (var (type, key) in new[] { (VRCAvatarDescriptor.AnimLayerType.FX, "fx"), (VRCAvatarDescriptor.AnimLayerType.Gesture, "gesture"), (VRCAvatarDescriptor.AnimLayerType.Action, "action") })

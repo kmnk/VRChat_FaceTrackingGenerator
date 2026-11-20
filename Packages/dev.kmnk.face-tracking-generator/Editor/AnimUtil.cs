@@ -125,43 +125,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         public AnimationClip EmptyClip(string name) => NewClip(name);
 
-        // A clip that moves one parameter (AAP) along keys (time, value), linear between them.
-        public AnimationClip CurveClip(string name, string param, bool loop, params (float time, float value)[] keys)
-        {
-            var clip = NewClip(name);
-            if (loop)
-            {
-                var settings = AnimationUtility.GetAnimationClipSettings(clip);
-                settings.loopTime = true;
-                AnimationUtility.SetAnimationClipSettings(clip, settings);
-            }
-            var curve = new AnimationCurve(keys.Select(k => new Keyframe(k.time, k.value)).ToArray());
-            for (int i = 0; i < curve.length; i++)
-            {
-                AnimationUtility.SetKeyLeftTangentMode(curve, i, AnimationUtility.TangentMode.Linear);
-                AnimationUtility.SetKeyRightTangentMode(curve, i, AnimationUtility.TangentMode.Linear);
-            }
-            AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve("", typeof(Animator), param), curve);
-            return clip;
-        }
-
-        // A clip that sets a parameter from 0 at time 0 to `length` at time `length` (linear).
-        public AnimationClip RampClip(string name, string param, float length, bool loop = false, params (string param, float value)[] constants)
-        {
-            var clip = NewClip(name);
-            if (loop)
-            {
-                var settings = AnimationUtility.GetAnimationClipSettings(clip);
-                settings.loopTime = true;
-                AnimationUtility.SetAnimationClipSettings(clip, settings);
-            }
-            var curve = AnimationCurve.Linear(0, 0, length, length);
-            AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve("", typeof(Animator), param), curve);
-            foreach (var (p, v) in constants)
-                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve("", typeof(Animator), p), Constant(v, length));
-            return clip;
-        }
-
         AnimationClip NewClip(string name)
         {
             if (clips.ContainsKey(name)) throw new System.InvalidOperationException("duplicate clip name: " + name);

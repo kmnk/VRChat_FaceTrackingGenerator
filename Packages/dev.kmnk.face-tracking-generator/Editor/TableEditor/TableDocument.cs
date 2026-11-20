@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // The three tables as JSON trees, for the table editor. Edits change the trees; nothing is written until Save.
+    // The two tables as JSON trees, for the table editor. Edits change the trees; nothing is written until Save.
     // The trees are edited, not TableModel: the model has left/right pairs expanded and rows dropped.
     public sealed class TableDocument
     {
@@ -107,6 +107,8 @@ namespace Kmnk.FaceTrackingGenerator
 
         // For Undo: the trees as text, and back.
         public string[] Snapshot() => Kinds.Select(k => JsonTableWriter.OneLine(entries[k].Json)).ToArray();
+        // The tables as last read or saved, in the same form.
+        public string[] SavedSnapshot() => Kinds.Select(k => entries[k].Saved).ToArray();
 
         public void Restore(string[] snapshot)
         {

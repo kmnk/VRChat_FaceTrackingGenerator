@@ -35,10 +35,9 @@ namespace Kmnk.FaceTrackingGenerator
                 var k = item.IndexOf('=');
                 var from = item.Substring(0, k);
                 var rest = new[] { item.Substring(k + 1) };
-                var together = false;
                 var before = doc.Model();
-                var problem = PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0], together);
-                var map = PartRename.Apply(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0], together);
+                var problem = PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0]);
+                var map = PartRename.Apply(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), from, rest[0]);
                 var diff = map != null ? MaxWeightDiff(before, doc.Model()) : 0f;
                 Debug.Log($"[FTG] parts rename {item}: problem={problem} map={(map == null ? "-" : string.Join(",", map.Select(kv => kv.Key + ">" + kv.Value)))} max-weight-diff={F(diff)}");
             }

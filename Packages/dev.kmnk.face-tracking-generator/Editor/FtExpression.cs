@@ -30,7 +30,7 @@ namespace Kmnk.FaceTrackingGenerator
             keys = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < (int)VRCAvatarDescriptor.FaceTrackingKey.Max; i++)
                 keys.Add(((VRCAvatarDescriptor.FaceTrackingKey)i).ToString());
-            names = new HashSet<string>(keys, StringComparer.Ordinal) { "Voice" };
+            names = new HashSet<string>(keys, StringComparer.Ordinal) { FtNames.Voice };
             for (int i = 0; i < (int)VRCAvatarDescriptor.Viseme.Count; i++)
                 names.Add(VRCAvatarDescriptor.GetFaceTrackingVisemeInputName((VRCAvatarDescriptor.Viseme)i));
         }

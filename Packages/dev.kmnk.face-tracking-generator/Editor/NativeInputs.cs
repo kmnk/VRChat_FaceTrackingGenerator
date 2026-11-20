@@ -10,7 +10,7 @@ namespace Kmnk.FaceTrackingGenerator
     public static class NativeInputs
     {
         // The parameter that the generated Animator reads for an input, and that Forward to Animator writes.
-        public const string ParameterPrefix = "FT/In/";
+        public const string ParameterPrefix = FtNames.InputPrefix;
         public const int MaxParameterLength = 64;  // the SDK inspector's limit on output parameter names
 
         const string Smile = "(MouthCornerPullLeft + MouthCornerPullRight) * 0.4 + (MouthCornerSlantLeft + MouthCornerSlantRight) * 0.1";

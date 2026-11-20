@@ -19,7 +19,7 @@ namespace Kmnk.FaceTrackingGenerator
     public static class VisemeStop
     {
         public const string SetName = NativeSets.Prefix + "visemes";
-        public const string LayerName = "FT/Visemes";
+        public const string LayerName = FtNames.VisemesLayer;
 
         public sealed class Plan
         {
@@ -196,24 +196,24 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var (smd, st) in states)
             {
                 var t = AnimUtil.Transition(on, stop);
-                t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtBuilder.Active);
+                t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtNames.Active);
                 OnDevice(t);
-                t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtBuilder.SwitchParam(smd.Name, st.Name));
+                t.AddCondition(AnimatorConditionMode.Greater, 0.5f, FtNames.SwitchParam(smd.Name, st.Name));
             }
-            AnimUtil.Transition(stop, on).AddCondition(AnimatorConditionMode.Less, 0.5f, FtBuilder.Active);
+            AnimUtil.Transition(stop, on).AddCondition(AnimatorConditionMode.Less, 0.5f, FtNames.Active);
             if (desktop != null)
                 AnimUtil.Transition(stop, on).AddCondition(desktop.Value ? AnimatorConditionMode.Greater : AnimatorConditionMode.Less, 0.5f, NativeSets.SideParameter);
             var none = AnimUtil.Transition(stop, on);
             foreach (var (smd, st) in states)
-                none.AddCondition(AnimatorConditionMode.Less, 0.5f, FtBuilder.SwitchParam(smd.Name, st.Name));
+                none.AddCondition(AnimatorConditionMode.Less, 0.5f, FtNames.SwitchParam(smd.Name, st.Name));
         }
 
         static void Weights(AnimatorState s, List<(string name, float weight)> sets, float lerp)
         {
-            for (int k = 0; k < sets.Count; k += FtBuilder.MaxSetsPerBehavior)
+            for (int k = 0; k < sets.Count; k += FtNames.MaxSetsPerBehavior)
             {
                 var b = s.AddStateMachineBehaviour<VRC.SDK3.Avatars.Components.VRCAnimatorFaceTrackingBlendshapesSet>();
-                b.blendSets = sets.Skip(k).Take(FtBuilder.MaxSetsPerBehavior).Select(x => new VRC_AnimatorFaceTrackingBlendshapesSet.BlendSet
+                b.blendSets = sets.Skip(k).Take(FtNames.MaxSetsPerBehavior).Select(x => new VRC_AnimatorFaceTrackingBlendshapesSet.BlendSet
                 {
                     blendshapesSetName = x.name,
                     type = VRC_AnimatorFaceTrackingBlendshapesSet.SourceType.Value,

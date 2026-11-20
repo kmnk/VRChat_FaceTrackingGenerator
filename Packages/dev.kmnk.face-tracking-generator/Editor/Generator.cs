@@ -74,9 +74,12 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var r = new Result();
             foreach (var n in m.Notes) r.Log.Add("note: " + n);
+            // The table's warnings, so that every entry point (the window, NDMF, the command line) shows them.
+            foreach (var w in m.Warnings) r.Log.Add("warning: " + w);
             var prefabPath = ResolvePath(m.Prefab, "prefab", r);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) ?? throw new TableLoader.TableException("prefab not found: " + prefabPath);
             var desc = prefab.GetComponent<VRCAvatarDescriptor>() ?? throw new TableLoader.TableException("no VRCAvatarDescriptor on " + prefabPath);
+            OutputFolderIsOwn(m, prefabPath, desc);
             Directory.CreateDirectory(m.OutputFolder);
 
             var afk = new AfkBuilder(m);
@@ -99,7 +102,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (layer.isDefault || layer.animatorController == null)
                     throw new TableLoader.TableException($"{prefabPath} has no {type} controller");
                 var src = AssetDatabase.GetAssetPath(layer.animatorController);
-                var dest = $"{m.OutputFolder}/{type}.controller";
+                var dest = FtNames.Controller(m.OutputFolder, type.ToString());
                 AssetCopy.CopyKeepingGuid(src, dest);
                 var c = AssetDatabase.LoadAssetAtPath<AnimatorController>(dest);
                 foreach (var line in LayerPatcher.Apply(c, adj, m.FaceTrackParameter))
@@ -136,16 +139,20 @@ namespace Kmnk.FaceTrackingGenerator
                 r.Written.Add(dest);
             }
 
-            var exprPath = $"{m.OutputFolder}/ExpressionParameters.asset";
-            var expr = ExpressionParameters(m, desc.expressionParameters, exprPath, r);
+            var exprPath = FtNames.ExpressionParameters(m.OutputFolder);
+            // The menu decides which toggles and submenus go in, and each takes its parameter from the budget: a toggle
+            // is added only with its parameter, and a parameter only for a control the menu has (one place decides both).
+            var budget = ExpressionParameters(m, desc.expressionParameters, exprPath, r);
+            var budgetLogAt = r.Log.Count;
             r.Written.Add(exprPath);
             r.Controllers = outputs;
-            r.ExpressionParameters = expr;
             r.FaceTracking = NativeFtWriter.Build(m);
             r.FaceTracking.Visemes = visemes;
             r.Log.AddRange(SideLog(m, r.FaceTracking.Sets));
             foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
-            r.Menu = MenuBuilder.Build(m, desc.expressionsMenu, r.Log, r.Written);
+            r.Menu = MenuBuilder.Build(m, desc.expressionsMenu, r.Log, r.Written, budget, withAfk);
+            r.ExpressionParameters = budget.Write(m);
+            r.Log.InsertRange(budgetLogAt, budget.Log);
 
             if (writeVariant && m.VariantPath != null)
             {
@@ -156,20 +163,86 @@ namespace Kmnk.FaceTrackingGenerator
             return r;
         }
 
+        // The output folder is the generator's own: it must not hold the avatar's own prefab, controllers, menus or
+        // Expression Parameters (generating again writes and removes files there).
+        static void OutputFolderIsOwn(TableModel m, string prefabPath, VRCAvatarDescriptor desc)
+        {
+            var folder = m.OutputFolder.TrimEnd('/') + "/";
+            var own = new List<UnityEngine.Object> { desc.expressionParameters };
+            own.AddRange(desc.baseAnimationLayers.Select(l => (UnityEngine.Object)l.animatorController));
+            if (desc.expressionsMenu != null) own.AddRange(MenuBuilder.AllMenus(desc.expressionsMenu, new HashSet<VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionsMenu>()));
+            var paths = own.Where(o => o != null).Select(AssetDatabase.GetAssetPath).Append(prefabPath);
+            var inside = paths.FirstOrDefault(p => p != null && p.StartsWith(folder, StringComparison.Ordinal));
+            if (inside != null)
+                throw new TableLoader.TableException($"outputFolder {m.OutputFolder} holds the avatar's own {inside}; choose a folder for the generator only");
+        }
+
         static string ResolvePath(AssetRef a, string what, Result r)
         {
             if (a == null) throw new TableLoader.TableException(what + " is not set");
-            var byGuid = string.IsNullOrEmpty(a.Guid) ? null : AssetDatabase.GUIDToAssetPath(a.Guid);
-            if (!string.IsNullOrEmpty(byGuid))
-            {
-                if (a.Path != null && a.Path != byGuid) r.Log.Add($"warning: {what} path in the table is {a.Path}, but the guid points to {byGuid}");
-                return byGuid;
-            }
-            return a.Path ?? throw new TableLoader.TableException(what + " has neither guid nor path");
+            return AssetRefs.Path(a, what, r.Log) ?? throw new TableLoader.TableException(what + " has neither guid nor path");
         }
 
-        // Copies Expression Parameters without the FT inputs (R4).
-        static VRCExpressionParameters ExpressionParameters(TableModel m, VRCExpressionParameters src, string dest, Result r)
+        // The synced parameters the menu's controls need, added within the 256 bits of Expression Parameters.
+        public sealed class ParameterBudget
+        {
+            readonly VRCExpressionParameters asset;
+            readonly List<VRCExpressionParameters.Parameter> list;
+            readonly List<VRCExpressionParameters.Parameter> added = new List<VRCExpressionParameters.Parameter>();
+            readonly Dictionary<string, string> notices = new Dictionary<string, string>();
+            public readonly List<string> Log = new List<string>();
+
+            public ParameterBudget(VRCExpressionParameters asset, List<VRCExpressionParameters.Parameter> list) { this.asset = asset; this.list = list; }
+
+            // Whether the parameter is there (already, or added now). False when adding it would go over the limit.
+            public bool Take(string name, VRCExpressionParameters.ValueType type, float def)
+            {
+                if (list.Any(x => x.name == name) || added.Any(x => x.name == name)) return true;
+                var p = new VRCExpressionParameters.Parameter { name = name, valueType = type, defaultValue = def, saved = false, networkSynced = true };
+                var cost = Cost(list.Concat(added).Concat(new[] { p }));
+                if (cost > VRCExpressionParameters.MAX_PARAMETER_COST)
+                {
+                    notices[name] = $"notice: expression parameters: {name} not added; synced parameters would use {cost} bits (max {VRCExpressionParameters.MAX_PARAMETER_COST})";
+                    return false;
+                }
+                added.Add(p);
+                return true;
+            }
+
+            static int Cost(IEnumerable<VRCExpressionParameters.Parameter> ps)
+            {
+                var probe = ScriptableObject.CreateInstance<VRCExpressionParameters>();
+                probe.parameters = ps.ToArray();
+                var cost = probe.CalcTotalCost();
+                UnityEngine.Object.DestroyImmediate(probe);
+                return cost;
+            }
+
+            // Writes the asset: the avatar's parameters, then the added ones in a fixed order (state machine menus,
+            // the FT toggle, the AFK toggle), so that the file does not depend on the order the menu took them.
+            public VRCExpressionParameters Write(TableModel m)
+            {
+                var order = FtBuilder.WithMenu(m).Select(sm => FtNames.MenuParam(sm.Name)).Concat(new[] { m.FaceTrackParameter, m.AfkPlayParameter }).ToList();
+                foreach (var name in order)
+                {
+                    var p = added.FirstOrDefault(x => x.name == name);
+                    if (p != null)
+                    {
+                        list.Add(p);
+                        Log.Add($"expression parameters: added {name} ({(p.valueType == VRCExpressionParameters.ValueType.Int ? "Int" : "Bool")}, synced)");
+                    }
+                    else if (notices.TryGetValue(name, out var n)) Log.Add(n);
+                }
+                asset.parameters = list.ToArray();
+                EditorUtility.SetDirty(asset);
+                AssetDatabase.SaveAssets();
+                Log.Add($"expression parameters: {asset.CalcTotalCost()} bits");
+                return asset;
+            }
+        }
+
+        // Copies Expression Parameters without the FT inputs (R4). The FT parameters are added by the budget it returns.
+        static ParameterBudget ExpressionParameters(TableModel m, VRCExpressionParameters src, string dest, Result r)
         {
             if (src == null) throw new TableLoader.TableException("the avatar has no Expression Parameters");
             AssetCopy.CopyKeepingGuid(AssetDatabase.GetAssetPath(src), dest);
@@ -188,36 +261,9 @@ namespace Kmnk.FaceTrackingGenerator
                     r.Log.Add("expression parameters: removed " + x.name);
                 }
             }
-            // The menu of each state machine with menu states: an Int that the submenu's toggles set (design.md "メニューとパラメータ").
-            foreach (var sm in FtBuilder.WithMenu(m))
-            {
-                var name = FtBuilder.MenuParam(sm.Name);
-                list.RemoveAll(x => x.name == name);
-                list.Add(new VRCExpressionParameters.Parameter { name = name, valueType = VRCExpressionParameters.ValueType.Int, defaultValue = 0, saved = false, networkSynced = true });
-                r.Log.Add("expression parameters: added " + name + " (Int, synced)");
-            }
-            // The FT toggle and the AFK toggle that MenuBuilder puts in the menu (synced Bools, as the avatar's own toggles).
-            foreach (var (name, def) in new[] { (m.FaceTrackParameter, 1f), (m.AfkPlayParameter, 0f) })
-            {
-                if (list.Any(x => x.name == name)) continue;
-                var with = list.Concat(new[] { new VRCExpressionParameters.Parameter { name = name, valueType = VRCExpressionParameters.ValueType.Bool, defaultValue = def, saved = false, networkSynced = true } }).ToArray();
-                var probe = ScriptableObject.CreateInstance<VRCExpressionParameters>();
-                probe.parameters = with;
-                var cost = probe.CalcTotalCost();
-                UnityEngine.Object.DestroyImmediate(probe);
-                if (cost > VRCExpressionParameters.MAX_PARAMETER_COST)
-                {
-                    r.Log.Add($"notice: expression parameters: {name} not added; synced parameters would use {cost} bits (max {VRCExpressionParameters.MAX_PARAMETER_COST})");
-                    continue;
-                }
-                list = with.ToList();
-                r.Log.Add("expression parameters: added " + name + " (Bool, synced)");
-            }
-            p.parameters = list.ToArray();
-            EditorUtility.SetDirty(p);
-            AssetDatabase.SaveAssets();
-            r.Log.Add($"expression parameters: {p.CalcTotalCost()} bits");
-            return p;
+            // The menu of each state machine is written again by the budget (an Int that the submenu's toggles set).
+            foreach (var sm in FtBuilder.WithMenu(m)) list.RemoveAll(x => x.name == FtNames.MenuParam(sm.Name));
+            return new ParameterBudget(p, list);
         }
 
         static void Variant(GameObject prefab, string path, Result r)
@@ -238,7 +284,7 @@ namespace Kmnk.FaceTrackingGenerator
         // A Prefab Variant for the build-time output: the avatar's own controllers, plus FtGeneratorSettings.
         public static string BuildVariant(TableModel m, string path)
         {
-            var prefabPath = !string.IsNullOrEmpty(m.Prefab?.Guid) ? AssetDatabase.GUIDToAssetPath(m.Prefab.Guid) : m.Prefab?.Path;
+            var prefabPath = AssetRefs.Path(m.Prefab, "prefab");
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) ?? throw new TableLoader.TableException("prefab not found: " + prefabPath);
             var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             try

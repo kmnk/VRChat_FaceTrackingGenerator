@@ -65,7 +65,7 @@ namespace Kmnk.FaceTrackingGenerator
                     }
                 }
             }
-            if (list.Count == 0) EditorGUILayout.LabelField(EditorText.Get("devices.noRecords"), EditorStyles.wordWrappedMiniLabel);
+            if (list.Count == 0) EditorGUILayout.LabelField(EditorText.Get("devices.noRecords"), EditorStyles.wordWrappedLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
                 foreach (var side in Measurements.Sides)

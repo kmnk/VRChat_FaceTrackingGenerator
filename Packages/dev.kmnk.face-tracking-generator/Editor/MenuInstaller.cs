@@ -11,7 +11,7 @@ namespace Kmnk.FaceTrackingGenerator
     // generated menu. Before 0.17.0 an "Add toggles to menu" button wrote the toggles into the avatar's own menu (R28).
     public static class MenuInstaller
     {
-        public static string StateMenuPath(TableModel m, string sm) => $"{m.MenuFolder}/Menus/{sm}.asset";
+        public static string StateMenuPath(TableModel m, string sm) => $"{m.MenuFolder}/{FtNames.StateMenusFolder}/{sm}.asset";
 
         static VRCExpressionsMenu LoadOrCreateMenu(string path)
         {
@@ -38,17 +38,17 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     name = st.Name,
                     type = VRCExpressionsMenu.Control.ControlType.Toggle,
-                    parameter = new VRCExpressionsMenu.Control.Parameter { name = FtBuilder.MenuParam(sm.Name) },
+                    parameter = new VRCExpressionsMenu.Control.Parameter { name = FtNames.MenuParam(sm.Name) },
                     value = sm.MenuValue(st.Name),
                     subParameters = new VRCExpressionsMenu.Control.Parameter[0],
                     labels = new VRCExpressionsMenu.Control.Label[0],
                 }).ToList();
                 EditorUtility.SetDirty(sub);
-                log.Add($"menu: {path}: {sub.controls.Count} toggles on {FtBuilder.MenuParam(sm.Name)}");
+                log.Add($"menu: {path}: {sub.controls.Count} toggles on {FtNames.MenuParam(sm.Name)}");
                 written.Add(path);
             }
             AssetDatabase.SaveAssets();
-            MenuBuilder.RemoveOthers($"{m.MenuFolder}/Menus", written, log);
+            MenuBuilder.RemoveOthers($"{m.MenuFolder}/{FtNames.StateMenusFolder}", written, log);
             return written;
         }
     }

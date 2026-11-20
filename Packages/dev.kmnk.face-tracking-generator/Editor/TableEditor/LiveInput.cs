@@ -16,6 +16,15 @@ namespace Kmnk.FaceTrackingGenerator
     // 8-byte time tag, then (size, element) pairs, and an element may be a bundle.
     public static class OscFace
     {
+        // The Preview's inputs ("key:<key>") from the 102 received values, as the settings editor fills them.
+        internal static System.Collections.Generic.Dictionary<string, float> Inputs(float[] values)
+        {
+            var inputs = new System.Collections.Generic.Dictionary<string, float>();
+            var names = System.Linq.Enumerable.ToList(NativeKeys.Names);
+            for (int i = 0; i < names.Count && i < values.Length; i++) inputs[InputDef.TrackPrefix + names[i]] = values[i];
+            return inputs;
+        }
+
         public const string Address = "/tracking/face/v1";
         public const int Length = 102;
 

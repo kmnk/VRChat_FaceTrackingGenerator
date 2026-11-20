@@ -11,8 +11,8 @@ namespace Kmnk.FaceTrackingGenerator
     // Recordings of ft-measure (https://github.com/kmnk/ft-measure, JSON Lines, format_version 1) that the avatar table
     // assigns to VR or desktop ("measurements": [{"file", "side"}]). The files of a side are merged from their raw values,
     // and give per tracking key: whether it was sent, the neutral face's value, the largest value of the full faces, and
-    // the largest value while reading with a neutral face. The tables are written for the main side; the other side's
-    // thresholds (Thresholds) and Blendshapes Sets' strength are computed from them (design.md "集計").
+    // the largest value while reading with a neutral face. The settings editor shows them (the Devices tab and the Preview's
+    // ranges); the generated output does not use them.
     public sealed class Measurements
     {
         public const string Vr = "vr", Desktop = "desktop";
@@ -68,7 +68,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         public readonly List<FileEntry> Files = new List<FileEntry>();
         public Side VrSide, DesktopSide;
-        public bool HasBoth => VrSide != null && DesktopSide != null;
         public bool Any => VrSide != null || DesktopSide != null;
 
         public Side Of(string side) => side == Vr ? VrSide : side == Desktop ? DesktopSide : null;

@@ -1,0 +1,15 @@
+{
+  "name": "dev.kmnk.face-tracking-generator.checks",
+  "displayName": "Face Tracking Generator Checks",
+  "version": "0.19.0",
+  "unity": "2022.3",
+  "description": "Development checks for Face Tracking Generator. Not part of the released package.",
+  "author": {
+    "name": "kmnk",
+    "url": "https://github.com/kmnk"
+  },
+  "license": "MIT",
+  "vpmDependencies": {
+    "dev.kmnk.face-tracking-generator": "0.19.0"
+  }
+}

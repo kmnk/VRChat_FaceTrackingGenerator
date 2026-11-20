@@ -58,7 +58,7 @@ namespace Kmnk.FaceTrackingGenerator
         internal static TableEditorWindow Current { get; private set; }
         internal static event Action Changed;
 
-        [MenuItem("Tools/Kmnk/Face Tracking Settings Editor")]
+        [MenuItem("Tools/Kmnk/Face Tracking Settings Editor", false, 1)]
         static void Open() => GetWindow<TableEditorWindow>("FT Settings Editor");
 
         // Opens the settings editor on a table (the generator window's "Open Settings Editor").
@@ -90,11 +90,49 @@ namespace Kmnk.FaceTrackingGenerator
             var path = ProjectSelection.TablePath;
             if (path != null) table = AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
             Load();
+            RestoreUnsaved();
             RestoreAvatar();
+        }
+
+        // Unsaved edits kept over a domain reload (entering Play Mode, compiling scripts): the window's serialized
+        // fields survive it, and OnEnable puts the edits back when the files on disk are still as they were.
+        [SerializeField] string keptTable;
+        [SerializeField] string[] keptEdits, keptSaved, keptRemovedParts, keptRemovedValues, keptPending;
+
+        void KeepUnsaved()
+        {
+            keptTable = null;
+            if (doc == null || !doc.IsDirty()) return;
+            keptTable = doc.AvatarPath;
+            keptEdits = doc.Snapshot();
+            keptSaved = doc.SavedSnapshot();
+            keptRemovedParts = removedParts.Keys.ToArray();
+            keptRemovedValues = removedParts.Values.Select(v => v.ToString(Newtonsoft.Json.Formatting.None)).ToArray();
+            keptPending = pendingParts.ToArray();
+        }
+
+        void RestoreUnsaved()
+        {
+            var path = keptTable;
+            keptTable = null;
+            if (path == null || doc == null || doc.AvatarPath != path) return;
+            if (keptSaved == null || !doc.SavedSnapshot().SequenceEqual(keptSaved))
+            {
+                Debug.Log($"[FTG] settings editor: the unsaved edits of {path} were not put back: the files changed on disk");
+                return;
+            }
+            doc.Restore(keptEdits);
+            state.snapshot = doc.Snapshot();
+            for (int i = 0; i < keptRemovedParts.Length && i < keptRemovedValues.Length; i++) removedParts[keptRemovedParts[i]] = JToken.Parse(keptRemovedValues[i]);
+            foreach (var p in keptPending) pendingParts.Add(p);
+            SaveRemoved();
+            Rebuild();
+            UpdateDirty();
         }
 
         void OnDisable()
         {
+            KeepUnsaved();
             StopLive();
             preview.Stop();
             if (Current == this) { Current = null; Changed?.Invoke(); }
@@ -184,6 +222,11 @@ namespace Kmnk.FaceTrackingGenerator
             removedParts.Clear();
             switches.Reset();
             UpdateDirty();
+            // The Undo history of the previous table (or of the same table before reading it again) must not flow
+            // into this one: the edits were recorded on the old state object, which goes away with them.
+            if (state != null) { Undo.ClearUndo(state); DestroyImmediate(state); }
+            state = CreateInstance<TableEditState>();
+            state.hideFlags = HideFlags.HideAndDontSave;
             if (TablePath == null) return;
             try
             {
@@ -211,9 +254,6 @@ namespace Kmnk.FaceTrackingGenerator
         // Whether the Preview runs as desktop (spec R20): the device chosen is desktop's ("Desktop (records)" or Selfie
         // Expression). Live input runs as VR (spec "置いた前提").
         internal bool PreviewDesktop => !LiveRunning && Devices.IsDesktop(model, captureDevice ?? EditorPrefs.GetString(DevicePrefKey, ""));
-
-        Devices.Device ChosenDevice(List<Devices.Device> devices) =>
-            devices.FirstOrDefault(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, "")));
 
         internal bool PreviewRunning => preview.Running;
 
@@ -259,15 +299,14 @@ namespace Kmnk.FaceTrackingGenerator
             FaceView.Show(model, Prefab(), weights, $"{sm} = {st}");
         }
 
-        // For TableEditorChecks.Capture: the tab.
-        internal string TabState() => $"tab={Tabs[tab]}";
-
         // ---- Face View
 
         static readonly Dictionary<string, float> NoWeights = new Dictionary<string, float>();
 
         void ShowSelected()
         {
+            // The selected row's face replaces a state's face that the State Machine window showed.
+            stateShown = null;
             if (model == null) { FaceView.Clear(); return; }
             if (ShowLiveFace()) return;
             var avatar = doc.Json(TableDocument.Avatar);
@@ -293,6 +332,7 @@ namespace Kmnk.FaceTrackingGenerator
             Undo.RecordObject(state, undoName);
             edit(doc.Json(kind));
             state.snapshot = doc.Snapshot();
+            SaveRemoved();
             EditorUtility.SetDirty(state);
             Rebuild();
             UpdateDirty();
@@ -300,10 +340,25 @@ namespace Kmnk.FaceTrackingGenerator
             Repaint();
         }
 
+        // removedParts lives in the window; the Undo state keeps a copy of it with each edit.
+        void SaveRemoved()
+        {
+            state.removedParts = removedParts.Keys.ToArray();
+            state.removedValues = removedParts.Values.Select(v => v.ToString(Newtonsoft.Json.Formatting.None)).ToArray();
+        }
+
+        void LoadRemoved()
+        {
+            removedParts.Clear();
+            for (int i = 0; i < state.removedParts.Length && i < state.removedValues.Length; i++)
+                removedParts[state.removedParts[i]] = JToken.Parse(state.removedValues[i]);
+        }
+
         void OnUndoRedo()
         {
             if (doc == null || state == null) return;
             doc.Restore(state.snapshot);
+            LoadRemoved();
             Rebuild();
             UpdateDirty();
             Repaint();
@@ -551,20 +606,18 @@ namespace Kmnk.FaceTrackingGenerator
 
             Heading("Avatar");
             Help("help.avatar");
-            EditorGUI.BeginChangeCheck();
-            var newPrefab = (GameObject)EditorGUILayout.ObjectField(EditorText.Label("Prefab", "tip.prefab"), prefab, typeof(GameObject), false);
-            if (EditorGUI.EndChangeCheck())
+            using (new EditorGUILayout.HorizontalScope())
             {
-                var path = newPrefab != null ? AssetDatabase.GetAssetPath(newPrefab) : null;
-                Edit("Set FT prefab", a => TableEdits.SetAssetRef(a, "prefab", path != null ? AssetDatabase.AssetPathToGUID(path) : null, path));
-                prefab = newPrefab;
-            }
-            EditorGUI.BeginChangeCheck();
-            var menu = (VRCExpressionsMenu)EditorGUILayout.ObjectField(EditorText.Label("Menu", "tip.menu"), LoadRef<VRCExpressionsMenu>(avatar["menu"]), typeof(VRCExpressionsMenu), false);
-            if (EditorGUI.EndChangeCheck())
-            {
-                var path = menu != null ? AssetDatabase.GetAssetPath(menu) : null;
-                Edit("Set FT menu", a => TableEdits.SetAssetRef(a, "menu", path != null ? AssetDatabase.AssetPathToGUID(path) : null, path));
+                EditorGUI.BeginChangeCheck();
+                var newPrefab = (GameObject)EditorGUILayout.ObjectField(EditorText.Label("Prefab", "tip.prefab"), prefab, typeof(GameObject), false);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    var path = newPrefab != null ? AssetDatabase.GetAssetPath(newPrefab) : null;
+                    Edit("Set FT prefab", a => TableEdits.SetAssetRef(a, "prefab", path != null ? AssetDatabase.AssetPathToGUID(path) : null, path));
+                    prefab = newPrefab;
+                }
+                using (new EditorGUI.DisabledScope(prefab == null))
+                    if (GUILayout.Button(new GUIContent("Fill from Prefab", EditorText.Get("tip.fill")), GUILayout.Width(110))) FillFromPrefab(prefab);
             }
             var meshes = prefab != null
                 ? prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r.sharedMesh != null && r.sharedMesh.blendShapeCount > 0)
@@ -580,8 +633,102 @@ namespace Kmnk.FaceTrackingGenerator
             }
             if (prefab == null) EditorGUILayout.HelpBox(EditorText.Get("msg.noPrefab"), MessageType.Warning);
 
+            DrawMenu(avatar);
+            DrawAfkClips(avatar);
             DrawParts(avatar, prefab, mesh);
             DrawLayers(avatar, prefab);
+        }
+
+        // "Fill from Prefab": the same values as Cli.FillFromAvatar, put into the table held here (one Undo step).
+        void FillFromPrefab(GameObject prefab)
+        {
+            try
+            {
+                var r = AvatarSetup.Fill(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), prefab);
+                Edit("Fill FT settings from prefab", a => AvatarSetup.Apply(a, r));
+                lastFill = r;
+                Debug.Log("[FTG] fill: " + string.Join(" | ", r.Log));
+            }
+            catch (Exception e) { Debug.LogException(e); EditorUtility.DisplayDialog("Fill from Prefab", e.Message, "OK"); }
+        }
+        internal AvatarSetup.FillResult lastFill;  // for the checks
+        int lastOverlaps;
+        float lastLabelWidth;
+
+        // For TableEditorChecks.Capture: what the Avatar and Preview tabs show.
+        internal string AvatarCaptureState()
+        {
+            var a = doc?.Json(TableDocument.Avatar);
+            var afk = AfkFinder.AfkKeys.Count(k => a?["afkClips"]?[k] is JObject);
+            return $"fill={(lastFill != null).ToString().ToLower()} afk={afk}/{AfkFinder.AfkKeys.Length} dirty={hasUnsavedChanges.ToString().ToLower()} subMenu={(a?["subMenu"]?.Type == JTokenType.String ? (string)a["subMenu"] : "null")}";
+        }
+        internal string PreviewCaptureState() => $"overlaps={lastOverlaps} label-width={lastLabelWidth:0}";
+        internal void FillForCapture() { var p = LoadRef<GameObject>(doc?.Json(TableDocument.Avatar)?["prefab"]); if (p != null) FillFromPrefab(p); }
+
+        void DrawMenu(JObject avatar)
+        {
+            Heading("Menu");
+            Help("help.menu");
+            EditorGUI.BeginChangeCheck();
+            var menu = (VRCExpressionsMenu)EditorGUILayout.ObjectField(EditorText.Label("Menu", "tip.menu"), LoadRef<VRCExpressionsMenu>(avatar["menu"]), typeof(VRCExpressionsMenu), false);
+            if (EditorGUI.EndChangeCheck())
+            {
+                var path = menu != null ? AssetDatabase.GetAssetPath(menu) : null;
+                Edit("Set FT menu", a => TableEdits.SetAssetRef(a, "menu", path != null ? AssetDatabase.AssetPathToGUID(path) : null, path));
+            }
+            TextKey(avatar, "faceTrackLabel", "FT toggle name", "tip.faceTrackLabel", "FaceTrack", false);
+            TextKey(avatar, "afkPlayLabel", "AFK toggle name", "tip.afkPlayLabel", "AFK", false);
+            TextKey(avatar, "subMenu", "Submenu name (optional)", "tip.subMenu", null, true);
+        }
+
+        // A text key of the avatar table. With optional, an empty field writes null and shows a gray hint inside.
+        void TextKey(JObject avatar, string key, string label, string tipKey, string def, bool optional)
+        {
+            var now = avatar[key]?.Type == JTokenType.String ? (string)avatar[key] : (def ?? "");
+            EditorGUI.BeginChangeCheck();
+            GUI.SetNextControlName(key);
+            var typed = EditorGUILayout.DelayedTextField(new GUIContent(label, EditorText.Get(tipKey)), now);
+            var rect = GUILayoutUtility.GetLastRect();
+            if (EditorGUI.EndChangeCheck() && typed != now)
+                Edit("Set FT " + key, a => a[key] = optional && string.IsNullOrWhiteSpace(typed) ? JValue.CreateNull() : (JToken)typed);
+            if (optional && now == "" && Event.current.type == EventType.Repaint && GUI.GetNameOfFocusedControl() != key)
+            {
+                var hint = new Rect(rect.x + EditorGUIUtility.labelWidth + 4, rect.y, rect.width - EditorGUIUtility.labelWidth - 4, rect.height);
+                GUI.Label(hint, EditorText.Get("placeholder.subMenu"), PartsStyle);
+            }
+        }
+
+        bool afkOpen;
+
+        void DrawAfkClips(JObject avatar)
+        {
+            var clips = avatar["afkClips"] as JObject;
+            var set = AfkFinder.AfkKeys.Count(k => clips?[k] is JObject);
+            EditorGUILayout.Space(4);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                afkOpen = EditorGUILayout.Foldout(afkOpen, "AFK animation (optional)", true, EditorStyles.foldoutHeader);
+                GUILayout.FlexibleSpace();
+                GUILayout.Label($"{set} / {AfkFinder.AfkKeys.Length}", PartsStyle, GUILayout.ExpandWidth(false));
+            }
+            if (!afkOpen) return;
+            Help("help.afk");
+            string[] labels = { "Action Intro", "Action Loop", "Action Outro", "FX Intro", "FX Loop", "FX Outro" };
+            for (int i = 0; i < AfkFinder.AfkKeys.Length; i++)
+            {
+                var k = AfkFinder.AfkKeys[i];
+                EditorGUI.BeginChangeCheck();
+                var clip = (AnimationClip)EditorGUILayout.ObjectField(labels[i], LoadRef<AnimationClip>(clips?[k]), typeof(AnimationClip), false);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    var path = clip != null ? AssetDatabase.GetAssetPath(clip) : null;
+                    Edit("Set FT AFK clip", a =>
+                    {
+                        if (!(a["afkClips"] is JObject o)) a["afkClips"] = o = new JObject();
+                        o[k] = path == null ? JValue.CreateNull() : (JToken)new JObject { ["guid"] = AssetDatabase.AssetPathToGUID(path), ["path"] = path };
+                    });
+                }
+            }
         }
 
         // Parts used by the expression layer (also those the avatar layer lacks) and parts in the avatar layer, by region:
@@ -655,9 +802,9 @@ namespace Kmnk.FaceTrackingGenerator
             }
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                GUILayout.Label("Movement", EditorStyles.miniBoldLabel, GUILayout.Width(partW));
-                GUILayout.Label("Blendshape / Property", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
-                GUILayout.Label("Scale", EditorStyles.miniBoldLabel, GUILayout.Width(scaleW));
+                GUILayout.Label(new GUIContent("Movement", EditorText.Get("tip.movement")), EditorStyles.miniBoldLabel, GUILayout.Width(partW));
+                GUILayout.Label(new GUIContent("Blendshape / Property", EditorText.Get("tip.blendshape")), EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
+                GUILayout.Label(new GUIContent("Scale", EditorText.Get("tip.scale")), EditorStyles.miniBoldLabel, GUILayout.Width(scaleW));
                 GUILayout.Label("Missing", EditorStyles.miniBoldLabel, GUILayout.Width(missW));
                 GUILayout.Space(24);
             }
@@ -851,21 +998,21 @@ namespace Kmnk.FaceTrackingGenerator
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
             var popup = new RenamePartPopup(part,
-                (to, together) => PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), part, to, together, pendingParts),
-                (to, together) => RenamePart(part, to, together));
+                to => PartRename.Check(doc.Json(TableDocument.Avatar), doc.Json(TableDocument.Expression), part, to, pendingParts),
+                to => RenamePart(part, to));
             if (renameCapture != null) popup.SetNameForCapture(renameCapture);
             PopupWindow.Show(at, popup);
         }
 
         // Renames in both tables (PartRename); rows still waiting for a blendshape are renamed here only.
-        internal void RenamePart(string from, string to, bool together)
+        internal void RenamePart(string from, string to)
         {
-            var map = PartRename.Map(null, from, to, together);
+            var map = new Dictionary<string, string> { [from] = to };
             foreach (var kv in map.Where(kv => pendingParts.Contains(kv.Key)).ToList()) { pendingParts.Remove(kv.Key); pendingParts.Add(kv.Value); }
             var avatar = doc.Json(TableDocument.Avatar);
             var expression = doc.Json(TableDocument.Expression);
             Undo.RecordObject(state, "Rename FT face movement");
-            PartRename.Apply(avatar, expression, from, to, together, pendingParts);
+            PartRename.Apply(avatar, expression, from, to, pendingParts);
             state.snapshot = doc.Snapshot();
             EditorUtility.SetDirty(state);
             Rebuild();
@@ -1015,13 +1162,38 @@ namespace Kmnk.FaceTrackingGenerator
             EditorGUILayout.EndHorizontal();
 
             var states = switches.Update(model, inputs, PreviewDesktop);
+            // How many overlaps there are, in one line of a fixed height right under the buttons (the warnings are under
+            // the sliders, so that a warning that comes and goes does not move the slider in use).
+            lastOverlaps = Overlaps.Find(FaceEval.EvaluateParts(model, inputs, states, PreviewDesktop)).Count();
+            EditorGUILayout.LabelField(lastOverlaps == 0 ? EditorText.Get("overlap.none") : string.Format(EditorText.Get("overlap.count"), lastOverlaps), EditorStyles.miniLabel);
 
             if (preview.Running && nothingApplied) EditorGUILayout.HelpBox(EditorText.Get("msg.noApplied"), MessageType.Warning);
 
+            // Menu (before the inputs): a state chosen as the menu does; the transitions stop until None (design.md "設定エディタ").
+            var withMenu = model.StateMachines.Where(sm => sm.MenuStates.Any()).ToList();
+            if (withMenu.Count > 0)
+            {
+                EditorGUILayout.Space(6);
+                EditorGUILayout.LabelField("Menu", EditorStyles.boldLabel);
+                Help("help.previewMenu");
+                foreach (var sm in withMenu)
+                {
+                    var options = new List<string> { "None" };
+                    options.AddRange(sm.MenuStates.Select(x => x.Name));
+                    var index = switches.Pinned.TryGetValue(sm.Name, out var pin) ? options.IndexOf(pin) : 0;
+                    EditorGUI.BeginChangeCheck();
+                    index = EditorGUILayout.Popup(sm.Name, Math.Max(0, index), options.ToArray());
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        switches.Choose(sm.Name, index == 0 ? null : options[index]);
+                        changed = true;
+                    }
+                }
+            }
             // Inputs, by device
             EditorGUILayout.Space(6);
             var devices = Devices.Load(model);
-            var deviceNames = new List<string> { "Settings" };
+            var deviceNames = new List<string> { "None" };
             deviceNames.AddRange(devices.Select(d => d.Name));
             var deviceIndex = Math.Max(0, devices.FindIndex(d => d.Id == (captureDevice ?? EditorPrefs.GetString(DevicePrefKey, ""))) + 1);
             using (new EditorGUILayout.HorizontalScope())
@@ -1048,30 +1220,15 @@ namespace Kmnk.FaceTrackingGenerator
             var partsOf = InputParts.Of(model);
             // The tracking keys ("key:<key>"). The keys forwarded for the transitions are the same values, so they are not
             // shown again.
-            foreach (var input in model.Inputs.Where(x => x.IsTrack))
+            // The names are not cut: the labels are as wide as the longest name, up to half the window.
+            var oldLabelWidth = EditorGUIUtility.labelWidth;
+            var tracked = model.Inputs.Where(x => x.IsTrack).ToList();
+            if (tracked.Count > 0)
+                EditorGUIUtility.labelWidth = lastLabelWidth = Mathf.Min(position.width / 2, tracked.Max(x => EditorStyles.label.CalcSize(new GUIContent(x.Name)).x) + 8);
+            foreach (var input in tracked)
                 DrawInputSlider(input, device, partsOf.TryGetValue(input.Name, out var line) ? line : null, ref changed);
+            EditorGUIUtility.labelWidth = oldLabelWidth;
 
-            // Menu: a state chosen as the menu does; the transitions stop until None (design.md "設定エディタ").
-            var withMenu = model.StateMachines.Where(sm => sm.MenuStates.Any()).ToList();
-            if (withMenu.Count > 0)
-            {
-                EditorGUILayout.Space(6);
-                EditorGUILayout.LabelField("Menu", EditorStyles.boldLabel);
-                Help("help.previewMenu");
-                foreach (var sm in withMenu)
-                {
-                    var options = new List<string> { "None" };
-                    options.AddRange(sm.MenuStates.Select(x => x.Name));
-                    var index = switches.Pinned.TryGetValue(sm.Name, out var pin) ? options.IndexOf(pin) : 0;
-                    EditorGUI.BeginChangeCheck();
-                    index = EditorGUILayout.Popup(sm.Name, Math.Max(0, index), options.ToArray());
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        switches.Choose(sm.Name, index == 0 ? null : options[index]);
-                        changed = true;
-                    }
-                }
-            }
             if (device != null)
             {
                 var unused = device.Keys.Where(k => !Devices.Device.UsedBy(model, k.key)).ToList();
@@ -1177,14 +1334,6 @@ namespace Kmnk.FaceTrackingGenerator
             notOnAvatar = preview.Apply(model, weights);
             nothingApplied = FacePreview.Targets(model, weights).All(notOnAvatar.Contains);
             FaceView.Show(model, Prefab(), weights, "Preview");
-        }
-
-        static void SeparatorLine()
-        {
-            EditorGUILayout.Space(6);
-            var line = GUILayoutUtility.GetRect(1, 1, GUILayout.ExpandWidth(true));
-            EditorGUI.DrawRect(line, new Color(0.5f, 0.5f, 0.5f, 0.5f));
-            EditorGUILayout.Space(4);
         }
 
         // A trash button; a locked one is drawn faint, does nothing, and says why in its tooltip.

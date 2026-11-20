@@ -18,9 +18,9 @@ namespace Kmnk.FaceTrackingGenerator
     //   FT/Visemes    weight of the viseme sets, 0 in states with stopVisemes (VisemeStop)
     public sealed class FtBuilder
     {
-        public const string One = "FT/One";
-        public const string Active = "FT/Active";
-        public const string MouthActive = "FT/MouthActive";
+        public const string One = FtNames.One;
+        public const string Active = FtNames.Active;
+        public const string MouthActive = FtNames.MouthActive;
         public const float TalkThreshold = 0.1f;
 
         readonly TableModel m;
@@ -37,12 +37,12 @@ namespace Kmnk.FaceTrackingGenerator
             this.visemes = visemes;
         }
 
-        public static string SwitchParam(string sm, string state) => "FT/Sw/" + sm + "/" + state;
+        public static string SwitchParam(string sm, string state) => FtNames.SwitchParam(sm, state);
         // The Int parameter of the menu: 0 when nothing is chosen, else the chosen state's StateMachineDef.MenuValue.
-        public static string MenuParam(string sm) => "FT/Menu/" + sm;
+        public static string MenuParam(string sm) => FtNames.MenuParam(sm);
         // Names in the FT/Face Direct BlendTree: a group ("Active" or "Mouth"), and a state's fixed amounts in that group.
         public static readonly string[] FaceGroups = { "Active", "Mouth" };  // amounts kept while talking, and those of stopWhileTalking's regions (not for a stopVisemes state)
-        public static string FaceMotion(string group) => "FT/Face/" + group;
+        public static string FaceMotion(string group) => FtNames.FaceMotion(group);
         public static string FaceMotion(string group, string sm, string state) => FaceMotion(group) + "/" + sm + "/" + state;
 
         // The parameter that conditions read for an input.
@@ -55,7 +55,7 @@ namespace Kmnk.FaceTrackingGenerator
 
         // VRChat's built-in parameter: true while a face tracking source (Selfie Expression, OSC face tracking) is active.
         // FT runs only while it is true (R8).
-        public const string SourceParameter = "UserFaceTracking";
+        public const string SourceParameter = FtNames.UserFaceTracking;
 
         // The condition on the face tracking source, in one place so that it can be changed alone.
         void WhenSource(AnimatorStateTransition t, bool present) => u.When(t, SourceParameter, present);
@@ -84,8 +84,7 @@ namespace Kmnk.FaceTrackingGenerator
             u.EnsureParameter(Active, AnimatorControllerParameterType.Float);
             u.EnsureParameter(MouthActive, AnimatorControllerParameterType.Float);
             u.EnsureParameter(m.FaceTrackParameter, AnimatorControllerParameterType.Bool, 1);
-            u.EnsureParameter("IsLocal", AnimatorControllerParameterType.Bool);
-            u.EnsureParameter("Voice", AnimatorControllerParameterType.Float);
+            u.EnsureParameter(FtNames.Voice, AnimatorControllerParameterType.Float);
             u.EnsureParameter(SourceParameter, AnimatorControllerParameterType.Bool);
             foreach (var p in afkGroups.SelectMany(g => g.Parameters))
                 u.EnsureParameter(p, p == AfkBuilder.Playing ? AnimatorControllerParameterType.Float : AnimatorControllerParameterType.Bool);
@@ -104,15 +103,15 @@ namespace Kmnk.FaceTrackingGenerator
 
         void Gate()
         {
-            var layer = u.NewLayer("FT/Gate");
+            var layer = u.NewLayer(FtNames.GateLayer);
             Layers.Add(layer);
             var sm = layer.stateMachine;
             var ft = m.FaceTrackParameter;
             var allAfk = afkGroups.SelectMany(g => g.Parameters).Distinct().ToList();
 
-            var off = AnimUtil.State(sm, "Off", u.ParamClip("FT/Gate/Off", new[] { (Active, 0f), (MouthActive, 0f) }), new Vector3(300, 0));
-            var on = AnimUtil.State(sm, "On", u.ParamClip("FT/Gate/On", new[] { (Active, 1f), (MouthActive, 1f) }), new Vector3(600, 0));
-            var talking = AnimUtil.State(sm, "Talking", u.ParamClip("FT/Gate/Talking", new[] { (Active, 1f), (MouthActive, 0f) }), new Vector3(900, 0));
+            var off = AnimUtil.State(sm, "Off", u.ParamClip(FtNames.GateLayer + "/Off", new[] { (Active, 0f), (MouthActive, 0f) }), new Vector3(300, 0));
+            var on = AnimUtil.State(sm, "On", u.ParamClip(FtNames.GateLayer + "/On", new[] { (Active, 1f), (MouthActive, 1f) }), new Vector3(600, 0));
+            var talking = AnimUtil.State(sm, "Talking", u.ParamClip(FtNames.GateLayer + "/Talking", new[] { (Active, 1f), (MouthActive, 0f) }), new Vector3(900, 0));
             sm.defaultState = off;
             // No Tracking Control on the eyes, whatever stopAutoEyes says: with Eyes & Eyelid on Animation, VRChat
             // forwards the face tracking eye keys as 0, and the eye inputs stop.
@@ -124,10 +123,15 @@ namespace Kmnk.FaceTrackingGenerator
             var groups = afkGroups.Select((g, i) => (g, i)).OrderByDescending(x => x.g.Wait).ThenBy(x => x.i).ToList();
             var y = 150;
             var stricter = new List<string>();
+            var labels = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var (g, _) in groups)
             {
+                // The states and clips are named by the wait. Groups with the same wait (one that does not write it
+                // and the generator's own AFK group both wait 0) get "_2", "_3", ... after the first.
                 var label = W(g.Wait);
-                var afkOff = AnimUtil.State(sm, "AfkOff/" + label, u.ParamClip("FT/Gate/AfkOff/" + label, new[] { (Active, 0f), (MouthActive, 0f) }), new Vector3(300, y));
+                labels[label] = labels.TryGetValue(label, out var seen) ? seen + 1 : 1;
+                if (labels[label] > 1) label += "_" + labels[label];
+                var afkOff = AnimUtil.State(sm, "AfkOff/" + label, u.ParamClip(FtNames.GateLayer + "/AfkOff/" + label, new[] { (Active, 0f), (MouthActive, 0f) }), new Vector3(300, y));
                 LayerWeights(afkOff, mute, false);
                 foreach (var p in g.Parameters)
                 {
@@ -154,7 +158,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
                 else
                 {
-                    var wait = AnimUtil.State(sm, "Wait/" + label, u.ParamClip("FT/Gate/Wait/" + label, new[] { (Active, 0f), (MouthActive, 0f) }, g.Wait), new Vector3(600, y));
+                    var wait = AnimUtil.State(sm, "Wait/" + label, u.ParamClip(FtNames.GateLayer + "/Wait/" + label, new[] { (Active, 0f), (MouthActive, 0f) }, g.Wait), new Vector3(600, y));
                     Leave(wait);
                     AnimatorStateTransition After(AnimatorState to)
                     {
@@ -186,8 +190,8 @@ namespace Kmnk.FaceTrackingGenerator
             WhenSource(offOn, true);
             foreach (var p in allAfk) u.When(offOn, p, false);
 
-            AnimUtil.Transition(on, talking).AddCondition(AnimatorConditionMode.Greater, TalkThreshold, "Voice");
-            AnimUtil.Transition(talking, on).AddCondition(AnimatorConditionMode.Less, TalkThreshold, "Voice");
+            AnimUtil.Transition(on, talking).AddCondition(AnimatorConditionMode.Greater, TalkThreshold, FtNames.Voice);
+            AnimUtil.Transition(talking, on).AddCondition(AnimatorConditionMode.Less, TalkThreshold, FtNames.Voice);
         }
 
         // Animator Layer Control on the FX layers in `names`: weight 0 when muted, else their default weight.
@@ -215,7 +219,7 @@ namespace Kmnk.FaceTrackingGenerator
         // Menu/<state> goes back to the default state when the menu is 0 again (design.md "状態遷移機の Animator").
         void StateMachine(StateMachineDef sm)
         {
-            var layer = u.NewLayer("FT/SM/" + sm.Name);
+            var layer = u.NewLayer(FtNames.StateMachineLayer(sm.Name));
             Layers.Add(layer);
             var asm = layer.stateMachine;
             var menu = sm.MenuStates.Any();
@@ -226,7 +230,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var name = sm.States[k].Name;
                 var values = sm.States.Select(s => (SwitchParam(sm.Name, s.Name), s.Name == name ? 1f : 0f));
-                clips[name] = u.ParamClip($"FT/SM/{sm.Name}/{name}", values);
+                clips[name] = u.ParamClip(FtNames.StateMachineLayer(sm.Name) + "/" + name, values);
                 states[name] = AnimUtil.State(asm, name, clips[name], new Vector3(300 + 250 * k, 0));
             }
             asm.defaultState = states[sm.States[0].Name];
@@ -256,18 +260,18 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- FT/Device: VRMode (an Int) as two Float weights for FT/Face, which a Direct blend tree can use. Only when a
         // state stops the visemes on one device (FT/Visemes stops them on that device only).
 
-        public static string DeviceWeight(bool desktop) => "FT/Device/" + Device.Of(desktop);
+        public static string DeviceWeight(bool desktop) => FtNames.DeviceWeight(Device.Of(desktop));
 
         bool DeviceWeighted => visemes != null && visemes.Any && visemes.States.Any(x => x.st.StopVisemesByDevice);
 
         void DeviceLayer()
         {
             foreach (var desktop in new[] { false, true }) u.EnsureParameter(DeviceWeight(desktop), AnimatorControllerParameterType.Float, desktop ? 0 : 1);
-            var layer = u.NewLayer("FT/Device");
+            var layer = u.NewLayer(FtNames.DeviceLayer);
             Layers.Add(layer);
             var sm = layer.stateMachine;
-            var vr = AnimUtil.State(sm, Device.Vr, u.ParamClip("FT/Device/" + Device.Vr, new[] { (DeviceWeight(false), 1f), (DeviceWeight(true), 0f) }), new Vector3(300, 0));
-            var desk = AnimUtil.State(sm, Device.Desktop, u.ParamClip("FT/Device/" + Device.Desktop, new[] { (DeviceWeight(false), 0f), (DeviceWeight(true), 1f) }), new Vector3(600, 0));
+            var vr = AnimUtil.State(sm, Device.Vr, u.ParamClip(FtNames.DeviceLayer + "/" + Device.Vr, new[] { (DeviceWeight(false), 1f), (DeviceWeight(true), 0f) }), new Vector3(300, 0));
+            var desk = AnimUtil.State(sm, Device.Desktop, u.ParamClip(FtNames.DeviceLayer + "/" + Device.Desktop, new[] { (DeviceWeight(false), 0f), (DeviceWeight(true), 1f) }), new Vector3(600, 0));
             sm.defaultState = vr;
             AnimUtil.Transition(vr, desk).AddCondition(AnimatorConditionMode.Less, 0.5f, NativeSets.SideParameter);
             AnimUtil.Transition(desk, vr).AddCondition(AnimatorConditionMode.Greater, 0.5f, NativeSets.SideParameter);
@@ -288,7 +292,7 @@ namespace Kmnk.FaceTrackingGenerator
             // null: the state stops on both devices (or on none: not in the list); else the device it stops on.
             bool Stops(StateDef st, bool? desktop) => stopping.Contains(st) && (desktop == null ? !st.StopVisemesByDevice : st.StopVisemes(desktop.Value));
             var byDevice = DeviceWeighted;
-            var root = u.NewTree("FT/Face", BlendTreeType.Direct);
+            var root = u.NewTree(FtNames.FaceLayer, BlendTreeType.Direct);
             var any = false;
             // inGroup(state, region, device): device null for the amounts of every device.
             foreach (var (group, weight, inGroup) in new (string, string, Func<StateDef, string, bool?, bool>)[]
@@ -320,7 +324,7 @@ namespace Kmnk.FaceTrackingGenerator
                 if (groupAny) { AnimUtil.AddDirectChild(root, groupTree, weight); any = true; }
             }
             if (!any) return;
-            var layer = u.NewLayer("FT/Face");
+            var layer = u.NewLayer(FtNames.FaceLayer);
             Layers.Add(layer);
             AnimUtil.State(layer.stateMachine, "Face", root, new Vector3(300, 0));
         }
@@ -328,7 +332,7 @@ namespace Kmnk.FaceTrackingGenerator
         // ---- FT/Sets/*: one layer per group of Blendshapes Sets with the same conditions. On sets their weights to 1,
         // Off to 0 (VRC Animator Face Tracking Blendshapes Set). On needs every condition; any condition failing goes Off.
 
-        public const int MaxSetsPerBehavior = 64;
+        public const int MaxSetsPerBehavior = FtNames.MaxSetsPerBehavior;
 
         void SetLayers()
         {
@@ -337,10 +341,10 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var sets = groups[g].ToList();
                 var conds = sets[0].Conditions;
-                var layer = u.NewLayer("FT/Sets/" + g);
+                var layer = u.NewLayer(FtNames.SetsLayer(g.ToString()));
                 Layers.Add(layer);
                 var sm = layer.stateMachine;
-                var empty = u.EmptyClip($"FT/Sets/{g}/Empty");
+                var empty = u.EmptyClip(FtNames.SetsLayer(g.ToString()) + "/Empty");
                 var off = AnimUtil.State(sm, "Off", empty, new Vector3(300, 0));
                 var on = AnimUtil.State(sm, "On", empty, new Vector3(600, 0));
                 sm.defaultState = off;

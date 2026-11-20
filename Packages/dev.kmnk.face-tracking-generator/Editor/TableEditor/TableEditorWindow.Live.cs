@@ -80,7 +80,7 @@ namespace Kmnk.FaceTrackingGenerator
         {
             liveValues = values;
             liveApplies++;
-            foreach (var kv in TableEditorChecks.LiveInputs(values)) inputs[kv.Key] = kv.Value;
+            foreach (var kv in OscFace.Inputs(values)) inputs[kv.Key] = kv.Value;
             if (model == null) return;
             var states = switches.Update(model, inputs);
             liveWeights = new Dictionary<string, float>(FaceEval.Evaluate(model, inputs, states));

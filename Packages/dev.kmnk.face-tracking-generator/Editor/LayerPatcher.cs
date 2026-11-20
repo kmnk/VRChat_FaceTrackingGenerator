@@ -47,14 +47,14 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 // Stopped while FT/Gate says FT is on (FT/Active), so that the layers come back both when FaceTrack is
                 // off and when there is no face tracking source (UserFaceTracking), and during AFK.
-                if (!c.parameters.Any(p => p.name == FtBuilder.Active))
-                    c.AddParameter(FtBuilder.Active, UnityEngine.AnimatorControllerParameterType.Float);
+                if (!c.parameters.Any(p => p.name == FtNames.Active))
+                    c.AddParameter(FtNames.Active, UnityEngine.AnimatorControllerParameterType.Float);
                 foreach (var name in adj.StopWhileFaceTrack)
                 {
                     var layer = c.layers.FirstOrDefault(l => l.name == name);
                     if (layer == null) { log.Add(Missing(name, "to stop while FT is on", c)); continue; }
-                    var n = StopWhile(layer.stateMachine, FtBuilder.Active);
-                    log.Add($"layer {name}: added '{FtBuilder.Active} < 0.5' to {n} transitions");
+                    var n = StopWhile(layer.stateMachine, FtNames.Active);
+                    log.Add($"layer {name}: added '{FtNames.Active} < 0.5' to {n} transitions");
                 }
             }
             // Muted by FtBuilder (FT/Gate), which leaves out the same names.

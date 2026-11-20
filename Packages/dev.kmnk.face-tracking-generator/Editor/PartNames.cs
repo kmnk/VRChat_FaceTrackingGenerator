@@ -67,32 +67,9 @@ namespace Kmnk.FaceTrackingGenerator
         }
     }
 
-    // Left/right pairs ("sides" with "{side}" in names), and numbers for the files the settings editor writes.
+    // Numbers for the files the settings editor writes.
     public static class Sides
     {
-        public static string Sub(string s, Dictionary<string, string> vars)
-        {
-            if (vars != null) foreach (var kv in vars) s = s.Replace("{" + kv.Key + "}", kv.Value);
-            return s;
-        }
-
-        public static List<Dictionary<string, string>> Of(JToken sides)
-        {
-            if (sides is JArray a) return a.Select(s => new Dictionary<string, string> { ["side"] = (string)s }).ToList();
-            if (sides is JObject o)
-                return o.Properties().Select(sp =>
-                {
-                    var vars = new Dictionary<string, string> { ["side"] = sp.Name };
-                    if (sp.Value is JObject vo) foreach (var vp in vo.Properties()) vars[vp.Name] = (string)vp.Value;
-                    return vars;
-                }).ToList();
-            return null;
-        }
-
-        static readonly Regex Marks = new Regex(@"_?\{[^}]*\}");
-
-        // A name without the side marks: "EyeLid{side}" -> "EyeLid".
-        public static string Label(string name) => Marks.Replace(name ?? "", "");
 
         // A number for the file: whole numbers as integers ("1", not "1.0"), others as they are.
         public static JToken Num(double v) => Math.Abs(v - Math.Round(v)) < 1e-9 ? (JToken)(long)Math.Round(v) : new JValue(v);
