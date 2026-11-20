@@ -7,7 +7,7 @@
 #   <project>  Unity project with the generator (its Packages/dev.kmnk.face-tracking-generator/Editor is compiled)
 #   --write    write tests/pure/expected/ from the current code instead of comparing
 #
-# Compiles TableModel, TableLoader, NativeSets, NativeInputs, FaceEval, Measurements, PartNames, FtExpression, ModelJson
+# Compiles FtNames, TableModel, TableLoader, NativeSets, NativeInputs, FaceEval, Measurements, PartNames, FtExpression, ModelJson
 # and tests/pure/*.cs with the mono and csc that come with Unity, then loads each tests/pure/cases/<case>/avatar.jsonc
 # and compares the model and the faces with tests/pure/expected/<case>.json.
 # Success: exit 0 and "pure: cases=<n> failed=0". A difference leaves the actual JSON in $TMPDIR/pure-<case>.json.
@@ -34,11 +34,9 @@ out=${TMPDIR:-/tmp}/ftg-pure
 mkdir -p "$out"
 cp "$newtonsoft" "$sdk" "$sdkbase" "$core" "$out/"
 sources=()
-for f in TableModel TableLoader NativeSets NativeInputs FaceEval Measurements PartNames FtExpression ModelJson; do
+for f in FtNames TableModel TableLoader NativeSets NativeInputs FaceEval Measurements PartNames FtExpression ModelJson; do
   sources+=("$src/$f.cs")
 done
-# The names NativeSets takes from FtBuilder: from the project's FtNames.cs once it exists, else from the stand-in.
-if [ -f "$src/FtNames.cs" ]; then sources+=("$src/FtNames.cs"); else sources+=("$here/tests/pure/stubs/FtBuilderNames.cs"); fi
 "$mono" "$csc" -nologo -langversion:9.0 -nowarn:1701,1702 -out:"$out/pure.exe" \
   -r:"$facades/netstandard.dll" -r:"$out/Newtonsoft.Json.dll" -r:"$out/VRCSDK3A.dll" -r:"$out/VRCSDKBase.dll" -r:"$out/UnityEngine.CoreModule.dll" \
   "${sources[@]}" "$here"/tests/pure/*.cs

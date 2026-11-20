@@ -120,7 +120,7 @@ Records what the generator does for a set of cases so that a refactoring can be 
 scripts/test-pure.sh <project> [--write]
 ```
 
-Compiles the table loading and face value code of the project's package (`TableModel`, `TableLoader`, `NativeSets`, `NativeInputs`, `FaceEval`, `Measurements`, `PartNames`, `FtExpression`, `ModelJson`) with the mono and csc that come with Unity, loads each `tests/pure/cases/<case>/avatar.jsonc`, and compares the model and the faces with `tests/pure/expected/<case>.json`. It takes about a second, so it can run after each small step. `--write` writes the expected files from the current code (only when a change of behaviour is intended). Write the cases with ARKit names and made-up names only.
+Compiles the table loading and face value code of the project's package (`FtNames`, `TableModel`, `TableLoader`, `NativeSets`, `NativeInputs`, `FaceEval`, `Measurements`, `PartNames`, `FtExpression`, `ModelJson`) with the mono and csc that come with Unity, loads each `tests/pure/cases/<case>/avatar.jsonc`, and compares the model and the faces with `tests/pure/expected/<case>.json`. It takes about a second, so it can run after each small step. `--write` writes the expected files from the current code (only when a change of behaviour is intended). Write the cases with ARKit names and made-up names only.
 
 - Success: exit 0 and `pure: cases=<n> failed=0`. A difference prints `pure: <case> differs` and leaves the actual JSON in `$TMPDIR/pure-<case>.json`
 
