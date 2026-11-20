@@ -146,7 +146,6 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.running"] = ("Running {0}. The record goes to {1}.", "{0} を流しています。記録は {1} に書きます。"),
             ["gen.failed"] = ("Failed: {0}", "失敗しました: {0}"),
             ["gen.scenarioTxt"] = ("Choose a scenario .txt file.", "場面の .txt ファイルを選んでください。"),
-            ["gen.curvesNote"] = ("Other keys are 0 and the state machines are in their default state.", "ほかのキーは 0 で、State Machine は最初の状態です。"),
             ["inspector.noFile"] = ("No settings file. Make one in the Face Tracking Generator window or choose it here.", "設定ファイルがありません。Face Tracking Generator の窓で作るか、ここで選んでください。"),
             ["inspector.info"] = ("Makes FT from these settings when you enter Play Mode and when you upload.", "Play Mode に入るときとアップロードのときに、この設定で FT を作ります。"),
             ["gen.exists"] = ("Settings/{0}/ already exists, so nothing was made. To use it, choose its avatar.jsonc in Settings file; to make new settings, type another name.", "Settings/{0}/ はもうあるので、作っていません。使うなら Settings file でその avatar.jsonc を選び、新しく作るなら別の名前を入れてください。"),

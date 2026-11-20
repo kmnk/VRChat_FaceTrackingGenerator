@@ -19,7 +19,6 @@ namespace Kmnk.FaceTrackingGenerator
         string message = "", loadError;
         Vector2 scroll;
         string newName = "MyAvatar";
-        int curveInput;
         // Unity imports .txt as TextAsset, so the field accepts any asset (a .txt file is expected).
         UnityEngine.Object scenario;
         // The avatar of step 4, remembered per settings file and scene (ProjectSelection), shared with the settings editor.
@@ -145,7 +144,7 @@ namespace Kmnk.FaceTrackingGenerator
         }
 
         // Steps in the order of the README's Use section. The buttons call the same code as the command line.
-        bool showCurves, showAdvanced;
+        bool showAdvanced;
         // The result of the last button, shown under the step that has the button (1 to 4, 5 Generate, 6 Scenario).
         int messageStep;
         MessageType messageType = MessageType.None;
@@ -247,14 +246,8 @@ namespace Kmnk.FaceTrackingGenerator
                 if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) { ClearMessage(); TableEditorWindow.OpenTable(TablePath); }
 
                 Step("gen.step3", "gen.help3");
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("Check")) Do(3, Check);
-                    var curves = GUILayout.Toggle(showCurves, "Response curves", "Button");
-                    if (curves != showCurves) { ClearMessage(); showCurves = curves; }
-                }
+                if (GUILayout.Button("Check")) Do(3, Check);
                 ShowMessage(3);
-                if (showCurves && model != null) Curves();
 
                 Step("gen.step4", null);
                 var sel = avatar;
@@ -333,46 +326,6 @@ namespace Kmnk.FaceTrackingGenerator
             messageStep = step;
             try { (message, messageType) = action(); }
             catch (Exception e) { message = string.Format(EditorText.Get("gen.failed"), e.Message); messageType = MessageType.Error; Debug.LogException(e); }
-        }
-
-        static readonly Color[] Colors = { Color.red, Color.green, Color.cyan, Color.yellow, Color.magenta, new Color(1, 0.5f, 0), Color.white, new Color(0.6f, 0.6f, 1) };
-
-        void Curves()
-        {
-            var names = model.Inputs.Where(i => i.IsTrack).Select(i => i.Name).ToArray();
-            if (names.Length == 0) return;
-            curveInput = Mathf.Clamp(EditorGUILayout.Popup("Input", curveInput, names), 0, names.Length - 1);
-            var input = names[curveInput];
-            var (lo, hi) = FaceEval.Range(model, input);
-            const int steps = 60;
-            var samples = new List<SortedDictionary<string, float>>();
-            for (int i = 0; i <= steps; i++)
-                samples.Add(FaceEval.Evaluate(model, new Dictionary<string, float> { [input] = lo + (hi - lo) * i / steps }));
-            var shapes = samples.SelectMany(s => s.Keys).Distinct().Where(k => samples.Any(s => s.TryGetValue(k, out var v) && Math.Abs(v) > 0.05f)).ToList();
-            var rect = GUILayoutUtility.GetRect(300, 180, GUILayout.ExpandWidth(true));
-            EditorGUI.DrawRect(rect, new Color(0.15f, 0.15f, 0.15f));
-            Handles.color = Color.gray;
-            Handles.DrawLine(new Vector3(rect.xMin, rect.yMax), new Vector3(rect.xMax, rect.yMax));
-            for (int k = 0; k < shapes.Count; k++)
-            {
-                var pts = new Vector3[steps + 1];
-                for (int i = 0; i <= steps; i++)
-                {
-                    var v = samples[i].TryGetValue(shapes[k], out var w) ? w : 0;
-                    pts[i] = new Vector3(rect.xMin + rect.width * i / steps, rect.yMax - rect.height * Mathf.Clamp(v, 0, 120) / 120f);
-                }
-                Handles.color = Colors[k % Colors.Length];
-                Handles.DrawAAPolyLine(2, pts);
-            }
-            EditorGUILayout.LabelField($"x: {input} {lo:0.##} .. {hi:0.##}   y: 0 .. 120");
-            for (int k = 0; k < shapes.Count; k++)
-            {
-                var old = GUI.color;
-                GUI.color = Colors[k % Colors.Length];
-                EditorGUILayout.LabelField("  " + shapes[k] + $"  (max {samples.Max(s => s.TryGetValue(shapes[k], out var v) ? v : 0):0.#})");
-                GUI.color = old;
-            }
-            EditorGUILayout.HelpBox(EditorText.Get("gen.curvesNote"), MessageType.None);
         }
     }
 }
