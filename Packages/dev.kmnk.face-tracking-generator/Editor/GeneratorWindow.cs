@@ -25,7 +25,6 @@ namespace Kmnk.FaceTrackingGenerator
         GameObject avatar;
         string avatarSource = "none";  // saved, prefab, selected, chosen or none (for the checks)
 
-        internal const string ManualUrl = "https://github.com/kmnk/VRChat_FaceTrackingGenerator#use";
 
         [MenuItem("Tools/Kmnk/Face Tracking Generator", false, 0)]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
@@ -207,7 +206,7 @@ namespace Kmnk.FaceTrackingGenerator
             using (new EditorGUILayout.HorizontalScope())
             {
                 // The manual (README) has the details the steps leave out.
-                if (EditorGUILayout.LinkButton("Manual")) Application.OpenURL(ManualUrl);
+                if (EditorGUILayout.LinkButton("Manual")) Application.OpenURL(FtGeneratorSettings.ManualUrl);
                 GUILayout.FlexibleSpace();
                 GUILayout.Label("Help", GUILayout.ExpandWidth(false));
                 EditorGUI.BeginChangeCheck();
