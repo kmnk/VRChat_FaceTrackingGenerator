@@ -27,7 +27,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         internal void SetNameForCapture(string n) => name = n;
 
-        // Taller with the help text, which takes up to four lines in Japanese.
         public override Vector2 GetWindowSize() => new Vector2(300, 120);
 
         public override void OnGUI(Rect rect)

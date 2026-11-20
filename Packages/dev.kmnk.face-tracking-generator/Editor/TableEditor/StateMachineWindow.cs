@@ -798,7 +798,7 @@ namespace Kmnk.FaceTrackingGenerator
                             var ns = EditorGUILayout.DelayedFloatField(part == null ? 0 : strength.Of(device), GUILayout.Width(52));
                             if (EditorGUI.EndChangeCheck() && part != null) { var k = key; var d = device; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetRowStrength(x, machine, st, region, k, ns, d)); }
                         }
-                        if (GUILayout.Button("×", EditorStyles.miniButton, GUILayout.Width(20))) { var k = key; Edit("Remove FT row", x => StateMachineEdit.RemoveRow(x, machine, st, region, k)); GUIUtility.ExitGUI(); }
+                        if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removeRow")), EditorStyles.miniButton, GUILayout.Width(20))) { var k = key; Edit("Remove FT row", x => StateMachineEdit.RemoveRow(x, machine, st, region, k)); GUIUtility.ExitGUI(); }
                     }
                 var neutralKeys = StateMachineEdit.NeutralRows(e, region).Select(r => r.key).ToList();
                 var rest = neutralKeys.Count(k => rows.All(r => r.key != k));
