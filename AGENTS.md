@@ -101,6 +101,17 @@ scripts/unity-batch.sh <project> Kmnk.FaceTrackingGenerator.ScenarioRunner.Compa
 - Records are matched by scenario and label. Blendshape values missing on one side count as 0
 - Exit 0 and `differences=0` when every value is within the tolerance. Exit 1 lists `[FTG] diff <scenario> <label> <shape> <A> <B>`
 
+### Behaviour baseline (`scripts/characterize.sh`)
+
+```
+scripts/characterize.sh <project> <cases file> <out dir>
+```
+
+Records what the generator does for a set of cases so that a refactoring can be compared with the record taken before it: for each case, the `Cli.Load` JSON, the output folder after `Cli.Generate`, the `Cli.Check` lines, `Cli.Curve` for VR and desktop (rest, every key at 1, and each state), and a `ScenarioRunner` record (with `-ftNdmf true`, also `Build/` and `Menus/`). The project needs the checks package `dev.kmnk.face-tracking-generator.checks` (development only, not in the released zip); it runs all cases in one Unity run. A cases file has one case per line: `<id> <avatar table> [<scenario> <avatar prefab> <mesh> <ndmf true|false>]`. Set `UNITY_LICENSING_IPC=LicenseClient-<id>` when Unity needs it (see "Before running").
+
+- Success: exit 0, and `diff -r <baseline out dir> <out dir>` prints nothing for a change that should not change behaviour. Running it twice on the same code gives no difference (the output folders are kept, so this also checks that generating again changes nothing)
+- Keep baselines whose cases use purchased avatars in the private development project, not here
+
 ### Generator commands (`Kmnk.FaceTrackingGenerator.Cli`)
 
 All take `-ftTable <avatar table>` (a path relative to the project root works) and exit 0 on success, 1 when checks find problems, 2 on errors. Results are logged as `[FTG] ...` lines.
