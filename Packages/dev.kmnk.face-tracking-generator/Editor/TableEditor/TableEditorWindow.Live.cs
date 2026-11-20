@@ -113,14 +113,13 @@ namespace Kmnk.FaceTrackingGenerator
         {
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("Live input", EditorStyles.boldLabel);
-            Help("help.live");
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.Label("Port", GUILayout.ExpandWidth(false));
                 using (new EditorGUI.DisabledScope(live.Running))
                     LivePort = EditorGUILayout.IntField(LivePort, GUILayout.Width(70));
                 var running = live.Running;
-                var press = GUILayout.Toggle(running, running ? "Stop" : "Start", "Button", GUILayout.Width(110));
+                var press = GUILayout.Toggle(running, new GUIContent(running ? "Stop" : "Start", EditorText.Get("tip.live")), "Button", GUILayout.Width(110));
                 if (press != running) { if (press) StartLive(); else StopLive(); }
                 GUILayout.FlexibleSpace();
             }

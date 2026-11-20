@@ -26,6 +26,8 @@ namespace Kmnk.FaceTrackingGenerator
         GameObject avatar;
         string avatarSource = "none";  // saved, prefab, selected, chosen or none (for the checks)
 
+        internal const string ManualUrl = "https://github.com/kmnk/VRChat_FaceTrackingGenerator#use";
+
         [MenuItem("Tools/Kmnk/Face Tracking Generator", false, 0)]
         static void Open() => GetWindow<GeneratorWindow>("Face Tracking Generator");
 
@@ -155,7 +157,7 @@ namespace Kmnk.FaceTrackingGenerator
             var r = EditorGUILayout.GetControlRect(false, 1);
             EditorGUI.DrawRect(r, new Color(0, 0, 0, 0.25f));
             EditorGUILayout.LabelField(EditorText.Heading(titleKey), EditorStyles.boldLabel);
-            var help = EditorText.Help(helpKey);
+            var help = helpKey != null ? EditorText.Help(helpKey) : null;
             if (help != null) EditorGUILayout.LabelField(help, HelpStyle);
         }
 
@@ -205,6 +207,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (EditorGUI.EndChangeCheck()) ChooseTable(table);
             using (new EditorGUILayout.HorizontalScope())
             {
+                // The manual (README) has the details the steps leave out.
+                if (EditorGUILayout.LinkButton("Manual")) Application.OpenURL(ManualUrl);
                 GUILayout.FlexibleSpace();
                 GUILayout.Label("Help", GUILayout.ExpandWidth(false));
                 EditorGUI.BeginChangeCheck();
@@ -214,7 +218,7 @@ namespace Kmnk.FaceTrackingGenerator
             if (TablePath == null) EditorGUILayout.HelpBox(EditorText.Get("gen.noTable"), MessageType.Warning);
             else if (model == null && loadError != null) EditorGUILayout.HelpBox(string.Format(EditorText.Get("gen.tableError"), loadError), MessageType.Warning);
 
-            Step("gen.step1", "gen.help1");
+            Step("gen.step1", null);
             // The buttons go under the name when the window is too narrow for one row.
             var oneRow = position.width >= EditorGUIUtility.labelWidth + 120 + 70 + 150 + 30;
             if (oneRow) EditorGUILayout.BeginHorizontal();
@@ -239,7 +243,7 @@ namespace Kmnk.FaceTrackingGenerator
 
             using (new EditorGUI.DisabledScope(model == null))
             {
-                Step("gen.step2", "gen.help2");
+                Step("gen.step2", null);
                 if (GUILayout.Button("Open Settings Editor", GUILayout.Width(180))) { ClearMessage(); TableEditorWindow.OpenTable(TablePath); }
 
                 Step("gen.step3", "gen.help3");
@@ -269,8 +273,6 @@ namespace Kmnk.FaceTrackingGenerator
                 showAdvanced = EditorGUILayout.Foldout(showAdvanced, "Advanced: Generate files, Scenario check", true);
                 if (showAdvanced)
                 {
-                    var adv = EditorText.Help("gen.helpAdvanced");
-                    if (adv != null) EditorGUILayout.LabelField(adv, HelpStyle);
                     if (GUILayout.Button("Generate")) Do(5, () =>
                     {
                         Reload();

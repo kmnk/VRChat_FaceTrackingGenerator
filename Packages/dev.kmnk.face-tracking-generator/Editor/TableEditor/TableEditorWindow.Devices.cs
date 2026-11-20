@@ -42,7 +42,6 @@ namespace Kmnk.FaceTrackingGenerator
         void DrawRecordings(JObject avatar)
         {
             Heading("Recordings");
-            Help("devices.recordings");
             var list = avatar["measurements"] as JArray ?? new JArray();
             var files = model?.Measurements.Files ?? new List<Measurements.FileEntry>();
             for (int i = 0; i < list.Count; i++)

@@ -605,7 +605,6 @@ namespace Kmnk.FaceTrackingGenerator
             var prefab = LoadRef<GameObject>(avatar["prefab"]);
 
             Heading("Avatar");
-            Help("help.avatar");
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUI.BeginChangeCheck();
@@ -670,7 +669,6 @@ namespace Kmnk.FaceTrackingGenerator
         void DrawMenu(JObject avatar)
         {
             Heading("Menu");
-            Help("help.menu");
             EditorGUI.BeginChangeCheck();
             var menu = (VRCExpressionsMenu)EditorGUILayout.ObjectField(EditorText.Label("Menu", "tip.menu"), LoadRef<VRCExpressionsMenu>(avatar["menu"]), typeof(VRCExpressionsMenu), false);
             if (EditorGUI.EndChangeCheck())
@@ -714,7 +712,6 @@ namespace Kmnk.FaceTrackingGenerator
                 GUILayout.Label($"{set} / {AfkFinder.AfkKeys.Length}", PartsStyle, GUILayout.ExpandWidth(false));
             }
             if (!afkOpen) return;
-            Help("help.afk");
             string[] labels = { "Action Intro", "Action Loop", "Action Outro", "FX Intro", "FX Loop", "FX Outro" };
             for (int i = 0; i < AfkFinder.AfkKeys.Length; i++)
             {
@@ -791,7 +788,6 @@ namespace Kmnk.FaceTrackingGenerator
                 else notSet++;
             }
             Heading("Face movements", $"{mapped} set · {missing} missing · {notSet} not set");
-            Help("help.parts");
             partFilter = EditorGUILayout.TextField(partFilter, EditorStyles.toolbarSearchField);
 
             const float partW = 150, missW = 60, scaleW = 130;
@@ -1048,7 +1044,6 @@ namespace Kmnk.FaceTrackingGenerator
                 controller = EditorGUILayout.Popup(controller, ControllerLabels, GUILayout.Width(110));
                 GUILayout.FlexibleSpace();
             }
-            Help("help.layers");
             var key = TableEdits.Controllers[controller];
             var lists = controller == 0 ? TableEdits.LayerLists : TableEdits.LayerLists.Take(2).ToArray();
             var names = ControllerLayers(prefab, ControllerTypes[controller]);
@@ -1067,8 +1062,8 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 GUILayout.Label("Layer", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
                 GUILayout.Label("Remove", EditorStyles.miniBoldLabel, GUILayout.Width(colW));
-                GUILayout.Label("Stop while FT", EditorStyles.miniBoldLabel, GUILayout.Width(colW));
-                if (controller == 0) GUILayout.Label("Mute while FT", EditorStyles.miniBoldLabel, GUILayout.Width(colW));
+                GUILayout.Label(new GUIContent("Stop while FT", EditorText.Get("tip.stopWhileFT")), EditorStyles.miniBoldLabel, GUILayout.Width(colW));
+                if (controller == 0) GUILayout.Label(new GUIContent("Mute while FT", EditorText.Get("tip.muteWhileFT")), EditorStyles.miniBoldLabel, GUILayout.Width(colW));
             }
             var i = 0;
             foreach (var name in names)
@@ -1124,7 +1119,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             var valid2 = sceneAvatar != null && sceneAvatar.scene.IsValid() && sceneAvatar.GetComponent<VRCAvatarDescriptor>() != null;
-            if (preview.Running) EditorGUILayout.LabelField(EditorText.Get("msg.previewing"), EditorStyles.wordWrappedMiniLabel);
+            if (preview.Running) { }
             else if (EditorApplication.isPlayingOrWillChangePlaymode) EditorGUILayout.LabelField(EditorText.Get("msg.playMode"), EditorStyles.wordWrappedMiniLabel);
             else if (!valid2) EditorGUILayout.LabelField(EditorText.Get("msg.chooseAvatar"), EditorStyles.wordWrappedMiniLabel);
             else if (FacePreview.Busy) EditorGUILayout.LabelField(EditorText.Get("msg.animBusy"), EditorStyles.wordWrappedMiniLabel);
@@ -1138,7 +1133,6 @@ namespace Kmnk.FaceTrackingGenerator
             // Try expressions
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("Try expressions", EditorStyles.boldLabel);
-            Help("help.presets");
             var presets = Presets.For(model);
             var width = position.width - 30;
             var rowWidth = 0f;
@@ -1180,14 +1174,13 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUILayout.Space(6);
                 EditorGUILayout.LabelField("Menu", EditorStyles.boldLabel);
-                Help("help.previewMenu");
                 foreach (var sm in withMenu)
                 {
                     var options = new List<string> { "None" };
                     options.AddRange(sm.MenuStates.Select(x => x.Name));
                     var index = switches.Pinned.TryGetValue(sm.Name, out var pin) ? options.IndexOf(pin) : 0;
                     EditorGUI.BeginChangeCheck();
-                    index = EditorGUILayout.Popup(sm.Name, Math.Max(0, index), options.ToArray());
+                    index = EditorGUILayout.Popup(new GUIContent(sm.Name, EditorText.Get("tip.previewMenu")), Math.Max(0, index), options.Select(o => new GUIContent(o)).ToArray());
                     if (EditorGUI.EndChangeCheck())
                     {
                         switches.Choose(sm.Name, index == 0 ? null : options[index]);
@@ -1205,7 +1198,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUILayout.LabelField("Inputs", EditorStyles.boldLabel, GUILayout.Width(60));
                 GUILayout.FlexibleSpace();
-                GUILayout.Label("Device", GUILayout.ExpandWidth(false));
+                GUILayout.Label(new GUIContent("Device", EditorText.Get("tip.device")), GUILayout.ExpandWidth(false));
                 EditorGUI.BeginChangeCheck();
                 deviceIndex = EditorGUILayout.Popup(deviceIndex, deviceNames.ToArray(), GUILayout.Width(150));
                 if (EditorGUI.EndChangeCheck()) { captureDevice = null; EditorPrefs.SetString(DevicePrefKey, deviceIndex == 0 ? "" : devices[deviceIndex - 1].Id); changed = true; }
@@ -1217,7 +1210,6 @@ namespace Kmnk.FaceTrackingGenerator
                     changed = true;
                 }
             }
-            Help("preview.devices");
             // What the Preview runs as and which values it uses (spec R20).
             SideBox(SideLine());
             if (LiveRunning) Help("help.liveInputs");
@@ -1283,11 +1275,10 @@ namespace Kmnk.FaceTrackingGenerator
             // Weights
             EditorGUILayout.Space(6);
             EditorGUILayout.LabelField("Weights", EditorStyles.boldLabel);
-            Help("help.weights");
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 GUILayout.Label("Blendshape", EditorStyles.miniBoldLabel, GUILayout.ExpandWidth(true));
-                GUILayout.Label("Amount", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                GUILayout.Label(new GUIContent("Amount", EditorText.Get("tip.amount")), EditorStyles.miniBoldLabel, GUILayout.Width(60));
                 GUILayout.Label("Source", EditorStyles.miniBoldLabel, GUILayout.Width(200));
             }
             var i = 0;
@@ -1315,7 +1306,6 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 EditorGUILayout.Space(6);
                 showSwitches = EditorGUILayout.Foldout(showSwitches, EditorText.Heading("switches.title"), true, EditorStyles.foldoutHeader);
-                if (showSwitches) Help("help.switches");
                 if (showSwitches)
                     foreach (var sm in model.StateMachines)
                     {
@@ -1325,7 +1315,6 @@ namespace Kmnk.FaceTrackingGenerator
                     }
             }
             EditorGUILayout.Space(6);
-            EditorGUILayout.HelpBox(EditorText.Get("note.preview"), MessageType.Info);
         }
 
         // The slider range: the values the transitions compare the input with (0 to 1 at least).

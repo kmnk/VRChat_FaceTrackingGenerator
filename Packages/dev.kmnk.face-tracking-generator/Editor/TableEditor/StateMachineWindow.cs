@@ -733,8 +733,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         void DrawRegions(JObject e, string st, List<string> neutralRegions)
         {
-            var help = EditorText.Help("sm.regions");
-            if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
             var written = ((StateMachineEdit.States(e, machine)[st] as JObject)?["regions"] as JObject)?.Properties().Select(p => p.Name) ?? Enumerable.Empty<string>();
             var regions = neutralRegions.Concat(written).Distinct().ToList();
             var modes = new[] { StateMachineEdit.Neutral, StateMachineEdit.Override, StateMachineEdit.Off };
@@ -743,7 +741,7 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 var mode = StateMachineEdit.RegionMode(e, machine, st, region);
                 EditorGUI.BeginChangeCheck();
-                var m = EditorGUILayout.Popup(region, Array.IndexOf(modes, mode), labels);
+                var m = EditorGUILayout.Popup(new GUIContent(region, EditorText.Get("tip.regionMode")), Array.IndexOf(modes, mode), labels.Select(l => new GUIContent(l)).ToArray());
                 if (EditorGUI.EndChangeCheck() && modes[m] != mode) { var r = region; Edit("Set FT region", x => StateMachineEdit.SetRegion(x, machine, st, r, modes[m])); }
                 if (mode == StateMachineEdit.Override) DrawOverride(e, st, region);
             }
@@ -829,8 +827,6 @@ namespace Kmnk.FaceTrackingGenerator
 
         void DrawNeutral(JObject e, List<string> regions)
         {
-            var help = EditorText.Help("sm.neutral");
-            if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
             foreach (var region in regions)
             {
                 var rows = StateMachineEdit.NeutralRows(e, region);
