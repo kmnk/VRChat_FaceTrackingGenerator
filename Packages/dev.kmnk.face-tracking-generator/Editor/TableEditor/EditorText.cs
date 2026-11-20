@@ -71,7 +71,6 @@ namespace Kmnk.FaceTrackingGenerator
             ["help.weights"] = ("Blendshapes moving now and how much. Source is the value that moves it. Red rows over 100 can break the shape because shapes add up too much.", "いま動いているシェイプキーと量です。Source は、どの値から動いているかです。100 を超える赤い行は、形が重なりすぎて崩れることがあります。"),
             ["msg.noApplied"] = ("The chosen blendshapes are not on the avatar, so the face does not move.\nChoose blendshapes for the face movements in the Avatar tab.", "選んだシェイプキーがアバターに無いので、顔は動きません。\nAvatar のタブで、顔の動きにシェイプキーを選んでください。"),
             ["picker.keys"] = ("↑↓: show in Face view  Enter: choose", "↑↓: Face view に映す  Enter: 決める"),
-            ["faceview.note"] = ("The avatar and the scene are not changed.", "アバターもシーンも書き換えません。"),
             ["faceview.noPrefab"] = ("Choose the prefab in the Avatar tab.", "Avatar のタブで prefab を選んでください。"),
             ["faceview.noTable"] = ("Choose the settings file in the settings editor.", "設定エディタで設定ファイルを選んでください。"),
             ["gen.step1"] = ("1. Create the FT settings", "1. FT の設定を作る"),

@@ -114,7 +114,6 @@ namespace Kmnk.FaceTrackingGenerator
                 if (GUILayout.Button("Reset view", GUILayout.Width(90))) { lift = 0.03f; yaw = 0; }
                 if (EditorGUI.EndChangeCheck()) stale = true;
             }
-            EditorGUILayout.LabelField(EditorText.Get("faceview.note"), EditorStyles.wordWrappedMiniLabel);
         }
 
         void DrawFace(FaceView.Content c, Rect rect)
