@@ -256,7 +256,7 @@ namespace Kmnk.FaceTrackingGenerator
                 ShowMessage(3);
                 if (showCurves && model != null) Curves();
 
-                Step("gen.step4", "gen.help4");
+                Step("gen.step4", null);
                 var sel = avatar;
                 EditorGUI.BeginChangeCheck();
                 var picked = (GameObject)EditorGUILayout.ObjectField("Avatar in scene", avatar, typeof(GameObject), true);
