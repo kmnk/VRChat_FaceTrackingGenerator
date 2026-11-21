@@ -340,14 +340,19 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var d in new[] { Device.Vr, Device.Desktop })
                 {
                     var on = d == device;
-                    if (GUILayout.Toggle(on, Measurements.Label(d), d == Device.Vr ? ToolLeft : ToolRight, GUILayout.Width(64)) && !on) SetInputMode(d);
-                    // The device being edited: the button filled with the band's brown, its text white.
+                    // A button, not a toggle: Unity draws a selected toggle blue with a darker top edge, also past the
+                    // brown fill. Both are drawn as not selected, and the device being edited is filled inside the border.
+                    if (GUILayout.Button(Measurements.Label(d), d == Device.Vr ? ToolLeft : ToolRight, GUILayout.Width(64)) && !on) SetInputMode(d);
+                    // The device being edited: the button filled with the band's brown, its text white. Desktop's
+                    // background starts 2 left of its rect, over VR's right end, with the line between them first: its fill
+                    // starts after that line. VR's fill reaches its rect's end, and Desktop, drawn next, puts the line on it.
                     if (on && Event.current.type == EventType.Repaint)
                     {
                         var r = GUILayoutUtility.GetLastRect();
-                        var fill = new Rect(r.x + 1, r.y + 1, r.width - 2, ToolbarButtonH - 2);
+                        var fill = d == Device.Vr ? new Rect(r.x + 1, r.y + 1, r.width - 1, ToolbarButtonH - 2)
+                            : new Rect(r.x - 1, r.y + 1, r.width, ToolbarButtonH - 2);
                         EditorGUI.DrawRect(fill, ModeOn);
-                        GUI.Label(fill, Measurements.Label(d), ToolOnText);
+                        GUI.Label(r, Measurements.Label(d), ToolOnText);
                     }
                 }
             }

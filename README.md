@@ -131,6 +131,10 @@ The expression table can write some values per device; values not written per de
 
 A table that writes nothing per device makes the same output as 0.17.0, with or without recordings. 0.15.0 to 0.17.0 computed the other device's thresholds and strengths from the recordings and `"measurementsMain"`; 0.18.0 does not (the log warns about `"measurementsMain"`), so write the desktop values yourself. Versions before 0.18.0 ignore `"device"` and run such a transition on both devices.
 
+## Changes in 0.20.1
+
+- The State Machine window: the selected **VR** / **Desktop** button of **Input** is brown inside its border, without the blue line on the left of **Desktop** and the darker top edge
+
 ## Changes in 0.20.0
 
 - Response curves: a row of `neutral` or of a state's override can have `"curve"` (see Response curves), edited in the State Machine window's **Curve** column with Unity's curve editor. Tables without curves make the same output as 0.19.0
