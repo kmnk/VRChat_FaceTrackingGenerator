@@ -152,6 +152,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、メニュー、同じ名前のブレンドシェイプを持つ顔の動き、空の AFK のアニメーションが埋まります（Undo で戻せます）</li>
 <li>一覧に <em>Not set</em> が残った顔の動きがあれば、ブレンドシェイプを選びます</li>
 <li><strong>Menu</strong> で、FT と AFK のトグルの名前を決めます。サブメニューに入れたいときは、その名前を入れます（空ならメニューの直下）</li>
+<li>AFK の間に動かしたいときは、<strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを入れます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、Intro と Outro は空なら飛ばします。使わないなら空のままでかまいません（AFK のトグルもメニューに入りません）</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p><img src="images/avatar-tab.png" alt="設定エディタの Avatar タブ"></p>
@@ -185,7 +186,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="状態の顔を作る">状態の顔を作る</h3>
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に状態の設定が出ます</li>
-<li>目の部位（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を足します。行は「トラッキングキー → 顔の動き」です。たとえば <code>EyeClosedLeft</code> → <code>eye.eyeSquintLeft</code> にすると、喜んでいる間は左目のまばたきで目が細まります</li>
+<li>目の部位（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を足します。行は「トラッキングキー → 顔の動き」です。喜んでいる間だけ使う顔の動きは、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「部位.状態.名前」で足し、笑い目のブレンドシェイプを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、喜んでいる間は左目のまばたきで笑い目が閉じます（下の画像の行）</li>
 <li>口の部位（lip）を <strong>Off</strong> にし、無表情の口の動きを止めます。笑った口は次の 4 で決まった量として出します</li>
 <li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、喜んでいる間ずっと出す顔の動きを 0〜100 で足します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを足すと頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
@@ -220,7 +221,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確かめる">Build &amp; Test で確かめる</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">5. Build &amp; Test で確かめる</a>」と同じ手順でアバターを作り、笑うと喜びの状態に入り、まばたきで目が細まり、口角が上がったままになることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">5. Build &amp; Test で確かめる</a>」と同じ手順でアバターを作り、笑うと喜びの状態に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのブレンドシェイプの名前が ARKit の名前と違うときは、Avatar タブで顔の動きごとにブレンドシェイプを選びます。</p>
 <ul>
