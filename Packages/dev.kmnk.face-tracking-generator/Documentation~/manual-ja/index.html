@@ -56,6 +56,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li class="toc-3"><a href="#%E9%81%B7%E7%A7%BB%E3%81%AE%E6%9D%A1%E4%BB%B6%E3%82%92%E5%A4%89%E3%81%88%E3%82%8B">遷移の条件を変える</a></li>
 <li class="toc-3"><a href="#preview-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">Preview で確かめる</a></li>
 <li class="toc-3"><a href="#live-input-%E3%81%A7%E8%87%AA%E5%88%86%E3%81%AE%E9%A1%94%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">Live input で自分の顔で確かめる</a></li>
+<li class="toc-3"><a href="#build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">Build &amp; Test で確かめる</a></li>
 <li class="toc-2"><a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a></li>
 <li class="toc-3"><a href="#%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC%E3%81%AE%E5%85%83%E3%81%AE%E5%B1%A4">アバターの元の層</a></li>
 <li class="toc-2"><a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a></li>
@@ -108,7 +109,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>表情の設定（<code>expression.jsonc</code>）: どのトラッキングキーでどの顔の動きを動かすか、どんな状態があるか。アバターによらないので、別のアバターに持っていけます</li>
 <li>アバターの設定（<code>avatar.jsonc</code>）: 顔の動きごとに、このアバターのどのブレンドシェイプを動かすか</li>
 </ul>
-<p>出来上がった顔の動きは、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がブレンドシェイプを直接動かすので、FT の値をパラメータで同期しません。</p>
+<p>出来上がった顔の動きは、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がブレンドシェイプを直接動かすので、FT の値をパラメータで同期しません。遷移の条件に使うトラッキングキーだけは、VRChat の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forward to Animator</a> で Animator に渡します。</p>
 <h3 id="無表情と状態">無表情と状態</h3>
 <p>何も状態に入っていないときの顔を<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">無表情</a>（neutral）と呼びます。無表情では、目・口などの<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">部位</a>ごとに、トラッキングキーが顔の動きを動かします。</p>
 <p>状態（喜びなど）に入ると、その状態が上書きする部位だけ、動き方が替わります。たとえば喜びの状態で目を上書きすると、喜んでいる間はまばたきのキーで「笑い目」のブレンドシェイプが動きます。上書きしない部位は、無表情のまま動きます。</p>
@@ -157,14 +158,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>うまくいくと、<strong>Save</strong> の横の <strong>Unsaved changes</strong> が消えます。パーフェクトシンクのアバターでは、52 の顔の動きのほとんどが埋まります。</p>
 <h3 id="3-設定を確かめる">3. 設定を確かめる</h3>
 <p>生成器の窓に戻り、<strong>Check</strong> を押します。指摘があれば、読んで設定エディタで直します。</p>
-<p>うまくいくと、指摘が 0 件と出ます。<em>Not set</em> の顔の動きが残っていると、その数が 1 行で出ます。</p>
+<p>うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。<em>Not set</em> の顔の動きが残っていると、その数が 1 行で出ます。</p>
+<p><img src="images/generator-check.png" alt="Check の結果"></p>
 <h3 id="4-アバターに設定のコンポーネントを付ける">4. アバターに設定のコンポーネントを付ける</h3>
 <ol>
 <li>シーンにアバターを置きます</li>
 <li>生成器の窓の <strong>Avatar in scene</strong> でアバターを選びます（Hierarchy で選んでも入ります）</li>
 <li><strong>Add Settings Component</strong> を押します</li>
 </ol>
-<p>アバターに設定のコンポーネント（Face Tracking Generator Settings）が付きます。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。</p>
+<p>うまくいくと、アバターに設定のコンポーネント（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。</p>
 <h3 id="5-build--test-で確かめる">5. Build &amp; Test で確かめる</h3>
 <p>VRChat SDK の Build &amp; Test でアバターを作り、VRChat で着替えます。</p>
 <ul>
@@ -180,7 +182,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="状態の顔を作る">状態の顔を作る</h3>
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に状態の設定が出ます</li>
-<li>目の部位（eye）を <strong>Override</strong> にし、行を足します。行は「トラッキングキー → 顔の動き」です。たとえば <code>EyeClosedLeft</code> → <code>eye.eyeSquintLeft</code> にすると、喜んでいる間は左目のまばたきで目が細まります</li>
+<li>目の部位（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を足します。行は「トラッキングキー → 顔の動き」です。たとえば <code>EyeClosedLeft</code> → <code>eye.eyeSquintLeft</code> にすると、喜んでいる間は左目のまばたきで目が細まります</li>
+<li>口の部位（lip）も同じように <strong>Override</strong> にし、<code>MouthCornerPullLeft</code> → <code>lip.mouthSmileLeft</code> のように、口角を上げるキーで笑った口の顔の動きを動かす行を足します。口を決まった形にしたいときは、<strong>Off</strong> にして、口の形を <strong>Fixed face movements</strong> で出します</li>
 <li><strong>Fixed face movements</strong> で、喜んでいる間ずっと出すブレンドシェイプ（頬の赤らみなど）を 0〜100 で足します</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
@@ -194,6 +197,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>条件の値（<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">しきい値</a>）を変えます。入りにくければ下げ、入りすぎるなら上げます</li>
 <li>左右どちらかで入る形は、同じ状態の間に遷移を 2 本作ります（1 本の遷移の条件はすべて満たす必要があるため）</li>
 </ol>
+<p><img src="images/state-machine-transition.png" alt="遷移を選んだ State Machine の窓"></p>
+<p>うまくいくと、右に <strong>Conditions</strong> と条件の値が出て、変えた値が Preview の状態の切り替わりに反映されます。</p>
 <h3 id="preview-で確かめる">Preview で確かめる</h3>
 <ol>
 <li>設定エディタの <strong>Preview</strong> タブで、シーンのアバターを選び、<strong>Start preview</strong> を押します</li>
@@ -211,6 +216,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Start</strong> を押します</li>
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
+<h3 id="build--test-で確かめる">Build &amp; Test で確かめる</h3>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">5. Build &amp; Test で確かめる</a>」と同じ手順でアバターを作り、笑うと喜びの状態に入り、目と口が状態の動きに替わることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのブレンドシェイプの名前が ARKit の名前と違うときは、Avatar タブで顔の動きごとにブレンドシェイプを選びます。</p>
 <ul>
@@ -218,7 +225,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>選ばなかった顔の動きは <em>Not set</em> のままで、使われません。<strong>Check</strong> がその数を出します</li>
 <li><strong><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Scale</a></strong>（0〜1、既定は 1）で、このアバターで強すぎるブレンドシェイプを弱められます。表情の設定は変わらないので、他のアバターに持っていっても影響しません</li>
 <li><strong>+ Add Face Movement</strong> で顔の動きを足せます。部位の見出しの右の <strong>+</strong> でも同じです</li>
-<li>顔の動きを右クリックして <strong>Rename…</strong> で、2 つの設定の両方で名前を変えられます。どの状態も使わない顔の動きは、ゴミ箱のボタンで消せます</li>
+<li>顔の動きを右クリックして <strong>Rename…</strong> で、2 つの設定の両方で名前を変えられます。どの状態も使わない顔の動きは、ゴミ箱のボタン（画像を出せないときは <strong>Del</strong>）で消せます</li>
 <li>一覧には、顔のメッシュのマテリアルの Float と Range のプロパティもあります。状態の決まった量（Fixed face movements）にだけ使え、シェーダーで顔を描くアバターで、状態に合わせて目や口を描き替えるのに使えます</li>
 </ul>
 <h3 id="アバターの元の層">アバターの元の層</h3>
@@ -239,6 +246,9 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="機器を切り替えて書く">機器を切り替えて書く</h3>
 <ol>
 <li>State Machine の窓の右上の <strong>Input</strong> で、書く機器（<strong>VR</strong> か <strong>Desktop</strong>）を選びます。ツールバーの下の帯に、どちらを書いているかが出ます</li>
+</ol>
+<p><img src="images/state-machine-desktop.png" alt="Input を Desktop にした State Machine の窓"></p>
+<ol start="2">
 <li>グラフには、その機器の遷移が出ます。遷移を足したり条件を変えたりすると、その機器だけが変わります</li>
 <li>両方の機器で共通の遷移を変えると、その遷移は 2 つに分かれ、もう片方の機器は元のまま残ります</li>
 </ol>
@@ -248,6 +258,9 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>測り方は FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
 <ol>
 <li>設定エディタの <strong>Devices</strong> タブで、<strong>Add VR recording</strong> か <strong>Add Desktop recording</strong> を押し、記録のファイルを選びます。<code>avatar.jsonc</code> の隣の <code>Measurements/</code> に写されます</li>
+</ol>
+<p><img src="images/devices-tab.png" alt="記録が無いときの Devices タブ"></p>
+<ol start="2">
 <li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、キーごとに、無表情・無表情で話す・笑って話す・その顔での値の幅が出ます。無表情より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます</li>
 <li>Preview タブの <strong>Device</strong> に <strong>VR (records)</strong> と <strong>Desktop (records)</strong> が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです</li>
 </ol>
@@ -396,7 +409,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>+ Add Face Movement</td>
-<td>顔の動きを足します。開く小さな窓（<strong>New face movement…</strong>）の <strong>Name</strong> に <code>部位.名前</code> を入れ、<strong>OK</strong> で足し、<strong>Cancel</strong> でやめます</td>
+<td>顔の動きを足します。開く小さな窓（<strong>New face movement…</strong>）の <strong>Name</strong> に <code>部位.名前</code> を入れ、<strong>Add</strong> で足し、<strong>Cancel</strong> でやめます</td>
+</tr>
+<tr>
+<td>ゴミ箱（Del）</td>
+<td>どの状態も使わない顔の動きを消します</td>
 </tr>
 <tr>
 <td>Rename…</td>
@@ -494,7 +511,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <tbody>
 <tr>
 <td>左上の一覧</td>
-<td>表示する状態の機械。<strong>New State Machine…</strong>・<strong>Rename &quot;&lt;名前&gt;&quot;…</strong>・<strong>Delete &quot;&lt;名前&gt;&quot;…</strong></td>
+<td>表示する状態の機械。<strong>New State Machine…</strong>・<strong>Rename &quot;&lt;名前&gt;&quot;…</strong>・<strong>Delete &quot;&lt;名前&gt;&quot;…</strong>。名前を入れる小さな窓は <strong>OK</strong> で決めます</td>
 </tr>
 <tr>
 <td>+ State Machine</td>
@@ -668,7 +685,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <h3 id="excellent-でなくなる">Excellent でなくなる</h3>
 <ul>
-<li>遷移の条件に使うトラッキングキーが 10 を超えると、Forwarded Parameters で Excellent でなくなります</li>
+<li>遷移の条件に使うトラッキングキーが 10 を超えると、<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forwarded Parameters</a> で Excellent でなくなります</li>
 <li>VR とデスクトップで強さを分けると、Blendshapes Set の数が約 2 倍になります。<strong>Face tracking cost</strong> を見てください</li>
 </ul>
 <h3 id="窓が止まったまま">窓が止まったまま</h3>

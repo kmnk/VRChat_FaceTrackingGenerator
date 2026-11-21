@@ -26,7 +26,7 @@ VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの
 - 表情の設定（`expression.jsonc`）: どのトラッキングキーでどの顔の動きを動かすか、どんな状態があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: 顔の動きごとに、このアバターのどのブレンドシェイプを動かすか
 
-出来上がった顔の動きは、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がブレンドシェイプを直接動かすので、FT の値をパラメータで同期しません。
+出来上がった顔の動きは、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がブレンドシェイプを直接動かすので、FT の値をパラメータで同期しません。遷移の条件に使うトラッキングキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
 
 ### 無表情と状態
 
@@ -96,7 +96,9 @@ Modular Avatar は要りません。入っているプロジェクトでも使�
 
 生成器の窓に戻り、**Check** を押します。指摘があれば、読んで設定エディタで直します。
 
-うまくいくと、指摘が 0 件と出ます。*Not set* の顔の動きが残っていると、その数が 1 行で出ます。
+うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。*Not set* の顔の動きが残っていると、その数が 1 行で出ます。
+
+![Check の結果](images/generator-check.png)
 
 ### 4. アバターに設定のコンポーネントを付ける
 
@@ -104,7 +106,7 @@ Modular Avatar は要りません。入っているプロジェクトでも使�
 2. 生成器の窓の **Avatar in scene** でアバターを選びます（Hierarchy で選んでも入ります）
 3. **Add Settings Component** を押します
 
-アバターに設定のコンポーネント（Face Tracking Generator Settings）が付きます。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。
+うまくいくと、アバターに設定のコンポーネント（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。
 
 ### 5. Build & Test で確かめる
 
@@ -128,9 +130,10 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 ### 状態の顔を作る
 
 1. グラフで **joy** を選びます。右に状態の設定が出ます
-2. 目の部位（eye）を **Override** にし、行を足します。行は「トラッキングキー → 顔の動き」です。たとえば `EyeClosedLeft` → `eye.eyeSquintLeft` にすると、喜んでいる間は左目のまばたきで目が細まります
-3. **Fixed face movements** で、喜んでいる間ずっと出すブレンドシェイプ（頬の赤らみなど）を 0〜100 で足します
-4. **Save** を押します
+2. 目の部位（eye）を **Override** にし、**+ Add Row** で行を足します。行は「トラッキングキー → 顔の動き」です。たとえば `EyeClosedLeft` → `eye.eyeSquintLeft` にすると、喜んでいる間は左目のまばたきで目が細まります
+3. 口の部位（lip）も同じように **Override** にし、`MouthCornerPullLeft` → `lip.mouthSmileLeft` のように、口角を上げるキーで笑った口の顔の動きを動かす行を足します。口を決まった形にしたいときは、**Off** にして、口の形を **Fixed face movements** で出します
+4. **Fixed face movements** で、喜んでいる間ずっと出すブレンドシェイプ（頬の赤らみなど）を 0〜100 で足します
+5. **Save** を押します
 
 状態を選ぶと、Face view にその状態の顔が出ます。
 
@@ -145,6 +148,10 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 1. 遷移（状態の間の線）を選びます
 2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます
 3. 左右どちらかで入る形は、同じ状態の間に遷移を 2 本作ります（1 本の遷移の条件はすべて満たす必要があるため）
+
+![遷移を選んだ State Machine の窓](images/state-machine-transition.png)
+
+うまくいくと、右に **Conditions** と条件の値が出て、変えた値が Preview の状態の切り替わりに反映されます。
 
 ### Preview で確かめる
 
@@ -167,6 +174,10 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。**Stop** で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。
 
+### Build & Test で確かめる
+
+「[5. Build & Test で確かめる](#5-build--test-で確かめる)」と同じ手順でアバターを作り、笑うと喜びの状態に入り、目と口が状態の動きに替わることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。
+
 ## パーフェクトシンクでないアバター
 
 アバターのブレンドシェイプの名前が ARKit の名前と違うときは、Avatar タブで顔の動きごとにブレンドシェイプを選びます。
@@ -175,7 +186,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 - 選ばなかった顔の動きは *Not set* のままで、使われません。**Check** がその数を出します
 - **[Scale](#用語集)**（0〜1、既定は 1）で、このアバターで強すぎるブレンドシェイプを弱められます。表情の設定は変わらないので、他のアバターに持っていっても影響しません
 - **+ Add Face Movement** で顔の動きを足せます。部位の見出しの右の **+** でも同じです
-- 顔の動きを右クリックして **Rename…** で、2 つの設定の両方で名前を変えられます。どの状態も使わない顔の動きは、ゴミ箱のボタンで消せます
+- 顔の動きを右クリックして **Rename…** で、2 つの設定の両方で名前を変えられます。どの状態も使わない顔の動きは、ゴミ箱のボタン（画像を出せないときは **Del**）で消せます
 - 一覧には、顔のメッシュのマテリアルの Float と Range のプロパティもあります。状態の決まった量（Fixed face movements）にだけ使え、シェーダーで顔を描くアバターで、状態に合わせて目や口を描き替えるのに使えます
 
 ### アバターの元の層
@@ -199,6 +210,9 @@ VR の機器とデスクトップの Selfie Expression では、同じ顔でも�
 ### 機器を切り替えて書く
 
 1. State Machine の窓の右上の **Input** で、書く機器（**VR** か **Desktop**）を選びます。ツールバーの下の帯に、どちらを書いているかが出ます
+
+![Input を Desktop にした State Machine の窓](images/state-machine-desktop.png)
+
 2. グラフには、その機器の遷移が出ます。遷移を足したり条件を変えたりすると、その機器だけが変わります
 3. 両方の機器で共通の遷移を変えると、その遷移は 2 つに分かれ、もう片方の機器は元のまま残ります
 
@@ -211,6 +225,9 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 測り方は FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
 
 1. 設定エディタの **Devices** タブで、**Add VR recording** か **Add Desktop recording** を押し、記録のファイルを選びます。`avatar.jsonc` の隣の `Measurements/` に写されます
+
+![記録が無いときの Devices タブ](images/devices-tab.png)
+
 2. **Recorded faces** で、測った顔（**Face**）を選ぶと、キーごとに、無表情・無表情で話す・笑って話す・その顔での値の幅が出ます。無表情より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます
 3. Preview タブの **Device** に **VR (records)** と **Desktop (records)** が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです
 
@@ -285,7 +302,8 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | AFK animation | AFK の間に再生するクリップ。Loop の 2 つだけが必須です |
 | Not set | ブレンドシェイプを選んでいない顔の動き |
 | Scale | このアバターでの顔の動きの強さ（0〜1） |
-| + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**）の **Name** に `部位.名前` を入れ、**OK** で足し、**Cancel** でやめます |
+| + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
+| ゴミ箱（Del） | どの状態も使わない顔の動きを消します |
 | Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** です |
 | Layers | アバターの元の層の一覧 |
 | Stop while FT / Mute while FT | FT の間、アバターの元の層を止める・黙らせます |
@@ -318,7 +336,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 
 | 名前 | 何をするか |
 | --- | --- |
-| 左上の一覧 | 表示する状態の機械。**New State Machine…**・**Rename "<名前>"…**・**Delete "<名前>"…** |
+| 左上の一覧 | 表示する状態の機械。**New State Machine…**・**Rename "<名前>"…**・**Delete "<名前>"…**。名前を入れる小さな窓は **OK** で決めます |
 | + State Machine | 状態の機械が 1 つも無いときに、状態の機械を作ります |
 | + State | 状態を足します。グラフの空いた所の右クリックの **Create State** でも足せます |
 | Input | 書く機器（VR か Desktop） |
@@ -393,7 +411,7 @@ VCC か ALCOM のパッケージの一覧で、新しい版を選びます。自
 
 ### Excellent でなくなる
 
-- 遷移の条件に使うトラッキングキーが 10 を超えると、Forwarded Parameters で Excellent でなくなります
+- 遷移の条件に使うトラッキングキーが 10 を超えると、[Forwarded Parameters](#用語集) で Excellent でなくなります
 - VR とデスクトップで強さを分けると、Blendshapes Set の数が約 2 倍になります。**Face tracking cost** を見てください
 
 ### 窓が止まったまま
