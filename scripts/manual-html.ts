@@ -72,6 +72,11 @@ const toc = headings.filter((h) => h.level === 2 || h.level === 3)
   .map((h) => `<li class="toc-${h.level}"><a href="#${encodeURIComponent(h.id)}">${escape(h.text)}</a></li>`)
   .join("\n");
 
+// The table of contents goes right after the title (the first h1), or first when there is none.
+const nav = `<nav class="toc" aria-label="目次">\n<strong>目次</strong>\n<ul>\n${toc}\n</ul>\n</nav>\n`;
+const h1End = body.indexOf("</h1>");
+const withToc = h1End < 0 ? nav + body : body.slice(0, h1End + 6) + "\n" + nav + body.slice(h1End + 6);
+
 const css = `
 :root { color-scheme: light dark; --fg: #1f2328; --bg: #ffffff; --muted: #59636e; --line: #d1d9e0; --code: #f6f8fa; --link: #0969da; }
 @media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --bg: #0d1117; --muted: #9198a1; --line: #3d444d; --code: #151b23; --link: #4493f8; } }
@@ -106,14 +111,8 @@ const html = `<!doctype html>
 </head>
 <body>
 <div class="page">
-<nav class="toc" aria-label="目次">
-<strong>目次</strong>
-<ul>
-${toc}
-</ul>
-</nav>
 <main>
-${body}</main>
+${withToc}</main>
 </div>
 </body>
 </html>
