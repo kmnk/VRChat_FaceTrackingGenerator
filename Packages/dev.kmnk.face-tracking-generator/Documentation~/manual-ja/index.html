@@ -32,7 +32,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <div class="page">
 <main>
 <h1 id="face-tracking-generator-説明書">Face Tracking Generator 説明書</h1>
-
+<p>Face Tracking Generator（以下 生成器）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作る道具です。この説明書は日本語の説明書で、生成器と一緒に配っています。英語の説明はリポジトリの README（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator">https://github.com/kmnk/VRChat_FaceTrackingGenerator</a> ）にあります。</p>
+<p>FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。</p>
 <nav class="toc" aria-label="目次">
 <strong>目次</strong>
 <ul>
@@ -89,8 +90,6 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li class="toc-2"><a href="#%E4%BB%98%E9%8C%B2-zip-%E3%81%8B%E3%82%89%E5%85%A5%E3%82%8C%E3%82%8B">付録: zip から入れる</a></li>
 </ul>
 </nav>
-<p>Face Tracking Generator（以下 生成器）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作る道具です。この説明書は日本語の説明書で、生成器と一緒に配っています。英語の説明はリポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。</p>
-<p>FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。</p>
 <h2 id="はじめに">はじめに</h2>
 <h3 id="できること">できること</h3>
 <ul>
@@ -246,7 +245,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>Preview タブの <strong>Device</strong> で VR かデスクトップを選ぶと、Preview はその機器の遷移と強さで動きます。</p>
 <h3 id="ft-measure-で値の幅を見る">FT Measure で値の幅を見る</h3>
 <p>FT Measure は、自分の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を生成器に読ませると、どのキーがどのくらい動くかを見て、遷移のキーとしきい値を選べます。記録は参考に見るだけで、生成器の出力は変わりません。FT Measure を使わなくても、生成器は使えます。</p>
-<p>測り方は FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。</p>
+<p>測り方は FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
 <ol>
 <li>設定エディタの <strong>Devices</strong> タブで、<strong>Add VR recording</strong> か <strong>Add Desktop recording</strong> を押し、記録のファイルを選びます。<code>avatar.jsonc</code> の隣の <code>Measurements/</code> に写されます</li>
 <li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、キーごとに、無表情・無表情で話す・笑って話す・その顔での値の幅が出ます。無表情より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます</li>
@@ -686,7 +685,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <h2 id="問い合わせとライセンス">問い合わせとライセンス</h2>
 <h3 id="問い合わせ">問い合わせ</h3>
-<p>不具合の報告と問い合わせは、BOOTH のメッセージか、GitHub の Issues（https://github.com/kmnk/VRChat_FaceTrackingGenerator/issues ）で受けます。返事ができないこともあります。</p>
+<p>不具合の報告と問い合わせは、BOOTH のメッセージか、GitHub の Issues（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator/issues">https://github.com/kmnk/VRChat_FaceTrackingGenerator/issues</a> ）で受けます。返事ができないこともあります。</p>
 <p>次のことには対応しません。</p>
 <ul>
 <li>アバターごとの設定を作ること、ブレンドシェイプの割り当ての代行</li>

@@ -6,7 +6,7 @@
 //
 // The Markdown is the source; GitHub shows it as it is. The HTML has the same text with
 // heading ids named as GitHub names them, a table of contents from the h2 and h3 headings,
-// and its own CSS (no files or network besides images/). Raw HTML in the Markdown is not
+// bare URLs as links (as GitHub shows them), and its own CSS (no files or network besides images/). Raw HTML in the Markdown is not
 // rendered, so GitHub and the HTML show the same thing. The same input gives the same output.
 // Exits 1 when a link to "#..." does not match a heading, 2 on usage or file errors.
 //
@@ -33,7 +33,7 @@ function slug(text: string): string {
   return text.trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
 }
 
-const md = new MarkdownIt({ html: false, linkify: false, typographer: false });
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 const headings: { level: number; id: string; text: string }[] = [];
 md.core.ruler.push("heading_ids", (state) => {
   const used = new Map<string, number>();
@@ -72,10 +72,10 @@ const toc = headings.filter((h) => h.level === 2 || h.level === 3)
   .map((h) => `<li class="toc-${h.level}"><a href="#${encodeURIComponent(h.id)}">${escape(h.text)}</a></li>`)
   .join("\n");
 
-// The table of contents goes right after the title (the first h1), or first when there is none.
+// The table of contents goes before the first h2 (after the title and the opening paragraphs).
 const nav = `<nav class="toc" aria-label="目次">\n<strong>目次</strong>\n<ul>\n${toc}\n</ul>\n</nav>\n`;
-const h1End = body.indexOf("</h1>");
-const withToc = h1End < 0 ? nav + body : body.slice(0, h1End + 6) + "\n" + nav + body.slice(h1End + 6);
+const firstH2 = body.indexOf("<h2");
+const withToc = firstH2 < 0 ? body + nav : body.slice(0, firstH2) + nav + body.slice(firstH2);
 
 const css = `
 :root { color-scheme: light dark; --fg: #1f2328; --bg: #ffffff; --muted: #59636e; --line: #d1d9e0; --code: #f6f8fa; --link: #0969da; }
