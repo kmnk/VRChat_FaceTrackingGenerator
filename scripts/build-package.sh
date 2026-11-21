@@ -8,6 +8,8 @@
 # 2. Opens the project so Unity makes .meta files for new files
 # 3. Copies the package folder to this repository (.meta GUIDs kept) and stages it
 #    The development checks package (Packages/dev.kmnk.face-tracking-generator.checks/) is copied too, but not zipped
+#    Then makes the offline manual (docs/manual-ja/ to Documentation~/manual-ja/ of the package, with
+#    scripts/manual-html.ts; needs deno) and stages it. It stops when a link in the manual matches no heading
 # 4. Zips exactly the staged files of the package folder, with package.json at the root of the zip,
 #    to build/. Attach the zip to the GitHub release v<version>; the VPM listing picks it up from there.
 # 5. With FTG_DENYLIST (a file of names that must not be published, one per line, kept outside this repository),
@@ -50,6 +52,12 @@ if [ -d "$dev/$checks" ]; then
   rsync -a --delete --exclude '.DS_Store' "$dev/$checks/" "$repo/$checks/"
   git -C "$repo" add -A "$checks"
 fi
+
+# 3b. the manual (made from docs/manual-ja/ every time, so it never differs from the Markdown)
+manual="$repo/$rel/Documentation~/manual-ja"
+rm -rf "$manual"
+deno run --allow-read --allow-write "$here/manual-html.ts" "$repo/docs/manual-ja" "$manual"
+git -C "$repo" add -A "$rel/Documentation~"
 
 # 4. zip (paths inside the zip are relative to the package folder)
 out="$repo/build/$name-$version.zip"

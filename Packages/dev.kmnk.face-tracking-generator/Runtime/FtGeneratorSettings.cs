@@ -10,9 +10,10 @@ namespace Kmnk.FaceTrackingGenerator
     [HelpURL(ManualUrl)]
     public sealed class FtGeneratorSettings : MonoBehaviour, IEditorOnly
     {
-        // The manual that the Inspector's ? and the generator window's Manual open. The README's Use section for now;
-        // a page made for the manual is planned, and then only this changes.
-        public const string ManualUrl = "https://github.com/kmnk/VRChat_FaceTrackingGenerator#use";
+        // The Japanese manual on GitHub (docs/manual-ja/README.md of main, which holds only released commits).
+        // The Inspector's ? opens it; HelpURL takes only a constant, so it cannot point into the installed package.
+        // The generator window's Manual opens the copy in the package first (ManualFiles.Open).
+        public const string ManualUrl = "https://github.com/kmnk/VRChat_FaceTrackingGenerator/blob/main/docs/manual-ja/README.md";
 
         [Tooltip("Asset path of the avatar table (avatar.jsonc)")]
         public string avatarTablePath;

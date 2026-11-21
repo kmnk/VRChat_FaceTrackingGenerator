@@ -205,8 +205,8 @@ namespace Kmnk.FaceTrackingGenerator
             if (EditorGUI.EndChangeCheck()) ChooseTable(table);
             using (new EditorGUILayout.HorizontalScope())
             {
-                // The manual (README) has the details the steps leave out.
-                if (EditorGUILayout.LinkButton("Manual")) Application.OpenURL(FtGeneratorSettings.ManualUrl);
+                // The manual has the details the steps leave out.
+                if (EditorGUILayout.LinkButton("Manual")) ManualFiles.Open();
                 GUILayout.FlexibleSpace();
                 GUILayout.Label("Help", GUILayout.ExpandWidth(false));
                 EditorGUI.BeginChangeCheck();

@@ -8,7 +8,7 @@ Unity Editor tool that generates face tracking (FT) layers for VRChat avatars fr
 - Adds an AFK animation layer driven by a menu toggle, and puts the FT toggle, the AFK toggle and the state submenus into a copy of the avatar's menu (the avatar's own menu is not changed).
 - Works on a copy of the avatar's controllers. The original controllers are not changed.
 
-Status: under development. Not ready for use.
+The Japanese manual (日本語の説明書): [docs/manual-ja/README.md](docs/manual-ja/README.md). The package has it as offline HTML too (`Documentation~/manual-ja/index.html`), which the generator window's **Manual** opens.
 
 ## Install
 
@@ -106,7 +106,7 @@ The keys are Unity AnimationCurve keys: `time` is the tracking key's value and `
 
 A blendshape moved by a curve is not a Blendshapes Set row: the generator moves it with a Parameter Behavior (Apply to Blendshape, a Custom expression that follows the curve within 0.01 of a blendshape's 0 to 1) for each Blendshapes Set it belongs to, weighted by that set, so states and devices switch curves as they switch sets. The other rows on the same blendshape (other tracking keys) go into the same expression, and the largest moves it. One expression holds about 22 segments of a curve (VRChat allows 1024 characters, 256 tokens and 256 instructions); when a blendshape's curves do not fit, the generation log and Check name the rows and how far the expression is from the curve. Generating stops when the Face Tracking section would have over 128 Parameter Behaviors or 2048 expression instructions (VRChat skips the rest), naming the sets and blendshapes that take the most; over 2,000 Face Tracking Operations (no longer Excellent) it only says so. Parts of two regions on one blendshape with a curve are an error (a behavior follows one set). Versions before 0.20.0 ignore `"curve"` and move such a row as `"strength": 1`.
 
-When the avatar's Face Tracking section already has its own values, they are kept and the generator's sets are not written, unless `avatar.jsonc` has `"overwriteFaceTracking": true` (viseme rows and the avatar's Forward to Animator are kept even then). `eyeGazeMode` (default `"FaceTracking"`) sets Eye Look's Eye Gaze Mode; choose `"Both"` or `"BoneRotation"` for avatars that look with eye bones. Limits accepted: in one region a key moves one blendshape, values from several keys are not added (the largest wins), and the movement is proportional to the key (no curves, no smoothing).
+When the avatar's Face Tracking section already has its own values, they are kept and the generator's sets are not written, unless `avatar.jsonc` has `"overwriteFaceTracking": true` (viseme rows and the avatar's Forward to Animator are kept even then). `eyeGazeMode` (default `"FaceTracking"`) sets Eye Look's Eye Gaze Mode; choose `"Both"` or `"BoneRotation"` for avatars that look with eye bones. Limits accepted: in one region a key moves one blendshape, values from several keys are not added (the largest wins), and there is no smoothing of the key values.
 
 A face movement can move a Float or Range property of the face mesh's materials instead of a blendshape: write `"property"` in place of `"shape"` in `avatar.jsonc` (`{ "property": "_MyWeight" }`, with `scale` if needed). Such a movement moves only as a state's fixed amount: 0 to 100 becomes the Range's minimum to maximum (0 to 1 for a Float), written as an animation of the material property. Used in neutral or in an override, the row is dropped and the load log and Check say so (an override row becomes Don't move). This lets a shader draw the face from the state, for example by choosing the eyes and mouth from the properties' values.
 
@@ -130,46 +130,6 @@ The expression table can write some values per device; values not written per de
 - States, menus, the rows' keys and movements and the fixed face movements are shared.
 
 A table that writes nothing per device makes the same output as 0.17.0, with or without recordings. 0.15.0 to 0.17.0 computed the other device's thresholds and strengths from the recordings and `"measurementsMain"`; 0.18.0 does not (the log warns about `"measurementsMain"`), so write the desktop values yourself. Versions before 0.18.0 ignore `"device"` and run such a transition on both devices.
-
-## Changes in 0.20.1
-
-- The State Machine window: the selected **VR** / **Desktop** button of **Input** is brown inside its border, without the blue line on the left of **Desktop** and the darker top edge
-
-## Changes in 0.20.0
-
-- Response curves: a row of `neutral` or of a state's override can have `"curve"` (see Response curves), edited in the State Machine window's **Curve** column with Unity's curve editor. Tables without curves make the same output as 0.19.0
-- The State Machine window shows **Face tracking cost** (Parameter Behaviors, expression instructions, Face Tracking Operations and the rank); its toolbar's buttons look like buttons, and **Unsaved changes** and **Input** sit on the buttons' middle line
-- The generation log has a `face tracking cost:` line, and Check also reports over the limits, over Excellent and curves that one expression cannot follow
-
-## Changes in 0.19.0
-
-The windows:
-
-- The generator window has four steps: create, edit (in the settings editor), check, attach. Fill, the toggle names and the AFK clips moved to the settings editor's Avatar tab (**Fill from Prefab**, **Menu**, **AFK animation**), where Undo takes them back and **Save** writes them; the generator window no longer writes the settings files and has no Reload
-- The settings editor keeps unsaved edits when you enter Play Mode or scripts compile, and Undo no longer brings back another settings file's contents after you open it or read it again. After choosing a state in the State Machine window, a row you select stays in Face view after edits
-- The State Machine window has **Save**, a hint when nothing is selected, and **Fixed face movements**; the component's Inspector shows the settings file and opens it
-- The generator window no longer has **Response curves** (a straight line per blendshape for one tracking key; the Preview tab shows the same with the states and the device)
-- The windows keep only the text you need where you are: the gray descriptions that repeated the labels are gone, the meaning of a field is in its tooltip (hover over it), and the details are here; the generator window has a **Manual** link to this page
-- **Create** and **Create from Folder…** make nothing when settings of that name exist, and say so (before, they failed with an error)
-- Preview: the line under **Try expressions** says how many face movements add up; **Menu** is above the sliders; **Device** starts with **None**; the slider names are not cut
-- The settings editor's Avatar tab shows a gray hint in the empty **Submenu name**; the `Tools/Kmnk` menu lists the windows in the order you use them
-- The windows say settings file, expression settings and State Machine for the same things everywhere; the State Machine window's **+ Add Blendshape** is **+ Add Face Movement**, and the Inspector's **Avatar table (avatar.jsonc)** is **Settings file**
-- The generator window shows each result under the button you pressed, as a note, a warning or an error, in the Help language; the summary line at the top and the result box at the bottom are gone. When the settings file is missing or cannot be read, a warning under **Settings file** says so and steps 2 to 4 cannot be pressed
-- The Devices tab says what recordings are for when there are none; the State Machine window's hint when nothing is selected and while choosing where a transition goes show also with Help Off, and **Open Settings Editor** opens the settings when none are open
-- The settings component's **?** in the Inspector opens this page
-
-Generating (the generated files can change for the tables named here):
-
-- The FX controller no longer gets an unused `IsLocal` parameter
-- The menu and Expression Parameters agree: a toggle or state submenu goes in only with its parameter, a parameter only for a control the menu has, `FT/Menu/*` counts toward the 256 bits, and there is no AFK toggle when AFK is not built (both Loop clips are needed). For an avatar whose menu is full, `FT/Menu/<state machine>` is no longer added to Expression Parameters
-- The build-time output writes the state submenus under `Build/Menus/`, so Play Mode no longer rewrites `Menus/` of the files Generate writes
-- AFK groups with the same wait (one without `"wait"` and the generator's own AFK group both wait 0) no longer stop generating
-- A `{guid, path}` whose GUID is not in the project uses the path in Check, the menu and the AFK clips too, with a warning. The window's Generate and the build-time generation show the settings' warnings (in the Console for the build)
-- A hand-written state machine name with characters other than letters, digits and `_`, or one that differs from another only in capitals, is an error when the settings are read
-- Generating keeps menus in the output folder that it did not write, and stops when `outputFolder` holds the avatar's own files
-- Saving the toggle names or the AFK clips from the command line never leaves a broken settings file
-- Face movements left **Not set** are no longer a warning for each row that uses them: Check shows how many there are in one line and does not count them as findings, and the generation log no longer shows them (`Cli.Load` lists them as dropped)
-- **Missing** is gone from the Avatar tab, and `missingParts` in `avatar.jsonc` is not read (it is not an error). Those movements stay unused, now as Not set; **Fill from Prefab** may now set them, so when a blendshape breaks an expression, fix it in that state instead (`null` for the key, another face movement, `strength`, or the region `"off"`)
 
 ## License
 
