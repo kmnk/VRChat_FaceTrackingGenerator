@@ -144,6 +144,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Create</strong> を押します</li>
 </ol>
 <p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートは、パーフェクトシンクの 52 の名前を無表情で動かし、空の状態の喜び（joy）・怒り（angry）・悲しみ（sad）を持つ状態の機械 <code>Emotion</code> を持ちます。</p>
+<p><img src="images/generator-window.png" alt="生成器の窓"></p>
 <p>うまくいくと、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります。同じ名前の設定が既にあると何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
 <ol>
@@ -166,6 +167,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>生成器の窓の <strong>Avatar in scene</strong> でアバターを選びます（Hierarchy で選んでも入ります）</li>
 <li><strong>Add Settings Component</strong> を押します</li>
 </ol>
+<p><img src="images/generator-avatar.png" alt="アバターを選んだ生成器の窓"></p>
+<p>画像のアバターの名前は隠しています。</p>
 <p>うまくいくと、アバターに設定のコンポーネント（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。</p>
 <h3 id="5-build--test-で確かめる">5. Build &amp; Test で確かめる</h3>
 <p>VRChat SDK の Build &amp; Test でアバターを作り、VRChat で着替えます。</p>
@@ -401,11 +404,19 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Menu</td>
-<td>FT と AFK のトグルを入れるメニュー、トグルの名前、サブメニューの名前</td>
+<td>FT と AFK のトグルを入れるメニュー</td>
+</tr>
+<tr>
+<td>FT toggle name / AFK toggle name</td>
+<td>メニューに入れる FT と AFK のトグルの名前</td>
+</tr>
+<tr>
+<td>Submenu name (optional)</td>
+<td>トグルを入れるサブメニューの名前。空ならメニューの直下</td>
 </tr>
 <tr>
 <td>AFK animation (optional)</td>
-<td>AFK の間に再生するクリップ。Loop の 2 つだけが必須です</td>
+<td>AFK の間に再生するクリップ。<strong>Action Intro</strong>・<strong>Action Loop</strong>・<strong>Action Outro</strong>・<strong>FX Intro</strong>・<strong>FX Loop</strong>・<strong>FX Outro</strong> の 6 つで、Loop の 2 つだけが必須です</td>
 </tr>
 <tr>
 <td>Not set</td>
@@ -433,7 +444,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Layers</td>
-<td>アバターの元の層の一覧。列は <strong>Layer</strong>（層の名前）と、Stop while FT・Mute while FT・<strong>Remove</strong>（一覧から外す）</td>
+<td>アバターの元の層の一覧。層を足すときは、コントローラー（<strong>FX</strong>・<strong>Gesture</strong>・<strong>Action</strong>）を選びます。列は <strong>Layer</strong>（層の名前）と、Stop while FT・Mute while FT・<strong>Remove</strong>（一覧から外す）</td>
 </tr>
 <tr>
 <td>Stop while FT / Mute while FT</td>
@@ -512,7 +523,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tbody>
 </table>
 <h3 id="state-machine-の窓">State Machine の窓</h3>
-<p><code>Tools/Kmnk/Face Tracking State Machine</code>。</p>
+<p><code>Tools/Kmnk/Face Tracking State Machine</code>（窓の題は <strong>FT State Machine</strong>）。</p>
 <table>
 <thead>
 <tr>
@@ -599,7 +610,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Face tracking cost</td>
-<td>設定が作る Parameter Behavior などの数と、パフォーマンスランク</td>
+<td>設定が作るものの数と、パフォーマンスランク。<strong>Parameter Behaviors</strong>（VRChat の上限 128）、<strong>Expression instructions</strong>（上限 2048）、<strong>Face Tracking Operations</strong>（2000 を超えると Excellent でなくなる）</td>
 </tr>
 <tr>
 <td>Open Settings Editor</td>

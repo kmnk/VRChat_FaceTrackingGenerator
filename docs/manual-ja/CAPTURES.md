@@ -17,4 +17,5 @@ Images must not show the names of a bought avatar's blendshapes, meshes or asset
 | `state-machine-transition.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmSelect 'neutral->joy' -ftSize 1100x700` | none |
 | `state-machine-desktop.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmDevice desktop -ftSmSelect joy -ftSize 1100x700` | none |
 | `devices-tab.png` | `-ftTable <table> -ftTab devices -ftHelp ja -ftSize 560x700`, top 560x200 kept | none |
+| `generator-avatar.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftOpenScene <scene> -ftChooseAvatar <avatar> -ftSize 560x900`, top 560x335 kept | the Avatar in scene field (the avatar's name) |
 | `overview.png` | an HTML drawing rendered with headless Chrome at 1200x520 | none |

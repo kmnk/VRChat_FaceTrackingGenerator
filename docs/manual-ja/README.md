@@ -76,6 +76,8 @@ Modular Avatar は要りません。入っているプロジェクトでも使�
 
 `Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` がテンプレートから作られます。表情の設定のテンプレートは、パーフェクトシンクの 52 の名前を無表情で動かし、空の状態の喜び（joy）・怒り（angry）・悲しみ（sad）を持つ状態の機械 `Emotion` を持ちます。
 
+![生成器の窓](images/generator-window.png)
+
 うまくいくと、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります。同じ名前の設定が既にあると何も作りません。そのときは **Settings file** で既にある設定を選んでください。
 
 ### 2. 設定を編集する
@@ -105,6 +107,10 @@ Modular Avatar は要りません。入っているプロジェクトでも使�
 1. シーンにアバターを置きます
 2. 生成器の窓の **Avatar in scene** でアバターを選びます（Hierarchy で選んでも入ります）
 3. **Add Settings Component** を押します
+
+![アバターを選んだ生成器の窓](images/generator-avatar.png)
+
+画像のアバターの名前は隠しています。
 
 うまくいくと、アバターに設定のコンポーネント（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT は、Play Mode に入るときとアップロードのときに作られます。元のアバターのコントローラー・メニュー・Expression Parameters は書き換えません。
 
@@ -300,15 +306,17 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Fill from Prefab | プレハブから、顔のメッシュ・メニュー・同じ名前のブレンドシェイプ・空の AFK のアニメーションを埋めます |
 | Face mesh | 顔のメッシュ |
 | Blendshape / Property | 顔の動きごとの、ブレンドシェイプかマテリアルのプロパティの列 |
-| Menu | FT と AFK のトグルを入れるメニュー、トグルの名前、サブメニューの名前 |
-| AFK animation (optional) | AFK の間に再生するクリップ。Loop の 2 つだけが必須です |
+| Menu | FT と AFK のトグルを入れるメニュー |
+| FT toggle name / AFK toggle name | メニューに入れる FT と AFK のトグルの名前 |
+| Submenu name (optional) | トグルを入れるサブメニューの名前。空ならメニューの直下 |
+| AFK animation (optional) | AFK の間に再生するクリップ。**Action Intro**・**Action Loop**・**Action Outro**・**FX Intro**・**FX Loop**・**FX Outro** の 6 つで、Loop の 2 つだけが必須です |
 | Not set | ブレンドシェイプを選んでいない顔の動き |
 | unused | どの状態も使わない顔の動きに付く印 |
 | Scale | このアバターでの顔の動きの強さ（0〜1） |
 | + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
 | ゴミ箱（Del） | どの状態も使わない顔の動きを消します |
 | Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** です |
-| Layers | アバターの元の層の一覧。列は **Layer**（層の名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
+| Layers | アバターの元の層の一覧。層を足すときは、コントローラー（**FX**・**Gesture**・**Action**）を選びます。列は **Layer**（層の名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
 | Stop while FT / Mute while FT | FT の間、アバターの元の層を止める・黙らせます |
 
 #### Preview タブ
@@ -335,7 +343,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 
 ### State Machine の窓
 
-`Tools/Kmnk/Face Tracking State Machine`。
+`Tools/Kmnk/Face Tracking State Machine`（窓の題は **FT State Machine**）。
 
 | 名前 | 何をするか |
 | --- | --- |
@@ -358,7 +366,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Duration | 選んだ遷移の移り変わりの秒数 |
 | Conditions | 選んだ遷移の条件。**+ Add Condition** で条件を足します |
 | Remove Transition | 選んだ遷移を消します |
-| Face tracking cost | 設定が作る Parameter Behavior などの数と、パフォーマンスランク |
+| Face tracking cost | 設定が作るものの数と、パフォーマンスランク。**Parameter Behaviors**（VRChat の上限 128）、**Expression instructions**（上限 2048）、**Face Tracking Operations**（2000 を超えると Excellent でなくなる） |
 | Open Settings Editor | 設定が開かれていないときに、設定エディタを開きます |
 
 ### Face view
