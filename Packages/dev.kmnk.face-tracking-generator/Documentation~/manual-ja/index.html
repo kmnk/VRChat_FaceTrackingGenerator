@@ -149,10 +149,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
 <ol>
 <li><strong>Open Settings Editor</strong> を押して設定エディタを開きます</li>
-<li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、メニュー、同じ名前のブレンドシェイプを持つ顔の動き、空の AFK のアニメーションが埋まります（Undo で戻せます）</li>
+<li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、メニュー、同じ名前のブレンドシェイプを持つ顔の動き、空いている AFK のアニメーションの枠（アバター自身の AFK の層のクリップ）が埋まります（Undo で戻せます）</li>
 <li>一覧に <em>Not set</em> が残った顔の動きがあれば、ブレンドシェイプを選びます</li>
 <li><strong>Menu</strong> で、FT と AFK のトグルの名前を決めます。サブメニューに入れたいときは、その名前を入れます（空ならメニューの直下）</li>
-<li>AFK の間に動かしたいときは、<strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを入れます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、Intro と Outro は空なら飛ばします。使わないなら空のままでかまいません（AFK のトグルもメニューに入りません）</li>
+<li><strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK の層のクリップで埋めます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、AFK のトグルもメニューに入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p><img src="images/avatar-tab.png" alt="設定エディタの Avatar タブ"></p>
@@ -401,7 +401,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Fill from Prefab</td>
-<td>プレハブから、顔のメッシュ・メニュー・同じ名前のブレンドシェイプ・空の AFK のアニメーションを埋めます</td>
+<td>プレハブから、顔のメッシュ・メニュー・同じ名前のブレンドシェイプを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK の層のクリップで埋めます</td>
 </tr>
 <tr>
 <td>Face mesh</td>
@@ -496,7 +496,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Try expressions</td>
-<td>崩れやすい表情にスライダーを合わせます</td>
+<td>崩れやすい表情にスライダーを合わせます。ボタンは <strong>ふつうの顔</strong>・<strong>笑って目を閉じる</strong>・<strong>口を開けて笑う</strong>・<strong>口を大きく開ける</strong>・<strong>目を見開く</strong>・<strong>横を見る</strong>（Help が英語なら英語の名前）</td>
 </tr>
 <tr>
 <td>Weights</td>
@@ -551,7 +551,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <tbody>
 <tr>
 <td>左上の一覧</td>
-<td>表示する状態の機械。<strong>New State Machine…</strong>・<strong>Rename &quot;&lt;名前&gt;&quot;…</strong>・<strong>Delete &quot;&lt;名前&gt;&quot;…</strong>。名前を入れる小さな窓は <strong>OK</strong> で決めます</td>
+<td>表示する状態の機械。<strong>New State Machine…</strong>・<strong>Rename &quot;&lt;名前&gt;&quot;…</strong>・<strong>Delete &quot;&lt;名前&gt;&quot;…</strong>。名前を入れる小さな窓（見出しは <strong>New state machine</strong> か <strong>Rename state machine</strong>）は <strong>OK</strong> で決めます</td>
 </tr>
 <tr>
 <td>+ State Machine</td>
