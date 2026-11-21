@@ -131,8 +131,8 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 
 1. グラフで **joy** を選びます。右に状態の設定が出ます
 2. 目の部位（eye）を **Override** にし、**+ Add Row** で行を足します。行は「トラッキングキー → 顔の動き」です。たとえば `EyeClosedLeft` → `eye.eyeSquintLeft` にすると、喜んでいる間は左目のまばたきで目が細まります
-3. 口の部位（lip）も同じように **Override** にし、`MouthCornerPullLeft` → `lip.mouthSmileLeft` のように、口角を上げるキーで笑った口の顔の動きを動かす行を足します。口を決まった形にしたいときは、**Off** にして、口の形を **Fixed face movements** で出します
-4. **Fixed face movements** で、喜んでいる間ずっと出すブレンドシェイプ（頬の赤らみなど）を 0〜100 で足します
+3. 口の部位（lip）を **Off** にし、無表情の口の動きを止めます。笑った口は次の 4 で決まった量として出します
+4. **Fixed face movements** の **+ Add Face Movement** で、喜んでいる間ずっと出す顔の動きを 0〜100 で足します。たとえば `lip.mouthSmileLeft` と `lip.mouthSmileRight` を 50 にすると口角が上がったまま、`cheek.joy.blush` のような頬の赤らみを足すと頬が赤くなります
 5. **Save** を押します
 
 状態を選ぶと、Face view にその状態の顔が出ます。
@@ -176,7 +176,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確かめる
 
-「[5. Build & Test で確かめる](#5-build--test-で確かめる)」と同じ手順でアバターを作り、笑うと喜びの状態に入り、目と口が状態の動きに替わることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。
+「[5. Build & Test で確かめる](#5-build--test-で確かめる)」と同じ手順でアバターを作り、笑うと喜びの状態に入り、まばたきで目が細まり、口角が上がったままになることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 
@@ -275,6 +275,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Check | 保存した設定と、作った FX のコントローラーを確かめます |
 | Avatar in scene | 設定のコンポーネントを付けるアバター |
 | Add Settings Component | アバターに設定のコンポーネントを付けます |
+| Advanced: Generate files, Scenario check | 開くと、下の 2 つが出ます |
 | Generate（Advanced） | アバターを書き換えずに、作ったコントローラーと Prefab Variant を `Assets/FaceTrackingGeneratorOutput/<名前>/` に書きます |
 | Scenario check (Play Mode)（Advanced） | 生成器を確かめるための機能です。**scenario .txt** にシナリオのファイルを選び、**Run scenario on the generated prefab** で顔を動かして記録します |
 
@@ -286,6 +287,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | --- | --- |
 | Reload | 設定をファイルから読み直します |
 | Save | 設定を保存します。保存すると、設定ファイルの `//` のコメントは消えます |
+| Unsaved changes | 保存していない変更があるときに出ます（State Machine の窓にも出ます） |
 | Share | **Export expression…** で表情の設定をフォルダに書き出し、**Import expression…** でフォルダから読み込みます。アバターの設定は書き出しも上書きもしません |
 | Resume | VRChat SDK のビルドが失敗して止まったままのときに、窓を再開します |
 
@@ -299,13 +301,14 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Face mesh | 顔のメッシュ |
 | Blendshape / Property | 顔の動きごとの、ブレンドシェイプかマテリアルのプロパティの列 |
 | Menu | FT と AFK のトグルを入れるメニュー、トグルの名前、サブメニューの名前 |
-| AFK animation | AFK の間に再生するクリップ。Loop の 2 つだけが必須です |
+| AFK animation (optional) | AFK の間に再生するクリップ。Loop の 2 つだけが必須です |
 | Not set | ブレンドシェイプを選んでいない顔の動き |
+| unused | どの状態も使わない顔の動きに付く印 |
 | Scale | このアバターでの顔の動きの強さ（0〜1） |
 | + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
 | ゴミ箱（Del） | どの状態も使わない顔の動きを消します |
 | Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** です |
-| Layers | アバターの元の層の一覧 |
+| Layers | アバターの元の層の一覧。列は **Layer**（層の名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
 | Stop while FT / Mute while FT | FT の間、アバターの元の層を止める・黙らせます |
 
 #### Preview タブ
@@ -318,8 +321,8 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Inputs | トラッキングキーのスライダーの見出し |
 | Reset | スライダーを 0 に戻します |
 | Try expressions | 崩れやすい表情にスライダーを合わせます |
-| Weights | 各ブレンドシェイプを何が動かしているかを出します。**Amount** の列がその量です |
-| Live input（Start / Stop） | VRCFaceTracking の値でスライダーを動かします |
+| Weights | 各ブレンドシェイプを何が動かしているかを出します。**Amount** の列がその量、**Source** の列が動かしているもの（キーか状態の決まった量）です |
+| Live input（Start / Stop） | VRCFaceTracking の値でスライダーを動かします。**Port** は受けるポート |
 
 #### Devices タブ
 
@@ -351,7 +354,8 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Copy from | 別の状態の行を写します |
 | Curve | 行の応答の曲線 |
 | Fixed face movements | 状態の間ずっと出す顔の動き（0〜100） |
-| Make Transition / Set as Default / Delete State | 状態の右クリックのメニュー |
+| Make Transition / Set as Default / Delete State | 状態の右クリックのメニュー。最初の状態には **(default)** と出ます |
+| Duration | 選んだ遷移の移り変わりの秒数 |
 | Conditions | 選んだ遷移の条件。**+ Add Condition** で条件を足します |
 | Remove Transition | 選んだ遷移を消します |
 | Face tracking cost | 設定が作る Parameter Behavior などの数と、パフォーマンスランク |
@@ -359,7 +363,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 
 ### Face view
 
-`Tools/Kmnk/Face Tracking Face View`（窓の題は **FT Face View**）。プレハブの顔を、シーンとは別に表示します。ブレンドシェイプの一覧を動かす間は、そのブレンドシェイプを 100 にした顔、Preview の間は Preview の顔が出ます。ドラッグで顔を回せます。**Reset view** で向きを戻します。
+`Tools/Kmnk/Face Tracking Face View`（窓の題は **FT Face View**）。プレハブの顔を、シーンとは別に表示します。ブレンドシェイプの一覧を動かす間は、そのブレンドシェイプを 100 にした顔、Preview の間は Preview の顔が出ます。ドラッグで顔を回せます。**Height** で見る高さを変え、**Reset view** で向きを戻します。
 
 ### 設定のコンポーネント
 
@@ -447,8 +451,8 @@ VCC か ALCOM のパッケージの一覧で、新しい版を選びます。自
 
 VCC か ALCOM にリポジトリを足せないときは、zip から入れられます。
 
-1. `dev.kmnk.face-tracking-generator-<版>.zip` を、プロジェクトの外のフォルダに展開します
-2. NDMF を先に入れます（NDMF のリポジトリを足すか、NDMF の配布元の手順で）
-3. Unity の **Window > Package Manager** の **+** から **Add package from disk…** を選び、展開したフォルダの `package.json` を選びます
+1. `dev.kmnk.face-tracking-generator-<版>.zip` を、消さずに置いておけるフォルダに展開します（`package.json` がフォルダの直下に来ます）
+2. VCC の **Settings** の **Packages** にある **User Packages** の **Add** で、展開したフォルダを選びます
+3. アバターのプロジェクトの **Manage Project** で **Face Tracking Generator** を足します。NDMF も要るので、NDMF のリポジトリ（`https://vpm.nadena.dev/vpm.json`）を足しておきます
 
-この入れ方では、新しい版が出ても一覧から更新できません。新しい版の zip で同じ手順を繰り返してください。
+この入れ方では、新しい版が出ても一覧から更新できません。新しい版の zip を展開し、User Packages を新しいフォルダに替えてください。消し方は VCC で入れたときと同じです。

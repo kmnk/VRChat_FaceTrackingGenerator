@@ -183,8 +183,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に状態の設定が出ます</li>
 <li>目の部位（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を足します。行は「トラッキングキー → 顔の動き」です。たとえば <code>EyeClosedLeft</code> → <code>eye.eyeSquintLeft</code> にすると、喜んでいる間は左目のまばたきで目が細まります</li>
-<li>口の部位（lip）も同じように <strong>Override</strong> にし、<code>MouthCornerPullLeft</code> → <code>lip.mouthSmileLeft</code> のように、口角を上げるキーで笑った口の顔の動きを動かす行を足します。口を決まった形にしたいときは、<strong>Off</strong> にして、口の形を <strong>Fixed face movements</strong> で出します</li>
-<li><strong>Fixed face movements</strong> で、喜んでいる間ずっと出すブレンドシェイプ（頬の赤らみなど）を 0〜100 で足します</li>
+<li>口の部位（lip）を <strong>Off</strong> にし、無表情の口の動きを止めます。笑った口は次の 4 で決まった量として出します</li>
+<li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、喜んでいる間ずっと出す顔の動きを 0〜100 で足します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを足すと頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p>状態を選ぶと、Face view にその状態の顔が出ます。</p>
@@ -217,7 +217,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確かめる">Build &amp; Test で確かめる</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">5. Build &amp; Test で確かめる</a>」と同じ手順でアバターを作り、笑うと喜びの状態に入り、目と口が状態の動きに替わることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B">5. Build &amp; Test で確かめる</a>」と同じ手順でアバターを作り、笑うと喜びの状態に入り、まばたきで目が細まり、口角が上がったままになることを確かめます。メニューの状態の機械のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのブレンドシェイプの名前が ARKit の名前と違うときは、Avatar タブで顔の動きごとにブレンドシェイプを選びます。</p>
 <ul>
@@ -332,6 +332,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>アバターに設定のコンポーネントを付けます</td>
 </tr>
 <tr>
+<td>Advanced: Generate files, Scenario check</td>
+<td>開くと、下の 2 つが出ます</td>
+</tr>
+<tr>
 <td>Generate（Advanced）</td>
 <td>アバターを書き換えずに、作ったコントローラーと Prefab Variant を <code>Assets/FaceTrackingGeneratorOutput/&lt;名前&gt;/</code> に書きます</td>
 </tr>
@@ -358,6 +362,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <tr>
 <td>Save</td>
 <td>設定を保存します。保存すると、設定ファイルの <code>//</code> のコメントは消えます</td>
+</tr>
+<tr>
+<td>Unsaved changes</td>
+<td>保存していない変更があるときに出ます（State Machine の窓にも出ます）</td>
 </tr>
 <tr>
 <td>Share</td>
@@ -396,12 +404,16 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>FT と AFK のトグルを入れるメニュー、トグルの名前、サブメニューの名前</td>
 </tr>
 <tr>
-<td>AFK animation</td>
+<td>AFK animation (optional)</td>
 <td>AFK の間に再生するクリップ。Loop の 2 つだけが必須です</td>
 </tr>
 <tr>
 <td>Not set</td>
 <td>ブレンドシェイプを選んでいない顔の動き</td>
+</tr>
+<tr>
+<td>unused</td>
+<td>どの状態も使わない顔の動きに付く印</td>
 </tr>
 <tr>
 <td>Scale</td>
@@ -421,7 +433,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Layers</td>
-<td>アバターの元の層の一覧</td>
+<td>アバターの元の層の一覧。列は <strong>Layer</strong>（層の名前）と、Stop while FT・Mute while FT・<strong>Remove</strong>（一覧から外す）</td>
 </tr>
 <tr>
 <td>Stop while FT / Mute while FT</td>
@@ -464,11 +476,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Weights</td>
-<td>各ブレンドシェイプを何が動かしているかを出します。<strong>Amount</strong> の列がその量です</td>
+<td>各ブレンドシェイプを何が動かしているかを出します。<strong>Amount</strong> の列がその量、<strong>Source</strong> の列が動かしているもの（キーか状態の決まった量）です</td>
 </tr>
 <tr>
 <td>Live input（Start / Stop）</td>
-<td>VRCFaceTracking の値でスライダーを動かします</td>
+<td>VRCFaceTracking の値でスライダーを動かします。<strong>Port</strong> は受けるポート</td>
 </tr>
 </tbody>
 </table>
@@ -571,7 +583,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Make Transition / Set as Default / Delete State</td>
-<td>状態の右クリックのメニュー</td>
+<td>状態の右クリックのメニュー。最初の状態には <strong>(default)</strong> と出ます</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td>選んだ遷移の移り変わりの秒数</td>
 </tr>
 <tr>
 <td>Conditions</td>
@@ -592,7 +608,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tbody>
 </table>
 <h3 id="face-view">Face view</h3>
-<p><code>Tools/Kmnk/Face Tracking Face View</code>（窓の題は <strong>FT Face View</strong>）。プレハブの顔を、シーンとは別に表示します。ブレンドシェイプの一覧を動かす間は、そのブレンドシェイプを 100 にした顔、Preview の間は Preview の顔が出ます。ドラッグで顔を回せます。<strong>Reset view</strong> で向きを戻します。</p>
+<p><code>Tools/Kmnk/Face Tracking Face View</code>（窓の題は <strong>FT Face View</strong>）。プレハブの顔を、シーンとは別に表示します。ブレンドシェイプの一覧を動かす間は、そのブレンドシェイプを 100 にした顔、Preview の間は Preview の顔が出ます。ドラッグで顔を回せます。<strong>Height</strong> で見る高さを変え、<strong>Reset view</strong> で向きを戻します。</p>
 <h3 id="設定のコンポーネント">設定のコンポーネント</h3>
 <p>アバターに付く <strong>Face Tracking Generator Settings</strong>。Inspector に使う設定のファイルが出て、設定エディタで開けます。右上の <strong>?</strong> は、この説明書の GitHub のページを開きます。</p>
 <h2 id="用語集">用語集</h2>
@@ -715,11 +731,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h2 id="付録-zip-から入れる">付録: zip から入れる</h2>
 <p>VCC か ALCOM にリポジトリを足せないときは、zip から入れられます。</p>
 <ol>
-<li><code>dev.kmnk.face-tracking-generator-&lt;版&gt;.zip</code> を、プロジェクトの外のフォルダに展開します</li>
-<li>NDMF を先に入れます（NDMF のリポジトリを足すか、NDMF の配布元の手順で）</li>
-<li>Unity の <strong>Window &gt; Package Manager</strong> の <strong>+</strong> から <strong>Add package from disk…</strong> を選び、展開したフォルダの <code>package.json</code> を選びます</li>
+<li><code>dev.kmnk.face-tracking-generator-&lt;版&gt;.zip</code> を、消さずに置いておけるフォルダに展開します（<code>package.json</code> がフォルダの直下に来ます）</li>
+<li>VCC の <strong>Settings</strong> の <strong>Packages</strong> にある <strong>User Packages</strong> の <strong>Add</strong> で、展開したフォルダを選びます</li>
+<li>アバターのプロジェクトの <strong>Manage Project</strong> で <strong>Face Tracking Generator</strong> を足します。NDMF も要るので、NDMF のリポジトリ（<code>https://vpm.nadena.dev/vpm.json</code>）を足しておきます</li>
 </ol>
-<p>この入れ方では、新しい版が出ても一覧から更新できません。新しい版の zip で同じ手順を繰り返してください。</p>
+<p>この入れ方では、新しい版が出ても一覧から更新できません。新しい版の zip を展開し、User Packages を新しいフォルダに替えてください。消し方は VCC で入れたときと同じです。</p>
 </main>
 </div>
 </body>
