@@ -70,6 +70,44 @@ namespace Kmnk.FaceTrackingGenerator
             return e;
         }
 
+        // What VRChat's limits count of an expression: characters (1024), tokens (256: numbers, names and each other
+        // character but spaces), instructions (256 each, 2048 for the avatar: numbers, names, functions and operators,
+        // unary minus included) and Face Tracking Operations (names, functions and operators; numbers do not count),
+        // as the SDK's FaceTrackingExpressionValidator and performance scanner count them.
+        public struct Cost
+        {
+            public int Characters, Tokens, Instructions, Operations;
+        }
+
+        public static Cost Count(string text)
+        {
+            var root = new Parser(text).Sum();
+            var c = new Cost { Characters = text.Length, Tokens = Tokens(text) };
+            void Walk(Node n)
+            {
+                c.Instructions++;
+                if (!(n is Num)) c.Operations++;
+                foreach (var k in n.Children) Walk(k);
+            }
+            Walk(root);
+            return c;
+        }
+
+        static int Tokens(string s)
+        {
+            int n = 0, i = 0;
+            while (i < s.Length)
+            {
+                var ch = s[i];
+                if (char.IsWhiteSpace(ch)) { i++; continue; }
+                n++;
+                if (char.IsDigit(ch) || ch == '.') { while (i < s.Length && (char.IsDigit(s[i]) || s[i] == '.')) i++; }
+                else if (char.IsLetter(ch) || ch == '_') { while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_')) i++; }
+                else i++;
+            }
+            return n;
+        }
+
         // ---- nodes
 
         internal abstract class Node
@@ -77,6 +115,7 @@ namespace Kmnk.FaceTrackingGenerator
             public abstract (float lo, float hi) Range(Func<string, (float, float)?> of);
             public abstract float Eval(Func<string, float> of);
             public virtual void CollectNames(List<string> into) { }
+            public virtual IEnumerable<Node> Children => Enumerable.Empty<Node>();
         }
 
         sealed class Num : Node
@@ -100,6 +139,7 @@ namespace Kmnk.FaceTrackingGenerator
             public override (float, float) Range(Func<string, (float, float)?> of) { var (lo, hi) = A.Range(of); return (-hi, -lo); }
             public override float Eval(Func<string, float> of) => -A.Eval(of);
             public override void CollectNames(List<string> into) => A.CollectNames(into);
+            public override IEnumerable<Node> Children => new[] { A };
         }
 
         sealed class Bin : Node
@@ -126,6 +166,7 @@ namespace Kmnk.FaceTrackingGenerator
                 switch (Op) { case '+': return x + y; case '-': return x - y; case '*': return x * y; default: return y == 0 ? 0 : x / y; }
             }
             public override void CollectNames(List<string> into) { A.CollectNames(into); B.CollectNames(into); }
+            public override IEnumerable<Node> Children => new[] { A, B };
         }
 
         sealed class Call : Node
@@ -158,6 +199,7 @@ namespace Kmnk.FaceTrackingGenerator
                 }
             }
             public override void CollectNames(List<string> into) { foreach (var a in Args) a.CollectNames(into); }
+            public override IEnumerable<Node> Children => Args;
         }
 
         // ---- parser: sum := product (('+'|'-') product)*, product := unary (('*'|'/') unary)*,

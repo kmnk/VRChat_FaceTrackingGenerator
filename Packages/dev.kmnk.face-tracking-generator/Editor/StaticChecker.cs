@@ -24,12 +24,33 @@ namespace Kmnk.FaceTrackingGenerator
             PropertyRows(m, f);
             Unused(m, f);
             States(m, f);
+            f.AddRange(FtCost.Rough(NativeSets.Build(m)).Select(x => $"curve: {x.set} {x.key} ({x.part}): the expression differs from the curve by up to {x.err.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)} (one expression of a blendshape is full)"));
+            f.AddRange(Cost(m).findings);
             if (fx != null)
             {
                 WriteDefaults(fx, f);
                 UnusedClips(fx, f);
             }
             return f;
+        }
+
+        // What the Face Tracking section the tables make would cost, written into the table's prefab as generating
+        // writes it (null when the prefab cannot be read: generating reports that), and the findings: over VRChat's
+        // limits (generating stops) or over Excellent in Face Tracking Operations.
+        public static (FtCost.Result cost, List<string> findings) Cost(TableModel m)
+        {
+            var f = new List<string>();
+            var path = AssetRefs.Path(m.Prefab, "prefab");
+            var prefab = path != null ? AssetDatabase.LoadAssetAtPath<GameObject>(path) : null;
+            var desc = prefab != null ? prefab.GetComponent<VRCAvatarDescriptor>() : null;
+            if (desc == null) return (null, f);
+            var plan = NativeFtWriter.Build(m);
+            plan.Visemes = VisemeStop.Build(m, desc, new List<string>());
+            var cost = FtCost.Predict(prefab, plan);
+            var over = FtCost.Over(cost, plan);
+            if (over != null) f.Add("face tracking: " + over);
+            if (cost.OverExcellent) f.Add($"face tracking: {cost.Operations} Face Tracking Operations: the avatar is {cost.Rank}, not Excellent, in Face Tracking Operations");
+            return (cost, f);
         }
 
         // ---- the Face Tracking section of a generated avatar (R2): one Forward to Animator behavior per input with
@@ -145,7 +166,7 @@ namespace Kmnk.FaceTrackingGenerator
             }
             // Neutral rows: the row of a ...Left key and of its ...Right key, with the side words swapped.
             foreach (var kv in m.Neutral)
-                Pairs(kv.Value, r => kv.Key + " " + r.Key, r => new JObject { ["part"] = r.Part, ["strength"] = ModelJson.Strength(r) }, "neutral row");
+                Pairs(kv.Value, r => kv.Key + " " + r.Key, r => { var o = new JObject { ["part"] = r.Part, ["strength"] = ModelJson.Strength(r) }; var c = ModelJson.Curve(r); if (c != null) o["curve"] = c; return o; }, "neutral row");
         }
 
         static string FirstDiff(string a, string b)
@@ -237,8 +258,12 @@ namespace Kmnk.FaceTrackingGenerator
                         var target = m.Parts[part];
                         if (target.IsProperty) continue;   // the sets move blendshapes only
                         foreach (var set in live)
+                        {
                             foreach (var r in set.Rows.Where(r => r.Mesh == target.Mesh && r.Shape == target.Shape))
                                 f.Add($"fixed: {sm.Name}/{st.Name}: fixed {part} and Blendshapes Set {set.Name} ({r.Key}) move the same blendshape {target.Shape}");
+                            foreach (var c in set.Curves.Where(c => c.Shape == target.Shape && c.Meshes.Contains(target.Mesh)))
+                                f.Add($"fixed: {sm.Name}/{st.Name}: fixed {part} and the curve of Blendshapes Set {set.Name} ({string.Join(", ", c.Lines.Select(l => l.Key))}) move the same blendshape {target.Shape}");
+                        }
                     }
                 }
             }
@@ -247,7 +272,8 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     var ra = new HashSet<string>(m.StateMachines[a].States.SelectMany(st => st.Regions.Keys));
                     foreach (var r in m.StateMachines[b].States.SelectMany(st => st.Regions.Keys).Distinct().Where(ra.Contains))
-                        f.Add($"region: {r} is overridden or turned off by both state machines {m.StateMachines[a].Name} and {m.StateMachines[b].Name}; when both are in such states the region's sets can both be on or both be off");
+                        f.Add($"region: {r} is overridden or turned off by both state machines {m.StateMachines[a].Name} and {m.StateMachines[b].Name}; when both are in such states the region's sets can both be on or both be off" +
+                              (m.CurvedRows().Any(x => PartNames.Region(x.Part) == r) ? " (and two Parameter Behaviors of its curves move one blendshape at once; how VRChat combines them is not known)" : ""));
                 }
         }
 

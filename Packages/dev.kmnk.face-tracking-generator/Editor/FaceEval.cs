@@ -69,6 +69,16 @@ namespace Kmnk.FaceTrackingGenerator
                     if (v <= 0) continue;
                     list.Add(new Source { Part = r.Part, Shape = r.Mesh + "/" + r.Shape, Value = v, Key = r.Key, StateMachine = set.StateMachine, State = set.State });
                 }
+                // A blendshape with a curve: each row's polyline as the generated expression has it (the expression
+                // takes the largest, as Evaluate does).
+                foreach (var ct in set.Curves)
+                    foreach (var l in ct.Lines)
+                    {
+                        var v = l.Eval(Key(l.Key)) * 100;
+                        if (v <= 0) continue;
+                        foreach (var mesh in ct.Meshes)
+                            list.Add(new Source { Part = l.Part, Shape = mesh + "/" + ct.Shape, Value = v, Key = l.Key, StateMachine = set.StateMachine, State = set.State });
+                    }
             }
             foreach (var sm in m.StateMachines)
             {

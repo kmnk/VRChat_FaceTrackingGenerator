@@ -52,6 +52,11 @@ namespace Kmnk.FaceTrackingGenerator
             // A table's {guid, path} that the generation reads by its path (AssetRefs): a warning, as generating prints it.
             foreach (var w in AssetRefs.Warnings(model)) Debug.Log("[FTG] " + w);
             var findings = StaticChecker.Check(model, fx);
+            // What the Face Tracking section the tables make costs (as generating would write it into the prefab); the
+            // findings over the limits are in StaticChecker.Check.
+            var cost = StaticChecker.Cost(model).cost;
+            if (cost != null)
+                Debug.Log($"[FTG] check: face tracking cost: Parameter Behaviors {cost.Behaviors} / {FtCost.MaxBehaviors}, expression instructions {cost.Instructions} / {FtCost.MaxInstructions}, Face Tracking Operations {cost.Operations} / {FtCost.ExcellentOperations} ({cost.Rank})");
             if (model.UnsetParts.Count > 0) Debug.Log($"[FTG] check: not set {model.UnsetParts.Count} ({string.Join(", ", model.UnsetParts)})");
             var variant = model.VariantPath != null ? AssetDatabase.LoadAssetAtPath<GameObject>(model.VariantPath) : null;
             var desc = variant != null ? variant.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;

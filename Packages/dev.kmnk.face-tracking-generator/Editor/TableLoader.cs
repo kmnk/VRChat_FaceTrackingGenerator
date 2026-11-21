@@ -266,7 +266,10 @@ namespace Kmnk.FaceTrackingGenerator
                 else if (p.Value is JObject ro)
                 {
                     row.Part = Str(ro, "part", file);
-                    if (ro["strength"] is JObject so)
+                    if (ro["curve"] != null && ro["strength"] != null)
+                        throw new TableException($"{file}: '{p.Path}': a row has \"curve\" or \"strength\", not both (the curve's highest point is the strength)");
+                    if (ro["curve"] != null) Curves(row, ro["curve"], file);
+                    else if (ro["strength"] is JObject so)
                     {
                         foreach (var dp in so.Properties())
                             if (!Device.IsName(dp.Name)) throw new TableException($"{file}: '{dp.Path}': a strength per device has \"vr\" and \"desktop\" only");
@@ -284,6 +287,31 @@ namespace Kmnk.FaceTrackingGenerator
                 list.Add(row);
             }
             return list;
+        }
+
+        // "curve": keys for both devices, or {"vr": keys, "desktop": keys} (a device not written: the straight line to 1).
+        // A straight curve becomes the strength; the others are kept with their highest point as the strength.
+        static void Curves(TrackRow row, JToken t, string file)
+        {
+            Exception Error(string message) => new TableException($"{file}: {message}");
+            CurveKeys vr, desktop;
+            if (t is JObject co)
+            {
+                foreach (var dp in co.Properties())
+                    if (!Device.IsName(dp.Name)) throw new TableException($"{file}: '{dp.Path}': a curve per device has \"vr\" and \"desktop\" only");
+                vr = co["vr"] != null ? CurveKeys.Parse(co["vr"], Error) : null;
+                desktop = co["desktop"] != null ? CurveKeys.Parse(co["desktop"], Error) : null;
+            }
+            else vr = desktop = CurveKeys.Parse(t, Error);
+            (CurveKeys keys, float strength) Resolve(CurveKeys k)
+            {
+                if (k == null) return (null, 1);
+                var c = k.ToAnimationCurve();
+                var s = CurveKeys.Straight(c);
+                return float.IsNaN(s) ? (k, CurveKeys.Max(c)) : (null, s);
+            }
+            (row.CurveVr, row.StrengthVr) = Resolve(vr);
+            (row.CurveDesktop, row.StrengthDesktop) = Resolve(desktop);
         }
 
         static float Strength(JToken t, string file)
@@ -459,6 +487,17 @@ namespace Kmnk.FaceTrackingGenerator
                         st.Fixed[part] *= m.Parts[part].Scale;
                     }
                 }
+
+            // A blendshape moved by a curve follows one Blendshapes Set's weight (a Parameter Behavior has one): parts of
+            // two regions on it would be two behaviors on at once (design.md "どの blendshape を式で動かすか").
+            foreach (var g in m.CurvedRows().Select(r => r.Part).Distinct().GroupBy(p => m.Parts[p].Mesh + "/" + m.Parts[p].Shape))
+            {
+                var shape = m.Parts[g.First()].Shape;
+                var regions = m.AllRows().Where(r => r.Part != null && m.Parts.TryGetValue(r.Part, out var t) && !t.IsProperty && t.Shape == shape)
+                    .Select(r => PartNames.Region(r.Part)).Distinct().ToList();
+                if (regions.Count > 1)
+                    throw new TableException($"blendshape {shape} has a curve and is moved by parts of regions {string.Join(", ", regions)}; a blendshape with a curve is moved from one region only");
+            }
 
             // The tracking keys of the rows that are left and of the conditions, as inputs "key:<key>" (for the settings
             // editor and FaceEval).

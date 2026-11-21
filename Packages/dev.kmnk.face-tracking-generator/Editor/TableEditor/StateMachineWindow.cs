@@ -170,8 +170,34 @@ namespace Kmnk.FaceTrackingGenerator
                 Edit("Set FT fixed amount", x => StateMachineEdit.SetFixed(x, m, st, part, amount));
         }
 
-        static GUIStyle unsavedStyle;
-        static GUIStyle UnsavedStyle => unsavedStyle ?? (unsavedStyle = new GUIStyle(EditorStyles.miniLabel) { normal = { textColor = TableEditorWindow.UnsavedColor } });
+        // The toolbar (spec "試作: State Machine 窓の上の帯"): what can be pressed is a raised mini button, 18 high in the middle
+        // of the 21 high row; a label is plain text on the same middle line.
+        const float ToolbarButtonH = 18;
+        static readonly Color ToolbarSeparator = new Color32(0x23, 0x23, 0x23, 0xFF);
+        static GUIStyle unsavedStyle, inputStyle, toolButton, toolLeft, toolRight, toolOnText;
+        static GUIStyle ToolbarLabel(GUIStyle from, Color? color)
+        {
+            // The same box as a button (height and margins), so the text sits on the buttons' middle line.
+            var s = new GUIStyle(from) { alignment = TextAnchor.MiddleLeft, margin = new RectOffset(0, 0, 1, 1), padding = new RectOffset(2, 2, 0, 0), fixedHeight = ToolbarButtonH };
+            if (color != null) s.normal.textColor = color.Value;
+            return s;
+        }
+        static GUIStyle ToolbarButton(GUIStyle from, int left, int right) =>
+            new GUIStyle(from) { fixedHeight = ToolbarButtonH, margin = new RectOffset(left, right, 1, 1) };
+        static GUIStyle UnsavedStyle => unsavedStyle ?? (unsavedStyle = ToolbarLabel(EditorStyles.miniLabel, TableEditorWindow.UnsavedColor));
+        static GUIStyle InputStyle => inputStyle ?? (inputStyle = ToolbarLabel(EditorStyles.miniLabel, null));
+        static GUIStyle ToolButton => toolButton ?? (toolButton = ToolbarButton(EditorStyles.miniButton, 2, 2));
+        static GUIStyle ToolLeft => toolLeft ?? (toolLeft = ToolbarButton(EditorStyles.miniButtonLeft, 0, 0));
+        static GUIStyle ToolRight => toolRight ?? (toolRight = ToolbarButton(EditorStyles.miniButtonRight, 0, 4));
+
+        // A label (no background of its own) in the buttons' font, for the text on the filled selected device.
+        static GUIStyle ToolOnText => toolOnText ?? (toolOnText = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, font = EditorStyles.miniButton.font, fontSize = EditorStyles.miniButton.fontSize, padding = new RectOffset(0, 0, 0, 0), normal = { textColor = Color.white } });
+
+        static void ToolbarSeparatorLine()
+        {
+            var r = GUILayoutUtility.GetRect(1, ToolbarH - 1, GUILayout.ExpandWidth(false));
+            if (Event.current.type == EventType.Repaint) EditorGUI.DrawRect(new Rect(r.x, r.y, 1, r.height), ToolbarSeparator);
+        }
 
         void DrawWindow()
         {
@@ -289,28 +315,40 @@ namespace Kmnk.FaceTrackingGenerator
                     if (EditorGUILayout.DropdownButton(new GUIContent(machine ?? ""), FocusType.Passive, EditorStyles.toolbarDropDown, GUILayout.Width(140)))
                         MachineMenu(e, names, GUILayoutUtility.GetLastRect()).DropDown(GUILayoutUtility.GetLastRect());
                 }
+                GUILayout.Space(2);
                 using (new EditorGUI.DisabledScope(machine == null))
-                    if (GUILayout.Button("+ State", EditorStyles.toolbarButton, GUILayout.Width(70)))
+                    if (GUILayout.Button("+ State", ToolButton, GUILayout.Width(70)))
                         AddState(e, (new Vector2(position.width - InspectorWidth, position.height) / 2 - pan) / zoom);
                 using (new EditorGUI.DisabledScope(machine == null))
-                    if (GUILayout.Button("Frame All", EditorStyles.toolbarButton, GUILayout.Width(70))) FrameAll(e);
+                    if (GUILayout.Button("Frame All", ToolButton, GUILayout.Width(70))) FrameAll(e);
                 GUILayout.FlexibleSpace();
                 // Unsaved edits of the settings (this window edits the settings editor's tables): saved here too.
                 var te = TableEditorWindow.Current;
                 if (te != null && te.hasUnsavedChanges)
                 {
-                    if (position.width >= 760) GUILayout.Label("Unsaved changes", UnsavedStyle, GUILayout.ExpandWidth(false));
-                    if (GUILayout.Button("Save", EditorStyles.toolbarButton, GUILayout.Width(50))) te.SaveChanges();
+                    if (position.width >= 760) { GUILayout.Label("Unsaved changes", UnsavedStyle, GUILayout.ExpandWidth(false)); GUILayout.Space(4); }
+                    if (GUILayout.Button("Save", ToolButton, GUILayout.Width(50))) te.SaveChanges();
+                    GUILayout.Space(6);
+                    ToolbarSeparatorLine();
                     GUILayout.Space(8);
                 }
-                GUILayout.Label("Input", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                // The control id Save takes, also while it is not shown: the controls after it keep their ids when the
+                // first edit shows it. Unity's curve editor stays linked to a row's curve field by that field's id.
+                else GUIUtility.GetControlID("Button".GetHashCode(), FocusType.Passive);
+                GUILayout.Label("Input", InputStyle, GUILayout.ExpandWidth(false));
+                GUILayout.Space(4);
                 foreach (var d in new[] { Device.Vr, Device.Desktop })
                 {
                     var on = d == device;
-                    var bg = GUI.backgroundColor;
-                    if (on) GUI.backgroundColor = ModeOn * 1.6f;
-                    if (GUILayout.Toggle(on, Measurements.Label(d), EditorStyles.toolbarButton, GUILayout.Width(64)) && !on) SetInputMode(d);
-                    GUI.backgroundColor = bg;
+                    if (GUILayout.Toggle(on, Measurements.Label(d), d == Device.Vr ? ToolLeft : ToolRight, GUILayout.Width(64)) && !on) SetInputMode(d);
+                    // The device being edited: the button filled with the band's brown, its text white.
+                    if (on && Event.current.type == EventType.Repaint)
+                    {
+                        var r = GUILayoutUtility.GetLastRect();
+                        var fill = new Rect(r.x + 1, r.y + 1, r.width - 2, ToolbarButtonH - 2);
+                        EditorGUI.DrawRect(fill, ModeOn);
+                        GUI.Label(fill, Measurements.Label(d), ToolOnText);
+                    }
                 }
             }
             // Which device is being edited, always shown (spec R12); while choosing where a new transition goes, how to.
@@ -729,6 +767,100 @@ namespace Kmnk.FaceTrackingGenerator
             else DrawRegions(e, st, neutralRegions);
             EditorGUILayout.Space(6);
             DrawFixed(e, st);
+            EditorGUILayout.Space(8);
+            DrawCost();
+        }
+
+        // ---- curves (spec "試作: State Machine 窓の右の区画")
+
+        const float CurveWidth = 96;
+        static readonly Color CurveColor = new Color(0.25f, 0.81f, 0.25f);
+
+        // The AnimationCurve given to each row's curve field, kept while the row's value in the table stays the same:
+        // Unity's curve editor edits the instance the field was given, and the field returns that instance changed, so
+        // a new instance each frame would lose the edit (row id -> (the row's value, its curve)).
+        readonly Dictionary<string, (string value, AnimationCurve curve)> curveCells = new Dictionary<string, (string, AnimationCurve)>();
+
+        // A row's curve field (Unity's curve editor opens on a click, 0 to 1 both ways). id names the row and device; row
+        // is the row's value in the table. Returns the changed curve, or null.
+        AnimationCurve CurveCell(string id, JToken row, Func<AnimationCurve> make)
+        {
+            var value = row?.ToString(Newtonsoft.Json.Formatting.None) ?? "";
+            if (!curveCells.TryGetValue(id, out var cell) || cell.value != value) curveCells[id] = cell = (value, make());
+            EditorGUI.BeginChangeCheck();
+            var c = EditorGUILayout.CurveField(cell.curve, CurveColor, new Rect(0, 0, 1, 1), GUILayout.Width(CurveWidth));
+            if (Event.current.type == EventType.Repaint) CurveCellRects[id] = GUIUtility.GUIToScreenRect(GUILayoutUtility.GetLastRect());
+            GUI.Label(GUILayoutUtility.GetLastRect(), new GUIContent("", EditorText.Get("sm.curveTip")));
+            return EditorGUI.EndChangeCheck() ? c : null;
+        }
+
+        // For the checks (CurveChecks.Preset): where each row's curve field was drawn, and the curve it was given.
+        internal readonly Dictionary<string, Rect> CurveCellRects = new Dictionary<string, Rect>();
+        internal AnimationCurve CurveCellCurve(string id) => curveCells.TryGetValue(id, out var c) ? c.curve : null;
+
+        // After a curve is written: the cell keeps its instance for the row's new value (the curve editor goes on editing it).
+        void KeepCurveCell(string id, JToken row, AnimationCurve curve) =>
+            curveCells[id] = (row?.ToString(Newtonsoft.Json.Formatting.None) ?? "", curve);
+
+        // The model the costs and notes were made from, and what they are.
+        TableModel costFor;
+        List<NativeSets.SetDef> costSets = new List<NativeSets.SetDef>();
+        FtCost.Result cost;
+
+        void UpdateCost()
+        {
+            var m = Editor?.Model;
+            if (ReferenceEquals(m, costFor)) return;
+            costFor = m;
+            costSets = new List<NativeSets.SetDef>();
+            cost = null;
+            if (m == null) return;
+            try
+            {
+                var plan = NativeFtWriter.Build(m);
+                costSets = plan.Sets;
+                var path = AssetRefs.Path(m.Prefab, "prefab");
+                var prefab = path != null ? AssetDatabase.LoadAssetAtPath<GameObject>(path) : null;
+                var desc = prefab != null ? prefab.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() : null;
+                if (desc == null) return;  // Check and generating tell what is wrong with the prefab
+                plan.Visemes = VisemeStop.Build(m, desc, new List<string>());
+                cost = FtCost.Predict(prefab, plan);
+            }
+            catch (Exception ex) { Debug.LogWarning("[FTG] face tracking cost: " + ex.Message); }
+        }
+
+        // The rows of the set (on the input device) whose expression cannot follow the curve within the tolerance.
+        void RoughNotes(string setName)
+        {
+            UpdateCost();
+            if (device == Device.Desktop && costSets.Any(s => s.Side != null)) setName = NativeSets.DesktopName(setName);
+            foreach (var r in FtCost.Rough(costSets.Where(s => s.Name == setName)))
+                // A plain label (it takes no control id): a note that comes or goes leaves the ids of the curve fields after it.
+                GUILayout.Label(string.Format(EditorText.Get("sm.curveNote"), r.key, r.err.ToString("0.00", CultureInfo.InvariantCulture)), EditorStyles.wordWrappedMiniLabel);
+        }
+
+        void DrawCost()
+        {
+            UpdateCost();
+            if (cost == null) return;
+            EditorGUILayout.LabelField("Face tracking cost", EditorStyles.boldLabel);
+            var warn = new Color(1f, 0.76f, 0.03f);
+            var error = new Color(1f, 0.39f, 0.39f);
+            void Row(string label, string value, Color? color)
+            {
+                var style = new GUIStyle(EditorStyles.label);
+                if (color != null) style.normal.textColor = color.Value;
+                var right = new GUIStyle(style) { alignment = TextAnchor.MiddleRight };
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(label, style);
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label(value, right);
+                }
+            }
+            Row("Parameter Behaviors", $"{cost.Behaviors} / {FtCost.MaxBehaviors}", cost.OverBehaviors ? error : (Color?)null);
+            Row("Expression instructions", $"{cost.Instructions} / {FtCost.MaxInstructions}", cost.OverInstructions ? error : (Color?)null);
+            Row("Face Tracking Operations", $"{cost.Operations} / {FtCost.ExcellentOperations} ({cost.Rank})", cost.OverExcellent ? warn : (Color?)null);
         }
 
         void DrawRegions(JObject e, string st, List<string> neutralRegions)
@@ -769,7 +901,7 @@ namespace Kmnk.FaceTrackingGenerator
                 {
                     GUILayout.Label("Key", EditorStyles.miniLabel, GUILayout.Width(120));
                     GUILayout.Label("Movement", EditorStyles.miniLabel);
-                    GUILayout.Label("Strength", EditorStyles.miniLabel, GUILayout.Width(52));
+                    GUILayout.Label("Curve", EditorStyles.miniLabel, GUILayout.Width(CurveWidth));
                     GUILayout.Space(22);
                 }
                 var rows = StateMachineEdit.OverrideRows(e, machine, st, region);
@@ -794,12 +926,14 @@ namespace Kmnk.FaceTrackingGenerator
                         }
                         using (new EditorGUI.DisabledScope(part == null))
                         {
-                            EditorGUI.BeginChangeCheck();
-                            var ns = EditorGUILayout.DelayedFloatField(part == null ? 0 : strength.Of(device), GUILayout.Width(52));
-                            if (EditorGUI.EndChangeCheck() && part != null) { var k = key; var d = device; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetRowStrength(x, machine, st, region, k, ns, d)); }
+                            var id = $"{machine}/{st}/{region}/{key}/{device}";
+                            JToken RowNow() => (StateMachineEdit.States(Expr, machine)?[st] as JObject)?["regions"]?[region]?[key];
+                            var nc = CurveCell(id, RowNow(), () => part == null ? CurveKeys.Line(0) : strength.CurveOf(device));
+                            if (nc != null && part != null) { var k = key; var d = device; Edit("Set FT curve", x => StateMachineEdit.SetRowCurve(x, machine, st, region, k, nc, d)); KeepCurveCell(id, RowNow(), nc); }
                         }
                         if (GUILayout.Button(new GUIContent("×", EditorText.Get("tip.removeRow")), EditorStyles.miniButton, GUILayout.Width(20))) { var k = key; Edit("Remove FT row", x => StateMachineEdit.RemoveRow(x, machine, st, region, k)); GUIUtility.ExitGUI(); }
                     }
+                RoughNotes(NativeSets.SetName(machine, st, region));
                 var neutralKeys = StateMachineEdit.NeutralRows(e, region).Select(r => r.key).ToList();
                 var rest = neutralKeys.Count(k => rows.All(r => r.key != k));
                 EditorGUILayout.LabelField(string.Format(EditorText.Get("sm.others"), rest), EditorStyles.wordWrappedMiniLabel);
@@ -862,7 +996,7 @@ namespace Kmnk.FaceTrackingGenerator
                     {
                         GUILayout.Label("Key", EditorStyles.miniLabel, GUILayout.Width(120));
                         GUILayout.Label("Movement", EditorStyles.miniLabel);
-                        GUILayout.Label("Strength", EditorStyles.miniLabel, GUILayout.Width(52));
+                        GUILayout.Label("Curve", EditorStyles.miniLabel, GUILayout.Width(CurveWidth));
                     }
                     var parts = PartsOf(region);
                     foreach (var (key, part, strength) in rows)
@@ -881,10 +1015,12 @@ namespace Kmnk.FaceTrackingGenerator
                                 if (ni == options.Count - 1) NewPart(popupRect, $"{region}.", name => Edit("Add FT face movement", x => StateMachineEdit.SetNeutralRow(x, r, k, name, s0)), region);
                                 else { var np = options[ni]; Edit("Set FT neutral row", x => StateMachineEdit.SetNeutralRow(x, r, k, np, s0)); }
                             }
-                            EditorGUI.BeginChangeCheck();
-                            var ns = EditorGUILayout.DelayedFloatField(strength.Of(device), GUILayout.Width(52));
-                            if (EditorGUI.EndChangeCheck()) { var k = key; var r = region; var d = device; ns = Mathf.Clamp01(ns); Edit("Set FT strength", x => StateMachineEdit.SetNeutralStrength(x, r, k, ns, d)); }
+                            var id = $"{machine}/neutral/{region}/{key}/{device}";
+                            JToken RowNow() => Expr?["neutral"]?[region]?[key];
+                            var nc = CurveCell(id, RowNow(), () => strength.CurveOf(device));
+                            if (nc != null) { var k = key; var r = region; var d = device; Edit("Set FT curve", x => StateMachineEdit.SetNeutralCurve(x, r, k, nc, d)); KeepCurveCell(id, RowNow(), nc); }
                         }
+                    RoughNotes(NativeSets.NeutralSetName(region));
                 }
             }
         }

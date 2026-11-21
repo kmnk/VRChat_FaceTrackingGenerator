@@ -8,13 +8,26 @@ namespace Kmnk.FaceTrackingGenerator
     {
         // A strength per device as {"vr", "desktop"}, else a number, so that the output of a table without them stays as before.
         public static JToken Strength(TrackRow r) =>
-            r.StrengthByDevice ? new JObject { ["vr"] = r.StrengthVr, ["desktop"] = r.StrengthDesktop } : (JToken)r.StrengthVr;
+            r.StrengthVr != r.StrengthDesktop ? new JObject { ["vr"] = r.StrengthVr, ["desktop"] = r.StrengthDesktop } : (JToken)r.StrengthVr;
 
-        static JObject Row(TrackRow r, TableModel m) => new JObject
+        // A row's curves as the table writes them, or null for a row without a curve (straight on both devices).
+        public static JToken Curve(TrackRow r) =>
+            r.CurveVr == null && r.CurveDesktop == null ? null
+            : CurveKeys.Same(r.CurveVr, r.CurveDesktop) ? (JToken)r.CurveVr.ToJson()
+            : new JObject { ["vr"] = r.CurveVr?.ToJson(), ["desktop"] = r.CurveDesktop?.ToJson() };
+
+        static JObject WithCurve(JObject o, TrackRow r)
+        {
+            var c = Curve(r);
+            if (c != null) o["curve"] = c;
+            return o;
+        }
+
+        static JObject Row(TrackRow r, TableModel m) => WithCurve(new JObject
         {
             ["key"] = r.Key, ["part"] = r.Part, ["strength"] = Strength(r),
             ["shape"] = r.Part != null && m.Parts.TryGetValue(r.Part, out var t) ? t.Shape : null,
-        };
+        }, r);
 
         public static JObject ToJson(TableModel m)
         {

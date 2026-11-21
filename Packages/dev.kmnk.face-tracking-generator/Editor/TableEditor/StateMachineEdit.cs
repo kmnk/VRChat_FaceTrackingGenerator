@@ -2,21 +2,51 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using UnityEngine;
 
 namespace Kmnk.FaceTrackingGenerator
 {
-    // A row's strength on VR and on desktop. Written as one number while they are the same, else {"vr", "desktop"}.
+    // A row's strength and curve on VR and on desktop. A device's curve is null while it is the straight line from
+    // (0, 0) to (1, strength); with a curve the strength is its highest point. Written as "strength" (one number while
+    // the devices are the same, else {"vr", "desktop"}) while both are straight, else as "curve" (spec R2).
     public struct RowStrength
     {
         public float Vr, Desktop;
-        public RowStrength(float both) { Vr = both; Desktop = both; }
-        public RowStrength(float vr, float desktop) { Vr = vr; Desktop = desktop; }
+        public CurveKeys CurveVr, CurveDesktop;
+        // A "curve" the table writes but the loader would refuse: kept as it is and written back unchanged until the
+        // row's strength or curve is edited (the loader and Check report it; an edit of another value must not lose it).
+        public JToken Unread;
+        public RowStrength(float both) { Vr = both; Desktop = both; CurveVr = CurveDesktop = null; Unread = null; }
+        public RowStrength(float vr, float desktop) { Vr = vr; Desktop = desktop; CurveVr = CurveDesktop = null; Unread = null; }
         public float Of(bool desktop) => desktop ? Desktop : Vr;
         public float Of(string device) => device == Device.Desktop ? Desktop : Vr;
-        // This strength with the device's value changed (device null: both).
-        public RowStrength With(string device, float value) =>
-            device == null ? new RowStrength(value) : device == Device.Desktop ? new RowStrength(Vr, value) : new RowStrength(value, Desktop);
-        public bool Same => Math.Abs(Round(Vr) - Round(Desktop)) < 1e-6;
+        public CurveKeys CurveKeysOf(string device) => device == Device.Desktop ? CurveDesktop : CurveVr;
+        // The device's curve as Unity's AnimationCurve: its curve, or the straight line of its strength.
+        public AnimationCurve CurveOf(string device) => CurveKeysOf(device)?.ToAnimationCurve() ?? CurveKeys.Line(Of(device));
+        public bool HasCurve => CurveVr != null || CurveDesktop != null;
+        // This strength with the device's value changed (device null: both): the device's curve becomes that straight line.
+        public RowStrength With(string device, float value)
+        {
+            var r = this;
+            r.Unread = null;
+            if (device != Device.Desktop) { r.Vr = value; r.CurveVr = null; }
+            if (device != Device.Vr) { r.Desktop = value; r.CurveDesktop = null; }
+            return r;
+        }
+        // This with the device's curve (device null: both). A straight curve becomes the strength.
+        public RowStrength WithCurve(string device, AnimationCurve curve)
+        {
+            var s = CurveKeys.Straight(curve);
+            if (!float.IsNaN(s)) return With(device, s);
+            var keys = CurveKeys.From(curve);
+            var max = CurveKeys.Max(curve);
+            var r = this;
+            r.Unread = null;
+            if (device != Device.Desktop) { r.Vr = max; r.CurveVr = keys; }
+            if (device != Device.Vr) { r.Desktop = max; r.CurveDesktop = keys; }
+            return r;
+        }
+        public bool Same => Math.Abs(Round(Vr) - Round(Desktop)) < 1e-6 && CurveKeys.Same(CurveVr, CurveDesktop);
         static float Round(float v) => (float)Math.Round((double)v, 3);
         public static readonly RowStrength One = new RowStrength(1);
     }
@@ -61,17 +91,48 @@ namespace Kmnk.FaceTrackingGenerator
         public static (string part, RowStrength strength) ReadRow(JToken v) =>
             v == null || v.Type == JTokenType.Null ? (null, RowStrength.One)
             : v.Type == JTokenType.String ? ((string)v, RowStrength.One)
-            : ((string)v["part"], ReadStrength(v["strength"]));
+            : ((string)v["part"], ReadStrength(v["strength"], v["curve"]));
 
-        static RowStrength ReadStrength(JToken s) =>
-            s is JObject o ? new RowStrength(o["vr"]?.Value<float>() ?? 1f, o["desktop"]?.Value<float>() ?? 1f)
-            : s != null && s.Type != JTokenType.Null ? new RowStrength(s.Value<float>()) : RowStrength.One;
+        static RowStrength ReadStrength(JToken s, JToken curve)
+        {
+            var r = s is JObject o ? new RowStrength(o["vr"]?.Value<float>() ?? 1f, o["desktop"]?.Value<float>() ?? 1f)
+                : s != null && s.Type != JTokenType.Null ? new RowStrength(s.Value<float>()) : RowStrength.One;
+            if (curve == null || curve.Type == JTokenType.Null) return r;
+            // A curve the loader would refuse is left as the straight line (Check and the loader report it).
+            CurveKeys Read(JToken t)
+            {
+                if (t == null) return null;
+                try { return CurveKeys.Parse(t, m => new ArgumentException(m)); } catch (ArgumentException) { return null; }
+            }
+            var vr = curve is JObject co ? Read(co["vr"]) : Read(curve);
+            var desktop = curve is JObject co2 ? Read(co2["desktop"]) : vr;
+            var written = curve is JObject cw ? (cw["vr"] != null ? 1 : 0) + (cw["desktop"] != null ? 1 : 0) : 1;
+            var read = curve is JObject ? (vr != null ? 1 : 0) + (desktop != null ? 1 : 0) : vr != null ? 1 : 0;
+            if (read < written || curve is JObject cx && cx.Properties().Any(p => !Device.IsName(p.Name)))
+                return new RowStrength(1) { Unread = curve.DeepClone() };
+            r = RowStrength.One;
+            if (vr != null) r = r.WithCurve(Device.Vr, vr.ToAnimationCurve());
+            if (desktop != null) r = r.WithCurve(Device.Desktop, desktop.ToAnimationCurve());
+            return r;
+        }
 
         static JToken Num3(float v) => Sides.Num(Math.Round((double)v, 3));
 
         static JToken WriteRow(string part, RowStrength strength)
         {
             if (part == null) return JValue.CreateNull();
+            if (strength.Unread != null) return new JObject { ["part"] = part, ["curve"] = strength.Unread.DeepClone() };
+            if (strength.HasCurve)
+            {
+                JArray Keys(string device) => (strength.CurveKeysOf(device) ?? CurveKeys.From(CurveKeys.Line(strength.Of(device)))).ToJson();
+                var vr = Keys(Device.Vr);
+                var desktop = Keys(Device.Desktop);
+                return new JObject
+                {
+                    ["part"] = part,
+                    ["curve"] = JToken.DeepEquals(vr, desktop) ? (JToken)vr : new JObject { ["vr"] = vr, ["desktop"] = desktop },
+                };
+            }
             if (!strength.Same) return new JObject { ["part"] = part, ["strength"] = new JObject { ["vr"] = Num3(strength.Vr), ["desktop"] = Num3(strength.Desktop) } };
             return Math.Abs(strength.Vr - 1) < 1e-6 ? (JToken)part : new JObject { ["part"] = part, ["strength"] = Num3(strength.Vr) };
         }
@@ -391,6 +452,41 @@ namespace Kmnk.FaceTrackingGenerator
             SetNeutralRow(e, region, key, part, s.With(device, strength));
         }
 
+        // Changes a neutral row's curve on a device (null: both); the part and the other device's value stay.
+        public static void SetNeutralCurve(JObject e, string region, string key, AnimationCurve curve, string device = null)
+        {
+            var (part, s) = ReadRow(e["neutral"]?[region]?[key]);
+            if (part == null) throw new ArgumentException($"no neutral row {region}/{key}");
+            SetNeutralRow(e, region, key, part, s.WithCurve(device, Clean(curve)));
+        }
+
+        // Changes a state's row's curve on a device (null: both); the part and the other device's value stay.
+        public static void SetRowCurve(JObject e, string sm, string st, string region, string key, AnimationCurve curve, string device = null)
+        {
+            var (part, s) = ReadRow((Regions(e, sm, st, false)?[region] as JObject)?[key]);
+            if (part == null) throw new ArgumentException($"no row {sm}/{st}/{region}/{key} with a part");
+            SetRow(e, sm, st, region, key, part, s.WithCurve(device, Clean(curve)));
+        }
+
+        // A curve as the table takes it (spec R2): keys at 0 to 1 in time and value, with keys at 0 and 1 (the curve's
+        // values there when the editor left none).
+        public static AnimationCurve Clean(AnimationCurve curve)
+        {
+            // The Keyframes keep their tangent modes (Unity stores them in the key).
+            var c = new AnimationCurve(curve.keys);
+            for (int i = 0; i < c.length; i++)
+            {
+                var k = c.keys[i];
+                if (k.time >= 0 && k.time <= 1 && k.value >= 0 && k.value <= 1) continue;
+                k.time = Mathf.Clamp01(k.time);
+                k.value = Mathf.Clamp01(k.value);
+                c.MoveKey(i, k);
+            }
+            if (c.length == 0 || c.keys[0].time > 1e-6f) c.AddKey(new Keyframe(0, CurveKeys.Value(curve, 0)));
+            if (c.keys[c.length - 1].time < 1 - 1e-6f) c.AddKey(new Keyframe(1, CurveKeys.Value(curve, 1)));
+            return c;
+        }
+
         public static void RemoveNeutralRow(JObject e, string region, string key)
         {
             var n = e["neutral"] as JObject;
@@ -435,6 +531,9 @@ namespace Kmnk.FaceTrackingGenerator
                 case "removeFixed": RemoveFixed(e, sm, S("state"), S("part")); break;
                 case "setNeutralRow": SetNeutralRow(e, S("region"), S("key"), S("part"), F("strength", 1)); break;
                 case "removeNeutralRow": RemoveNeutralRow(e, S("region"), S("key")); break;
+                // "curve": keys as the table writes them
+                case "setNeutralCurve": SetNeutralCurve(e, S("region"), S("key"), CurveKeys.Parse(op["curve"], m => new ArgumentException(m)).ToAnimationCurve(), S("device")); break;
+                case "setRowCurve": SetRowCurve(e, sm, S("state"), S("region"), S("key"), CurveKeys.Parse(op["curve"], m => new ArgumentException(m)).ToAnimationCurve(), S("device")); break;
                 default: throw new ArgumentException("unknown op: " + (string)op["op"]);
             }
         }

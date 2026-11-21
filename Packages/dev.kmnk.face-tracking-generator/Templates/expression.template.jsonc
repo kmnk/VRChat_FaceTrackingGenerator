@@ -8,6 +8,10 @@
 // Tracking section (FTG/neutral/<region>): the key moves the part's blendshape by key value x strength x the part's
 // scale. A row is "part" or {"part": "...", "strength": 0.8} (0 to 1, default 1). Several keys on one blendshape: the
 // largest moves it. Key names are the Face Tracking section's tracking keys (Unified Expressions), e.g. EyeClosedLeft.
+// A row can have a response curve instead of a strength: {"part": "...", "curve": [{"time": 0, "value": 0}, ...]}, Unity
+// AnimationCurve keys (time = key value 0 to 1, value = how much it moves 0 to 1; the highest point is the strength), or
+// {"vr": [...], "desktop": [...]}. Edit it in the State Machine window. The generator moves a blendshape with a curve by a
+// Parameter Behavior (a Custom expression close to the curve) instead of a Blendshapes Set row.
 //
 // "stateMachines": name -> states and transitions. The first state is the default. A state can
 //   - "regions": region -> "off" (the region's neutral set stops) or {key: part | {"part", "strength"} | null}

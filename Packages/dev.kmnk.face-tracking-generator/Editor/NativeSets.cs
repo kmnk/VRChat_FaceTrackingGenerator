@@ -65,11 +65,22 @@ namespace Kmnk.FaceTrackingGenerator
             public override string ToString() => Param + (High ? " > 0.5" : " < 0.5");
         }
 
+        // The rows of a set on one blendshape with a curve: one Parameter Behavior (Apply to Blendshape, Custom) whose
+        // expression is the largest of the rows' polylines, weighted by the set.
+        public sealed class CurveTarget
+        {
+            public string Shape;
+            public List<string> Meshes = new List<string>();
+            public List<CurveFit.Line> Lines = new List<CurveFit.Line>();
+            public string Expression;
+        }
+
         public sealed class SetDef
         {
             public string Name, Region;
             public string StateMachine, State;  // null for a neutral set
             public List<Row> Rows = new List<Row>();
+            public List<CurveTarget> Curves = new List<CurveTarget>();
             public List<Cond> Conditions = new List<Cond>();
             public float LerpSpeed;
             // null: one set for both sides (no strength differs between the devices); else Device.Vr or Device.Desktop.
@@ -132,6 +143,7 @@ namespace Kmnk.FaceTrackingGenerator
         static List<SetDef> Build(TableModel m, bool desktop)
         {
             var sets = new List<SetDef>();
+            var curved = m.CurvedShapes();
             var talk = new HashSet<string>(m.StopWhileTalking);
             Cond Gate(string region) => new Cond { Param = talk.Contains(region) ? FtNames.MouthActive : FtNames.Active, High = true };
 
@@ -141,8 +153,17 @@ namespace Kmnk.FaceTrackingGenerator
                 foreach (var r in rows)
                 {
                     if (r.Part == null || !m.Parts.TryGetValue(r.Part, out var target)) continue;
+                    if (!target.IsProperty && curved.Contains(target.Shape))
+                    {
+                        var ct = set.Curves.Find(x => x.Shape == target.Shape);
+                        if (ct == null) set.Curves.Add(ct = new CurveTarget { Shape = target.Shape });
+                        if (!ct.Meshes.Contains(target.Mesh)) ct.Meshes.Add(target.Mesh);
+                        ct.Lines.Add(CurveFit.Fit(r.Key, r.Part, r.Curve(desktop), r.Strength(desktop), target.Scale));
+                        continue;
+                    }
                     set.Rows.Add(new Row { Key = r.Key, Part = r.Part, Mesh = target.Mesh, Shape = target.Shape, Multiplier = r.Strength(desktop) * target.Scale });
                 }
+                foreach (var ct in set.Curves) ct.Expression = CurveFit.FitOne(ct.Lines);
                 return set;
             }
 
@@ -151,7 +172,7 @@ namespace Kmnk.FaceTrackingGenerator
             foreach (var kv in m.Neutral)
             {
                 var set = Make(NeutralSetName(kv.Key), kv.Key, kv.Value);
-                if (set.Rows.Count == 0) continue;
+                if (set.Rows.Count == 0 && set.Curves.Count == 0) continue;
                 var conds = new SortedSet<Cond> { Gate(kv.Key) };
                 var takers = Takers(m, kv.Key).ToList();
                 foreach (var (sm, st) in takers) conds.Add(new Cond { Param = FtNames.SwitchParam(sm.Name, st.Name), High = false });
@@ -165,7 +186,7 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var kv in st.Regions.Where(x => !x.Value.Off))
                     {
                         var set = Make(SetName(sm.Name, st.Name, kv.Key), kv.Key, OverrideRows(m, kv.Key, kv.Value));
-                        if (set.Rows.Count == 0) continue;
+                        if (set.Rows.Count == 0 && set.Curves.Count == 0) continue;
                         set.StateMachine = sm.Name;
                         set.State = st.Name;
                         set.Conditions = new SortedSet<Cond> { Gate(kv.Key), new Cond { Param = FtNames.SwitchParam(sm.Name, st.Name), High = true } }.ToList();

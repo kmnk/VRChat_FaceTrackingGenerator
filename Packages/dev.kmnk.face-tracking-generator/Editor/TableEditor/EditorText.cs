@@ -87,6 +87,8 @@ namespace Kmnk.FaceTrackingGenerator
             ["part.addIn"] = ("Add a face movement to {0}", "{0} に顔の動きを足す"),
             ["part.regionOf"] = ("A movement of this row must start with \"{0}.\".", "この行の動きは「{0}.」で始めてください。"),
             ["sm.others"] = ("The other {0} keys move with neutral.", "ほかの {0} キーは neutral で動きます。"),
+            ["sm.curveTip"] = ("How much the movement moves (up) for the key's value (right). Click to edit. Its highest point is the strength.", "キーの値（横）に対する動く量（縦）。クリックで編集します。一番高い所が強さです。"),
+            ["sm.curveNote"] = ("The curve of {0} can't be matched closely by an expression (largest difference {1}).", "{0} の曲線は式で近づけきれません（最大の差 {1}）。"),
             ["tip.removeRow"] = ("Put this key back to neutral.", "このキーを neutral に戻します。"),
             ["sm.noFixed"] = ("No fixed movements.", "固定の動きはありません。"),
             ["sm.noTable"] = ("Open a settings file in the settings editor.", "設定エディタで設定ファイルを開いてください。"),

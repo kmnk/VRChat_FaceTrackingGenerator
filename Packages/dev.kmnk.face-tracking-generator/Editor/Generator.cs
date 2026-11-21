@@ -93,6 +93,13 @@ namespace Kmnk.FaceTrackingGenerator
             var visemes = VisemeStop.Build(m, desc, r.Log);
             PropertyParts.Resolve(m, prefab);
 
+            // The Face Tracking section: stop before writing anything when it would be over VRChat's limits (spec R5).
+            var ftPlan = NativeFtWriter.Build(m);
+            ftPlan.Visemes = visemes;
+            var cost = FtCost.Predict(prefab, ftPlan);
+            var over = FtCost.Over(cost, ftPlan);
+            if (over != null) throw new TableLoader.TableException(over);
+
             var outputs = new Dictionary<VRCAvatarDescriptor.AnimLayerType, AnimatorController>();
             foreach (var (type, key) in new[] { (VRCAvatarDescriptor.AnimLayerType.FX, "fx"), (VRCAvatarDescriptor.AnimLayerType.Gesture, "gesture"), (VRCAvatarDescriptor.AnimLayerType.Action, "action") })
             {
@@ -148,9 +155,9 @@ namespace Kmnk.FaceTrackingGenerator
             var budgetLogAt = r.Log.Count;
             r.Written.Add(exprPath);
             r.Controllers = outputs;
-            r.FaceTracking = NativeFtWriter.Build(m);
-            r.FaceTracking.Visemes = visemes;
+            r.FaceTracking = ftPlan;
             r.Log.AddRange(SideLog(m, r.FaceTracking.Sets));
+            r.Log.AddRange(FtCost.Lines(cost, r.FaceTracking.Sets));
             foreach (var path in MenuInstaller.WriteStateMenus(m, r.Log)) r.Written.Add(path);
             r.Menu = MenuBuilder.Build(m, desc.expressionsMenu, r.Log, r.Written, budget, withAfk);
             r.ExpressionParameters = budget.Write(m);

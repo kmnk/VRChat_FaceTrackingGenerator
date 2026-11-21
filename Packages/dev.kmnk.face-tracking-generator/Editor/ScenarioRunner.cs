@@ -260,6 +260,10 @@ namespace Kmnk.FaceTrackingGenerator
             // The Face Tracking section's Blendshapes Sets (design.md "まねる計算"): weight now, goal and speed.
             readonly List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet> ftSets = new List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet>();
             readonly Dictionary<string, (float w, float goal, float speed)> setWeights = new Dictionary<string, (float, float, float)>();
+            readonly List<(string shape, string set, FtExpression.Expr expr)> ftCurves = new List<(string, string, FtExpression.Expr)>();
+            // A curve's blendshape: the value written the frame before. When the Animator did not write it since, the
+            // value under the curve is the mesh's own (0), not what the curve wrote (a set's row keeps the larger as before).
+            readonly Dictionary<(SkinnedMeshRenderer, int), float> curveWritten = new Dictionary<(SkinnedMeshRenderer, int), float>();
             readonly List<SkinnedMeshRenderer> ftMeshes = new List<SkinnedMeshRenderer>();
 
             public Sim(string avatarPath, string meshName, float dt, string name, bool ndmf = false)
@@ -290,6 +294,14 @@ namespace Kmnk.FaceTrackingGenerator
                     foreach (var fs in desc.faceTrackingBlendshapesSetList ?? new List<VRCAvatarDescriptor.FaceTrackingBlendshapesSet>())
                         if (fs != null && !string.IsNullOrEmpty(fs.setName)) { ftSets.Add(fs); setWeights[fs.setName] = (fs.setWeight, fs.setWeight, 0); }
                     ftMeshes.AddRange((desc.faceTrackingMeshes ?? new List<SkinnedMeshRenderer>()).Where(x => x != null && x.sharedMesh != null));
+                    // Apply to Blendshape with a Custom expression (the generator's curves): evaluated as VRChat would.
+                    foreach (var b in desc.faceTrackingParameterBehaviors ?? new List<VRCAvatarDescriptor.FaceTrackingParameterBehavior>())
+                        if (b != null && b.targetMode == VRCAvatarDescriptor.ParameterBehaviorTargetMode.ApplyToBlendshape
+                            && b.combineMode == VRCAvatarDescriptor.ParameterBehaviorCombineMode.Custom && !string.IsNullOrEmpty(b.targetBlendshapeName))
+                        {
+                            try { ftCurves.Add((b.targetBlendshapeName, b.weightBlendSetName, FtExpression.Parse(b.customExpression))); }
+                            catch (FtExpression.ParseException e) { Debug.Log("[FTG] scenario: behavior not evaluated: " + e.Message); }
+                        }
                 }
                 var animator = avatar.GetComponent<Animator>();
                 animator.runtimeAnimatorController = null;
@@ -551,10 +563,12 @@ namespace Kmnk.FaceTrackingGenerator
             }
 
             // Each row: set weight x key value (set <key> <value>) x Multiplier x 100; a blendshape takes the largest row
-            // and the larger of that and the Animator's value.
+            // and the larger of that and the Animator's value. A curve's behavior: its set's weight x its expression (cut to
+            // 0..1) x 100, taken like a row (the generator never puts a row and a behavior on one blendshape; how VRChat
+            // combines those is not known).
             void ApplyNative()
             {
-                if (ftSets.Count == 0) return;
+                if (ftSets.Count == 0 && ftCurves.Count == 0) return;
                 var best = new Dictionary<string, float>(StringComparer.Ordinal);
                 foreach (var fs in ftSets)
                 {
@@ -568,11 +582,27 @@ namespace Kmnk.FaceTrackingGenerator
                         best[names[i]] = Math.Max(best.TryGetValue(names[i], out var b) ? b : 0, v);
                     }
                 }
+                var curveShapes = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var (shape, setName, expr) in ftCurves)
+                {
+                    var w = setName != null && setWeights.TryGetValue(setName, out var sw) ? sw.w : string.IsNullOrEmpty(setName) ? 1f : 0f;
+                    var v = w * Mathf.Clamp01(expr.Evaluate(k => set.TryGetValue(k, out var x) ? x : 0)) * 100;
+                    best[shape] = Math.Max(best.TryGetValue(shape, out var b) ? b : 0, v);
+                    curveShapes.Add(shape);
+                }
+                foreach (var smr in ftMeshes)
+                    foreach (var shape in curveShapes)
+                    {
+                        var i = smr.sharedMesh.GetBlendShapeIndex(shape);
+                        if (i < 0) continue;
+                        if (curveWritten.TryGetValue((smr, i), out var was) && Mathf.Approximately(smr.GetBlendShapeWeight(i), was)) smr.SetBlendShapeWeight(i, 0);
+                    }
                 foreach (var smr in ftMeshes)
                     foreach (var kv in best)
                     {
                         var i = smr.sharedMesh.GetBlendShapeIndex(kv.Key);
                         if (i >= 0) smr.SetBlendShapeWeight(i, Mathf.Max(smr.GetBlendShapeWeight(i), kv.Value));
+                        if (i >= 0 && curveShapes.Contains(kv.Key)) curveWritten[(smr, i)] = smr.GetBlendShapeWeight(i);
                     }
             }
 

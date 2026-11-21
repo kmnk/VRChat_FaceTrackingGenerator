@@ -49,15 +49,21 @@ namespace Kmnk.FaceTrackingGenerator
     }
 
     // A row of a Blendshapes Set: a tracking key moves a part (its blendshape) by key value x Strength x the part's
-    // scale. Part null: "Don't move" (a state's override row that takes the key out of the region).
+    // scale, or by its curve at the key value x the part's scale. Part null: "Don't move" (a state's override row that
+    // takes the key out of the region).
     public sealed class TrackRow
     {
         public string Key;
         public string Part;
-        // The strength on VR and on desktop (the same unless the table writes {"vr", "desktop"}).
+        // The strength on VR and on desktop (the same unless the table writes {"vr", "desktop"}). With a curve: its
+        // highest point.
         public float StrengthVr = 1, StrengthDesktop = 1;
+        // The curve on VR and on desktop ("curve"); null: the straight line from (0, 0) to (1, strength). The loader
+        // keeps only curves that are not straight (a straight one becomes the strength).
+        public CurveKeys CurveVr, CurveDesktop;
         public float Strength(bool desktop) => desktop ? StrengthDesktop : StrengthVr;
-        public bool StrengthByDevice => StrengthVr != StrengthDesktop;
+        public CurveKeys Curve(bool desktop) => desktop ? CurveDesktop : CurveVr;
+        public bool StrengthByDevice => StrengthVr != StrengthDesktop || !CurveKeys.Same(CurveVr, CurveDesktop);
         public void SetStrength(float both) { StrengthVr = both; StrengthDesktop = both; }
     }
 
@@ -196,9 +202,15 @@ namespace Kmnk.FaceTrackingGenerator
 
         public InputDef Input(string name) => Inputs.Find(i => i.Name == name);
 
-        IEnumerable<TrackRow> AllRows() =>
+        public IEnumerable<TrackRow> AllRows() =>
             Neutral.Values.SelectMany(r => r).Concat(StateMachines.SelectMany(sm => sm.States).SelectMany(st => st.Regions.Values.SelectMany(rg => rg.Rows)));
-        // Whether a row's strength differs between the devices: the Blendshapes Sets are then one set of each per device.
+        // The rows with a curve that is not straight on a device (CurveKeys), with a part.
+        public IEnumerable<TrackRow> CurvedRows() => AllRows().Where(r => r.Part != null && (r.CurveVr != null || r.CurveDesktop != null));
+        // The blendshapes such rows move (by name, as Blendshapes Sets and Parameter Behaviors find them): every row on
+        // them goes into a Parameter Behavior instead of a Blendshapes Set (design.md "どの blendshape を式で動かすか").
+        public HashSet<string> CurvedShapes() => new HashSet<string>(CurvedRows()
+            .Where(r => Parts.TryGetValue(r.Part, out var t) && !t.IsProperty).Select(r => Parts[r.Part].Shape), StringComparer.Ordinal);
+        // Whether a row's strength or curve differs between the devices: the Blendshapes Sets are then one set of each per device.
         public bool SetsByDevice => AllRows().Any(r => r.StrengthByDevice);
         // Whether anything is written per device (transitions, strengths, stopVisemes): the FX then reads VRMode.
         public bool SplitsByDevice => SetsByDevice
