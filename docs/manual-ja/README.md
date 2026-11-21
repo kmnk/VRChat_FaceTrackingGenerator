@@ -292,6 +292,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | 名前 | 何をするか |
 | --- | --- |
 | Reload | 設定をファイルから読み直します |
+| Discard | 保存していない変更があるときに別の設定を開くと出る確認の窓のボタン。変更を捨てます |
 | Save | 設定を保存します。保存すると、設定ファイルの `//` のコメントは消えます |
 | Unsaved changes | 保存していない変更があるときに出ます（State Machine の窓にも出ます） |
 | Share | **Export expression…** で表情の設定をフォルダに書き出し、**Import expression…** でフォルダから読み込みます。アバターの設定は書き出しも上書きもしません |
@@ -303,9 +304,11 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 
 | 名前 | 何をするか |
 | --- | --- |
+| Prefab | FT を作るアバターのプレハブ |
 | Fill from Prefab | プレハブから、顔のメッシュ・メニュー・同じ名前のブレンドシェイプ・空の AFK のアニメーションを埋めます |
 | Face mesh | 顔のメッシュ |
-| Blendshape / Property | 顔の動きごとの、ブレンドシェイプかマテリアルのプロパティの列 |
+| Face movements | 顔の動きの一覧の見出し。右に、ブレンドシェイプを選んだ数と Not set の数が出ます |
+| Movement / Blendshape / Property / Scale | 一覧の列。顔の動き、当てるブレンドシェイプかマテリアルのプロパティ（列の見出しは **Blendshape / Property**）、強さ |
 | Menu | FT と AFK のトグルを入れるメニュー |
 | FT toggle name / AFK toggle name | メニューに入れる FT と AFK のトグルの名前 |
 | Submenu name (optional) | トグルを入れるサブメニューの名前。空ならメニューの直下 |
@@ -313,9 +316,9 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Not set | ブレンドシェイプを選んでいない顔の動き |
 | unused | どの状態も使わない顔の動きに付く印 |
 | Scale | このアバターでの顔の動きの強さ（0〜1） |
-| + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
-| ゴミ箱（Del） | どの状態も使わない顔の動きを消します |
-| Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** です |
+| + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**、窓の見出しは **New face movement**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
+| ゴミ箱 / Del | どの状態も使わない顔の動きを消します（ゴミ箱の絵を出せないときは Del と出ます） |
+| Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** で、**Rename** で決めます |
 | Layers | アバターの元の層の一覧。層を足すときは、コントローラー（**FX**・**Gesture**・**Action**）を選びます。列は **Layer**（層の名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
 | Stop while FT / Mute while FT | FT の間、アバターの元の層を止める・黙らせます |
 
@@ -336,6 +339,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 
 | 名前 | 何をするか |
 | --- | --- |
+| Recordings | 記録の見出し。記録が無いときは、記録で何が分かるかが出ます |
 | Add VR recording / Add Desktop recording | FT Measure の記録を `Measurements/` に写します |
 | Recorded faces | 測った顔ごとの、キーの値の幅 |
 | Face | 見る顔 |
@@ -352,6 +356,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | + State | 状態を足します。グラフの空いた所の右クリックの **Create State** でも足せます |
 | Input | 書く機器（VR か Desktop） |
 | Frame All | グラフ全体を表示します（**F** キーでも同じ） |
+| State | 選んだ状態の名前 |
 | Selectable from menu | メニューから選べる状態にします |
 | Stop visemes | 状態の間、ビセームで口を動かしません |
 | Regions | 状態の部位ごとの設定の見出し |
@@ -359,11 +364,13 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | + Add Row | 上書きする部位に行を足します。足せるキーが無いときは **(every key is written)** と出ます |
 | Add Key/ / Remove Key/ | 最初の状態（無表情）で、部位の見出しの右クリックから、キーを足す・外す |
 | Don't move | その行のキーで何も動かしません |
-| Copy from | 別の状態の行を写します |
+| Copy from / Copy | 写す元の状態を選び、**Copy** で行を写します |
+| Key / Movement / Curve | 行の列。トラッキングキー、動かす顔の動き、応答の曲線 |
 | Curve | 行の応答の曲線 |
 | Fixed face movements | 状態の間ずっと出す顔の動き（0〜100） |
 | Make Transition / Set as Default / Delete State | 状態の右クリックのメニュー。最初の状態には **(default)** と出ます |
 | Duration | 選んだ遷移の移り変わりの秒数 |
+| Transition | 選んだ遷移（どこからどこへ） |
 | Conditions | 選んだ遷移の条件。**+ Add Condition** で条件を足します |
 | Remove Transition | 選んだ遷移を消します |
 | Face tracking cost | 設定が作るものの数と、パフォーマンスランク。**Parameter Behaviors**（VRChat の上限 128）、**Expression instructions**（上限 2048）、**Face Tracking Operations**（2000 を超えると Excellent でなくなる） |

@@ -10,7 +10,7 @@ Images must not show the names of a bought avatar's blendshapes, meshes or asset
 | --- | --- | --- |
 | `generator-window.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftSize 560x900`, top 560x335 kept | none |
 | `avatar-tab.png` | `-ftTable <table> -ftTab avatar -ftHelp ja -ftSize 560x1000` | the Prefab, Face mesh and Menu fields, and every assigned Blendshape / Property cell |
-| `preview-tab.png` | `-ftTable <table> -ftTab preview -ftHelp ja -ftSize 560x1000` | none (no avatar chosen, so Weights is empty) |
+| `preview-tab.png` | `-ftTable <table> -ftTab preview -ftHelp ja -ftSize 560x1000`, with the Live input port set back to its default 9000 first (the editor keeps the last port in EditorPrefs `Kmnk.FaceTrackingGenerator.LivePort`; set it back afterwards) | the Avatar in scene field (the avatar's name) |
 | `state-machine.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmSelect joy -ftSize 1100x700` | none (face movement names of the template only) |
 | `face-view-joy.png` | the Face view window that the `state-machine.png` run writes next to it (`<out>.faceview.png`) | none |
 | `generator-check.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftGenPress check -ftSize 560x900`, top 560x380 kept | none |

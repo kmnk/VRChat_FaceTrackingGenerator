@@ -363,6 +363,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>設定をファイルから読み直します</td>
 </tr>
 <tr>
+<td>Discard</td>
+<td>保存していない変更があるときに別の設定を開くと出る確認の窓のボタン。変更を捨てます</td>
+</tr>
+<tr>
 <td>Save</td>
 <td>設定を保存します。保存すると、設定ファイルの <code>//</code> のコメントは消えます</td>
 </tr>
@@ -391,6 +395,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </thead>
 <tbody>
 <tr>
+<td>Prefab</td>
+<td>FT を作るアバターのプレハブ</td>
+</tr>
+<tr>
 <td>Fill from Prefab</td>
 <td>プレハブから、顔のメッシュ・メニュー・同じ名前のブレンドシェイプ・空の AFK のアニメーションを埋めます</td>
 </tr>
@@ -399,8 +407,12 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>顔のメッシュ</td>
 </tr>
 <tr>
-<td>Blendshape / Property</td>
-<td>顔の動きごとの、ブレンドシェイプかマテリアルのプロパティの列</td>
+<td>Face movements</td>
+<td>顔の動きの一覧の見出し。右に、ブレンドシェイプを選んだ数と Not set の数が出ます</td>
+</tr>
+<tr>
+<td>Movement / Blendshape / Property / Scale</td>
+<td>一覧の列。顔の動き、当てるブレンドシェイプかマテリアルのプロパティ（列の見出しは <strong>Blendshape / Property</strong>）、強さ</td>
 </tr>
 <tr>
 <td>Menu</td>
@@ -432,15 +444,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>+ Add Face Movement</td>
-<td>顔の動きを足します。開く小さな窓（<strong>New face movement…</strong>）の <strong>Name</strong> に <code>部位.名前</code> を入れ、<strong>Add</strong> で足し、<strong>Cancel</strong> でやめます</td>
+<td>顔の動きを足します。開く小さな窓（<strong>New face movement…</strong>、窓の見出しは <strong>New face movement</strong>）の <strong>Name</strong> に <code>部位.名前</code> を入れ、<strong>Add</strong> で足し、<strong>Cancel</strong> でやめます</td>
 </tr>
 <tr>
-<td>ゴミ箱（Del）</td>
-<td>どの状態も使わない顔の動きを消します</td>
+<td>ゴミ箱 / Del</td>
+<td>どの状態も使わない顔の動きを消します（ゴミ箱の絵を出せないときは Del と出ます）</td>
 </tr>
 <tr>
 <td>Rename…</td>
-<td>顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は <strong>Rename face movement</strong> です</td>
+<td>顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は <strong>Rename face movement</strong> で、<strong>Rename</strong> で決めます</td>
 </tr>
 <tr>
 <td>Layers</td>
@@ -505,6 +517,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </thead>
 <tbody>
 <tr>
+<td>Recordings</td>
+<td>記録の見出し。記録が無いときは、記録で何が分かるかが出ます</td>
+</tr>
+<tr>
 <td>Add VR recording / Add Desktop recording</td>
 <td>FT Measure の記録を <code>Measurements/</code> に写します</td>
 </tr>
@@ -553,6 +569,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>グラフ全体を表示します（<strong>F</strong> キーでも同じ）</td>
 </tr>
 <tr>
+<td>State</td>
+<td>選んだ状態の名前</td>
+</tr>
+<tr>
 <td>Selectable from menu</td>
 <td>メニューから選べる状態にします</td>
 </tr>
@@ -581,8 +601,12 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <td>その行のキーで何も動かしません</td>
 </tr>
 <tr>
-<td>Copy from</td>
-<td>別の状態の行を写します</td>
+<td>Copy from / Copy</td>
+<td>写す元の状態を選び、<strong>Copy</strong> で行を写します</td>
+</tr>
+<tr>
+<td>Key / Movement / Curve</td>
+<td>行の列。トラッキングキー、動かす顔の動き、応答の曲線</td>
 </tr>
 <tr>
 <td>Curve</td>
@@ -599,6 +623,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <tr>
 <td>Duration</td>
 <td>選んだ遷移の移り変わりの秒数</td>
+</tr>
+<tr>
+<td>Transition</td>
+<td>選んだ遷移（どこからどこへ）</td>
 </tr>
 <tr>
 <td>Conditions</td>
