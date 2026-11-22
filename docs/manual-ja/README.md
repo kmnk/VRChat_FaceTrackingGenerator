@@ -10,7 +10,7 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 - [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
 - 喜び・怒り・悲しみなどの表情を [State](#用語集) として作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
-- State ごとに、目や口の動きを上書きしたり、涙や頬の赤らみのようなシェイプキーを一定の量で出し続けたり（Fixed face movements）できます
+- State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
 - メニューから State を選べるようにできます
 - VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や [Curve](#用語集) を分けて書けます
 - FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、メニュー、Expression Parameters）は書き換えません
