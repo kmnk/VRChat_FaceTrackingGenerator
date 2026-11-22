@@ -113,7 +113,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="neutral-と状態">neutral と状態</h3>
 <p>何も状態に入っていないときの顔を<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a>と呼びます。neutral では、目・口などの<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">部位</a>ごとに、キーが顔の動きを動かします。</p>
 <p>状態（喜びなど）に入ると、その状態が上書きする部位だけ、動き方が替わります。たとえば喜びの状態で目を上書きすると、喜んでいる間はまばたきのキーで「笑い目」のシェイプキーが動きます。上書きしない部位は、neutral のまま動きます。</p>
-<p>状態は<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a>の中にあり、遷移の条件（「口角を上げる値が 0.5 を超えたら喜びに入る」など）で切り替わります。State Machine は複数並べられます。</p>
+<p>状態は<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a> の中にあり、遷移の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら喜びに入る」など）で切り替わります。State Machine は複数並べられます。</p>
 <h3 id="vr-とデスクトップ">VR とデスクトップ</h3>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違います。生成器は、遷移・強さ・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」にあります。</p>
 <h2 id="動作環境">動作環境</h2>
@@ -177,7 +177,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>VR の機器: VRCFaceTracking を動かしてから VRChat を起動します</li>
 <li>デスクトップ: VRChat の Selfie Expression を有効にします</li>
 </ul>
-<p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。メニューに FT のトグルと、State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
+<p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。メニューの <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
 <p>「はじめての設定」で作った喜び（joy）の状態に、目と口の動きを足します。</p>
 <h3 id="state-machine-の窓を開く">State Machine の窓を開く</h3>
@@ -271,7 +271,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p><img src="images/devices-tab.png" alt="記録が無いときの Devices タブ"></p>
 <ol start="2">
-<li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、キーごとに、<strong>真顔</strong>・<strong>真顔で喋る</strong>・<strong>笑顔で喋る</strong>・その顔（列の見出しは顔の id）での値の幅が出ます。neutral より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます</li>
+<li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、キーごとに、<strong>真顔</strong>・<strong>真顔で喋る</strong>・<strong>笑顔で喋る</strong>・その顔（列の見出しは顔の id）での値の幅が出ます。真顔より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます</li>
 </ol>
 <p><img src="images/devices-recorded.png" alt="記録を読ませた Devices タブ（VR の記録、mouth_smile の顔）"></p>
 <ol start="3">
@@ -757,7 +757,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <h3 id="窓が止まったまま">窓が止まったまま</h3>
 <ul>
-<li>VRChat SDK がビルドしている間、設定エディタ・Face view・ State Machine の窓は止まります。ビルドが失敗して止まったままのときは <strong>Resume</strong> を押してください</li>
+<li>VRChat SDK がビルドしている間、設定エディタ・Face view・State Machine の窓は止まります。ビルドが失敗して止まったままのときは <strong>Resume</strong> を押してください</li>
 </ul>
 <h3 id="ndmf-の-manual-bake-で-ft-が無い">NDMF の Manual Bake で FT が無い</h3>
 <ul>
