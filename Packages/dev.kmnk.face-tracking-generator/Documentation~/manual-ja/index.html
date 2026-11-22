@@ -146,7 +146,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>・<code>angry</code>・<code>sad</code> を持つ State Machine <code>Emotion</code> が入っています。</p>
 <p><img src="images/generator-window.png" alt="FTG のウィンドウ"></p>
-<p>うまくいくと、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります。同じ名前の設定が既にあると何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
+<p>設定が作られると、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります。同じ名前の設定が既にあると何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
 <ol>
 <li><strong>Open Settings Editor</strong> を押して設定エディタを開きます</li>
@@ -160,7 +160,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>画像は、パーフェクトシンクでないアバターで手順 6 まで進めた Avatar タブです。そのため <em>Not set</em> が多く残っています。シェイプキーとアセットの名前は隠しています。</p>
 <h3 id="3-設定を確かめる">3. 設定を確かめる</h3>
 <p>FTG のウィンドウに戻り、<strong>Check</strong> を押します。指摘があれば、読んで設定エディタで直します。</p>
-<p>うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。</p>
+<p>設定に問題が無ければ、ボタンの下に「Check: 指摘はありません。」と出ます。</p>
 <p><img src="images/generator-check.png" alt="Check の結果"></p>
 <h3 id="4-アバターに設定コンポーネントを付ける">4. アバターに設定コンポーネントを付ける</h3>
 <ol>
@@ -170,14 +170,14 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p><img src="images/generator-avatar.png" alt="アバターを選んだ FTG のウィンドウ"></p>
 <p>画像のアバターの名前は隠しています。</p>
-<p>うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。</p>
+<p>ボタンを押すと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。</p>
 <h3 id="5-build--test-で確認する">5. Build &amp; Test で確認する</h3>
 <p>VRChat SDK の Build &amp; Test でアバターを作り、VRChat で着替えます。</p>
 <ul>
 <li>VR の機器: VRCFaceTracking を動かしてから VRChat を起動します</li>
 <li>デスクトップ: VRChat の Selfie Expression を有効にします</li>
 </ul>
-<p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
+<p>FT が動いていると、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
 <p>「はじめての設定」で作った設定の <code>joy</code> の State に、目と口の動きを追加します。</p>
 <h3 id="state-machine-のウィンドウを開く">State Machine のウィンドウを開く</h3>
@@ -208,7 +208,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>1 本の Transition の条件は、すべて満たしたときに移ります（joy の入り方）。どれか 1 つで移る形は、同じ State の間に Transition を条件ごとに作ります（joy の出方）</li>
 </ol>
 <p><img src="images/state-machine-transition.png" alt="Transition を選んだ State Machine のウィンドウ"></p>
-<p>うまくいくと、右に <strong>Conditions</strong> と条件の値が出て、変えた値が Preview の State の切り替わりに反映されます。</p>
+<p>Transition を選ぶと、右に <strong>Conditions</strong> と条件の値が出ます。値を変えると、Preview で State が切り替わる値も変わります。</p>
 <h3 id="preview-で確認する">Preview で確認する</h3>
 <ol>
 <li>設定エディタの <strong>Preview</strong> タブで、シーンのアバターを選び、<strong>Start preview</strong> を押します</li>
@@ -225,7 +225,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>VRCFaceTracking の <strong>Send Port</strong> を、Live input の欄のポート（既定は 9000 で、VRCFaceTracking の既定と同じ）に合わせます</li>
 <li><strong>Start</strong> を押します</li>
 </ol>
-<p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
+<p>値が届き始めると、ボタンの下にそのことが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
 <p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、左右の口角を上げると <code>joy</code> に入り、まばたきで手順 2 のシェイプキーが動き、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>

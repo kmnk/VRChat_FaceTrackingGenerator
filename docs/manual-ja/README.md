@@ -79,7 +79,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 ![FTG のウィンドウ](images/generator-window.png)
 
-うまくいくと、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります。同じ名前の設定が既にあると何も作りません。そのときは **Settings file** で既にある設定を選んでください。
+設定が作られると、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります。同じ名前の設定が既にあると何も作りません。そのときは **Settings file** で既にある設定を選んでください。
 
 ### 2. 設定を編集する
 
@@ -98,7 +98,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 FTG のウィンドウに戻り、**Check** を押します。指摘があれば、読んで設定エディタで直します。
 
-うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。
+設定に問題が無ければ、ボタンの下に「Check: 指摘はありません。」と出ます。
 
 ![Check の結果](images/generator-check.png)
 
@@ -112,7 +112,7 @@ FTG のウィンドウに戻り、**Check** を押します。指摘があれば
 
 画像のアバターの名前は隠しています。
 
-うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。
+ボタンを押すと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。
 
 ### 5. Build & Test で確認する
 
@@ -121,7 +121,7 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 - VR の機器: VRCFaceTracking を動かしてから VRChat を起動します
 - デスクトップ: VRChat の Selfie Expression を有効にします
 
-うまくいくと、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の **Face Tracking** のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「[困ったとき](#困ったとき)」を見てください。
+FT が動いていると、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の **Face Tracking** のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「[困ったとき](#困ったとき)」を見てください。
 
 ## 表情を作る
 
@@ -163,7 +163,7 @@ Region の **Off** は、その Region の neutral の動きを止めます。**
 
 ![Transition を選んだ State Machine のウィンドウ](images/state-machine-transition.png)
 
-うまくいくと、右に **Conditions** と条件の値が出て、変えた値が Preview の State の切り替わりに反映されます。
+Transition を選ぶと、右に **Conditions** と条件の値が出ます。値を変えると、Preview で State が切り替わる値も変わります。
 
 ### Preview で確認する
 
@@ -184,7 +184,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 2. VRCFaceTracking の **Send Port** を、Live input の欄のポート（既定は 9000 で、VRCFaceTracking の既定と同じ）に合わせます
 3. **Start** を押します
 
-うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。**Stop** で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。
+値が届き始めると、ボタンの下にそのことが出て、スライダーが顔に合わせて動きます。**Stop** で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。
 
 ### Build & Test で確認する
 
