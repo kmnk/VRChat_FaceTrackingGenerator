@@ -236,7 +236,15 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 ![記録が無いときの Devices タブ](images/devices-tab.png)
 
 2. **Recorded faces** で、測った顔（**Face**）を選ぶと、キーごとに、無表情・無表情で話す・笑って話す・その顔での値の幅が出ます。無表情より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます
+
+![記録を読ませた Devices タブ（VR の記録、mouth_smile の顔）](images/devices-recorded.png)
+
 3. Preview タブの **Device** に **VR (records)** と **Desktop (records)** が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです
+
+![Device を VR (records) にした Preview タブ](images/preview-records.png)
+
+画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、アバターの名前は隠しています。
+
 
 ## 状態を足す
 
