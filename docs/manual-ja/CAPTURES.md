@@ -17,7 +17,7 @@ Images must not show the names of a bought avatar's blendshapes, meshes or asset
 | `face-view-joy.png` | the Face view window that the `state-machine.png` run writes next to it (`<out>.faceview.png`) | none |
 | `generator-check.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftAvatarName MyAvatar -ftChooseAvatar none -ftGenPress check -ftSize 560x900`, top 560x380 kept | none |
 | `state-machine-transition.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmSelect 'neutral->joy' -ftSize 1100x700` | none |
-| `state-machine-desktop.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmDevice desktop -ftSmSelect joy -ftSize 1100x700` | none |
+| `state-machine-desktop.png` | `-ftWindow statemachine -ftTable <table> -ftHelp ja -ftSmMachine Emotion -ftSmDevice desktop -ftSmSelect 'neutral->sad' -ftSize 1100x700` | none |
 | `devices-tab.png` | `-ftTable <table> -ftTab devices -ftHelp ja -ftSize 560x700`, top 560x200 kept | none |
 | `generator-avatar.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftAvatarName MyAvatar -ftOpenScene <scene> -ftChooseAvatar <avatar> -ftSize 560x900`, top 560x335 kept | the Avatar in scene field (the avatar's name) |
 | `devices-recorded.png` | the settings with two real ft-measure recordings added to `"measurements"` (VR and desktop), `-ftTable <table> -ftTab devices -ftHelp ja -ftDevicesSide vr -ftDevicesFace mouth_smile -ftSize 560x1000`, top 560x515 kept | none |

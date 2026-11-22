@@ -34,7 +34,11 @@
 // This template moves the 52 perfect sync (ARKit) blendshapes in neutral. Parts are "<region>.<ARKit name>", regions as
 // in VRCFaceTracking's Unified Expressions groups (gaze, eye, brow, nose, cheek, jaw, lip, tongue). Which keys move which
 // ARKit blendshape and why: Documentation~/perfect-sync.md in this package. The states joy, angry and sad are empty: add
-// overrides and fixed movements for your avatar in the State Machine window.
+// overrides and fixed movements for your avatar in the State Machine window. Their transitions show three ways to enter
+// a state, with values to start from (read your own ft-measure recordings in the Devices tab and change them):
+// joy enters when both mouth corners are up and leaves when either goes down; sad does the same with values per device,
+// because desktop tracking moves MouthFrown much less than VR; angry is chosen from the menu only, because few devices
+// track the brows and puckered lips also come with speaking.
 // Copy this file to Settings/ and edit the copy.
 {
   // Regions that stop while talking (Voice > 0.1). Other regions keep moving.
@@ -136,15 +140,15 @@
         "sad": { "menu": true, "position": [320, 110] }
       },
       "transitions": [
-        { "from": "neutral", "to": "joy", "when": [["MouthCornerPullLeft", ">", 0.5]], "duration": 0.2 },
-        { "from": "neutral", "to": "joy", "when": [["MouthCornerPullRight", ">", 0.5]], "duration": 0.2 },
-        { "from": "joy", "to": "neutral", "when": [["MouthCornerPullLeft", "<", 0.4], ["MouthCornerPullRight", "<", 0.4]], "duration": 0.2 },
-        { "from": "neutral", "to": "angry", "when": [["BrowLowererLeft", ">", 0.5]], "duration": 0.2 },
-        { "from": "neutral", "to": "angry", "when": [["BrowLowererRight", ">", 0.5]], "duration": 0.2 },
-        { "from": "angry", "to": "neutral", "when": [["BrowLowererLeft", "<", 0.4], ["BrowLowererRight", "<", 0.4]], "duration": 0.2 },
-        { "from": "neutral", "to": "sad", "when": [["MouthFrownLeft", ">", 0.5]], "duration": 0.2 },
-        { "from": "neutral", "to": "sad", "when": [["MouthFrownRight", ">", 0.5]], "duration": 0.2 },
-        { "from": "sad", "to": "neutral", "when": [["MouthFrownLeft", "<", 0.4], ["MouthFrownRight", "<", 0.4]], "duration": 0.2 }
+        { "from": "neutral", "to": "joy", "when": [["MouthCornerPullLeft", ">", 0.8], ["MouthCornerPullRight", ">", 0.8]], "duration": 0.2 },
+        { "from": "joy", "to": "neutral", "when": [["MouthCornerPullLeft", "<", 0.6]], "duration": 0.2 },
+        { "from": "joy", "to": "neutral", "when": [["MouthCornerPullRight", "<", 0.6]], "duration": 0.2 },
+        { "from": "neutral", "to": "sad", "device": "vr", "when": [["MouthFrownLeft", ">", 0.6], ["MouthFrownRight", ">", 0.6]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "device": "vr", "when": [["MouthFrownLeft", "<", 0.4]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "device": "vr", "when": [["MouthFrownRight", "<", 0.4]], "duration": 0.2 },
+        { "from": "neutral", "to": "sad", "device": "desktop", "when": [["MouthFrownLeft", ">", 0.2], ["MouthFrownRight", ">", 0.2]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "device": "desktop", "when": [["MouthFrownLeft", "<", 0.1]], "duration": 0.2 },
+        { "from": "sad", "to": "neutral", "device": "desktop", "when": [["MouthFrownRight", "<", 0.1]], "duration": 0.2 }
       ]
     }
   }

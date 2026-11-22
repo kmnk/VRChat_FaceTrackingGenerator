@@ -151,7 +151,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Open Settings Editor</strong> を押して設定エディタを開きます</li>
 <li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、メニュー、同じ名前のシェイプキーを持つ顔の動き、空いている AFK のアニメーションの枠（アバター自身の AFK の層のクリップ）が埋まります（Undo で戻せます）</li>
 <li>一覧に <em>Not set</em> が残った顔の動きがあれば、シェイプキーを選びます</li>
-<li><strong>Menu</strong> で、FT と AFK のトグルの名前を決めます。サブメニューに入れたいときは、その名前を入れます（空ならメニューの直下）</li>
+<li><strong>Menu</strong> で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（<strong>Submenu name (optional)</strong>、テンプレートの既定は <code>Face Tracking</code>）を確かめます。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターのメニューの直下に並び、アバターの元のメニューと混ざるので、名前を入れておくのがおすすめです</li>
 <li><strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK の層のクリップで埋めます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、AFK のトグルもメニューに入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
@@ -195,11 +195,17 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p><img src="images/face-view-joy.png" alt="Face view の喜びの顔"></p>
 <p>部位の <strong>Off</strong> は、その部位の neutral の動きを止めます。<strong>Don't move</strong> の行は、そのキーで何も動かしません。<strong>Copy from</strong> で、別の状態の行を写せます。</p>
 <h3 id="遷移の条件を変える">遷移の条件を変える</h3>
-<p>テンプレートの喜びは、<code>MouthCornerPullLeft</code> か <code>MouthCornerPullRight</code> が 0.5 を超えると入り、両方が 0.4 を下回ると出ます。</p>
+<p>テンプレートの遷移は、入り方の 3 つの見本になっています。</p>
+<ul>
+<li>joy: <code>MouthCornerPullLeft</code> と <code>MouthCornerPullRight</code> の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです</li>
+<li>sad: <code>MouthFrownLeft</code> と <code>MouthFrownRight</code> で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです</li>
+<li>angry: 遷移を持たず、メニューから選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです</li>
+</ul>
+<p>値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
 <ol>
 <li>遷移（状態の間の線）を選びます</li>
 <li>条件の値（<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">しきい値</a>）を変えます。入りにくければ下げ、入りすぎるなら上げます</li>
-<li>左右どちらかで入る形は、同じ状態の間に遷移を 2 本作ります（1 本の遷移の条件はすべて満たす必要があるため）</li>
+<li>1 本の遷移の条件は、すべて満たしたときに移ります（joy の入り方）。どれか 1 つで移る形は、同じ状態の間に遷移を条件ごとに作ります（joy の出方）</li>
 </ol>
 <p><img src="images/state-machine-transition.png" alt="遷移を選んだ State Machine の窓"></p>
 <p>うまくいくと、右に <strong>Conditions</strong> と条件の値が出て、変えた値が Preview の状態の切り替わりに反映されます。</p>
@@ -430,7 +436,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Submenu name (optional)</td>
-<td>トグルを入れるサブメニューの名前。空ならメニューの直下</td>
+<td>トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は <code>Face Tracking</code>。空ならメニューの直下</td>
 </tr>
 <tr>
 <td>AFK animation (optional)</td>

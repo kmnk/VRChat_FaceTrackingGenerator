@@ -85,7 +85,7 @@ Modular Avatar は要りません。入っているプロジェクトでも使�
 1. **Open Settings Editor** を押して設定エディタを開きます
 2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、メニュー、同じ名前のシェイプキーを持つ顔の動き、空いている AFK のアニメーションの枠（アバター自身の AFK の層のクリップ）が埋まります（Undo で戻せます）
 3. 一覧に *Not set* が残った顔の動きがあれば、シェイプキーを選びます
-4. **Menu** で、FT と AFK のトグルの名前を決めます。サブメニューに入れたいときは、その名前を入れます（空ならメニューの直下）
+4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確かめます。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターのメニューの直下に並び、アバターの元のメニューと混ざるので、名前を入れておくのがおすすめです
 5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK の層のクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作られ、AFK のトグルもメニューに入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします
 6. **Save** を押します
 
@@ -150,11 +150,17 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 
 ### 遷移の条件を変える
 
-テンプレートの喜びは、`MouthCornerPullLeft` か `MouthCornerPullRight` が 0.5 を超えると入り、両方が 0.4 を下回ると出ます。
+テンプレートの遷移は、入り方の 3 つの見本になっています。
+
+- joy: `MouthCornerPullLeft` と `MouthCornerPullRight` の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです
+- sad: `MouthFrownLeft` と `MouthFrownRight` で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです
+- angry: 遷移を持たず、メニューから選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです
+
+値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
 
 1. 遷移（状態の間の線）を選びます
 2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます
-3. 左右どちらかで入る形は、同じ状態の間に遷移を 2 本作ります（1 本の遷移の条件はすべて満たす必要があるため）
+3. 1 本の遷移の条件は、すべて満たしたときに移ります（joy の入り方）。どれか 1 つで移る形は、同じ状態の間に遷移を条件ごとに作ります（joy の出方）
 
 ![遷移を選んだ State Machine の窓](images/state-machine-transition.png)
 
@@ -320,7 +326,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Movement / Blendshape / Property / Scale | 一覧の列。顔の動き、当てるシェイプキーかマテリアルのプロパティ（列の見出しは **Blendshape / Property**）、強さ |
 | Menu | FT と AFK のトグルを入れるメニュー |
 | FT toggle name / AFK toggle name | メニューに入れる FT と AFK のトグルの名前 |
-| Submenu name (optional) | トグルを入れるサブメニューの名前。空ならメニューの直下 |
+| Submenu name (optional) | トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は `Face Tracking`。空ならメニューの直下 |
 | AFK animation (optional) | AFK の間に再生するクリップ。**Action Intro**・**Action Loop**・**Action Outro**・**FX Intro**・**FX Loop**・**FX Outro** の 6 つで、Loop の 2 つだけが必須です |
 | Not set | シェイプキーを選んでいない顔の動き |
 | unused | どの状態も使わない顔の動きに付く印 |
