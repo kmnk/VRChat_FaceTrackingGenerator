@@ -95,7 +95,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="できること">できること</h3>
 <ul>
 <li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
-<li>喜び・怒り・悲しみなどの表情を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> として作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
+<li><code>joy</code>（笑顔）・<code>angry</code>・<code>sad</code> のような表情を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> として作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
 <li>VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます</li>
 <li>VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a> を分けて書けます</li>
@@ -112,8 +112,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>出来上がった Face movement は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forward to Animator</a> で Animator に渡します。</p>
 <h3 id="neutral-と-state">neutral と State</h3>
 <p>どの State にも入っていないときの顔を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a> と呼びます。neutral では、目・口などの<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a>ごとに、キーが Face movement を動かします。</p>
-<p>State（喜びなど）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば喜びの State で目を上書きすると、喜んでいる間はまばたきのキーで「笑い目」のシェイプキーが動きます。上書きしない Region は、neutral のまま動きます。</p>
-<p>State は<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a> の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら喜びに入る」など）で切り替わります。State Machine は複数並べられます。</p>
+<p>State（<code>joy</code> など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば <code>joy</code> で目を上書きすると、<code>joy</code> の間はまばたきのキーで「笑い目」のシェイプキーが動きます。上書きしない Region は、neutral のまま動きます。</p>
+<p>State は<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a> の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら <code>joy</code> に入る」など）で切り替わります。State Machine は複数並べられます。</p>
 <h3 id="vr-とデスクトップ">VR とデスクトップ</h3>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違います。FTG は、Transition・ Curve ・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」にあります。</p>
 <h2 id="動作環境">動作環境</h2>
@@ -143,7 +143,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>FTG のウィンドウの「1. FT の設定を作る」（Help が英語なら Create the FT settings）の <strong>Avatar name</strong> に、アバターの名前を入れます</li>
 <li><strong>Create</strong> を押します</li>
 </ol>
-<p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State の joy（喜び）・angry（怒り）・sad（悲しみ）を持つ State Machine <code>Emotion</code> が入っています。</p>
+<p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>（笑顔）・<code>angry</code>（怒り）・<code>sad</code>（悲しみ）を持つ State Machine <code>Emotion</code> が入っています。</p>
 <p><img src="images/generator-window.png" alt="FTG のウィンドウ"></p>
 <p>うまくいくと、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります。同じ名前の設定が既にあると何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
@@ -179,20 +179,20 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
-<p>「はじめての設定」で作った喜び（joy）の State に、目と口の動きを追加します。</p>
+<p>「はじめての設定」で作った設定の <code>joy</code> の State に、目と口の動きを追加します。</p>
 <h3 id="state-machine-のウィンドウを開く">State Machine のウィンドウを開く</h3>
 <p>設定エディタの <strong>State Machine</strong> のボタン（または <code>Tools/Kmnk/Face Tracking State Machine</code>）で、State Machine のウィンドウを開きます。オレンジの State が最初の State です。</p>
 <p><img src="images/state-machine.png" alt="State Machine のウィンドウ"></p>
 <h3 id="state-の顔を作る">State の顔を作る</h3>
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に State の設定が出ます</li>
-<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。喜んでいる間だけ使う Face movement は、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、喜んでいる間は左目のまばたきで笑い目が閉じます（下の画像の行）</li>
+<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。<code>joy</code> の間だけ使う Face movement は、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は左目のまばたきで笑い目が閉じます（下の画像の行）</li>
 <li>口の Region（lip）を <strong>Off</strong> にし、neutral の口の動きを止めます。笑った口は次の 4 で Fixed face movements として出します</li>
-<li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、喜んでいる間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを追加すると頬が赤くなります</li>
+<li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、<code>joy</code> の間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを追加すると頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p>State を選ぶと、Face view にその State の顔が出ます。</p>
-<p><img src="images/face-view-joy.png" alt="Face view の喜びの顔"></p>
+<p><img src="images/face-view-joy.png" alt="Face view の joy の顔"></p>
 <p>Region の <strong>Off</strong> は、その Region の neutral の動きを止めます。<strong>Don't move</strong> の行は、そのキーで何も動かしません。<strong>Copy from</strong> で、別の State の行を写せます。</p>
 <h3 id="transition-の条件を変える">Transition の条件を変える</h3>
 <p>テンプレートの Transition は、入り方の 3 つの見本になっています。</p>
@@ -227,7 +227,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、笑うと喜びの State に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、笑うと <code>joy</code> に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。</p>
 <ul>
@@ -294,7 +294,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>行の <strong>Curve</strong> は、キーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。</p>
 <p>Curve の行は、VRChat の Parameter Behavior で動かします。数が多いと VRChat の上限を超えるので、State Machine のウィンドウの下の <strong>Face tracking cost</strong> を見てください。VRChat の上限を超えると赤、Excellent を超えると黄色で出ます。</p>
 <h3 id="別の-state-machine-を並べる">別の State Machine を並べる</h3>
-<p>State Machine は複数並べられます。たとえば表情の <code>Emotion</code> とは別に、頬の State Machine <code>Cheek</code> を作り、Expressions Menu から選べる State blush（赤らみ）と pale（青ざめ）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、<strong>New State Machine…</strong> を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（<strong>Check</strong> が指摘します）。</p>
+<p>State Machine は複数並べられます。たとえば表情の <code>Emotion</code> とは別に、頬の State Machine <code>Cheek</code> を作り、Expressions Menu から選べる State <code>blush</code>（頬の赤らみ）と <code>pale</code>（青ざめた顔）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、<strong>New State Machine…</strong> を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（<strong>Check</strong> が指摘します）。</p>
 <h2 id="画面ごとの説明">画面ごとの説明</h2>
 <h3 id="ftg-のウィンドウ">FTG のウィンドウ</h3>
 <p><code>Tools/Kmnk/Face Tracking Generator</code>。</p>
@@ -689,7 +689,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>State</td>
-<td>喜びなどの表情。Region の上書きと、Fixed face movements を持ちます</td>
+<td><code>joy</code> などの表情。Region の上書きと、Fixed face movements を持ちます</td>
 </tr>
 <tr>
 <td>State Machine</td>
