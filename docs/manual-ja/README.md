@@ -32,7 +32,7 @@ FTG は、キーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face
 
 どの State にも入っていないときの顔を [neutral](#用語集) と呼びます。neutral では、目・口などの[Region](#用語集)ごとに、キーが Face movement を動かします。
 
-State（`joy` など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば `joy` で目を上書きすると、`joy` の間はまばたきのキーで「笑い目」のシェイプキーが動きます。上書きしない Region は、neutral のまま動きます。
+State（`joy` など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば `joy` で目を上書きすると、`joy` の間は、まばたきのキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。
 
 State は[State Machine](#用語集) の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら `joy` に入る」など）で切り替わります。State Machine は複数並べられます。
 
@@ -137,7 +137,7 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 ### State の顔を作る
 
 1. グラフで **joy** を選びます。右に State の設定が出ます
-2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。`joy` の間だけ使う Face movement は、設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。`EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は左目のまばたきで笑い目が閉じます（下の画像の行）
+2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。`joy` の間だけ使う Face movement は、設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、目を弧の形にして閉じるシェイプキーなど、`joy` の間に使いたいシェイプキーを当てておきます。`EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきでそのシェイプキーが動きます（下の画像の行）
 3. 口の Region（lip）を **Off** にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します
 4. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `lip.mouthSmileLeft` と `lip.mouthSmileRight` を 50 にすると口角が上がったまま、`cheek.joy.blush` のような頬の赤らみを追加すると頬が赤くなります
 5. **Save** を押します
@@ -189,7 +189,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確認する
 
-「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、左右の口角を上げると `joy` に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
+「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、左右の口角を上げると `joy` に入り、まばたきで手順 2 のシェイプキーが動き、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 

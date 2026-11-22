@@ -112,7 +112,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>出来上がった Face movement は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forward to Animator</a> で Animator に渡します。</p>
 <h3 id="neutral-と-state">neutral と State</h3>
 <p>どの State にも入っていないときの顔を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a> と呼びます。neutral では、目・口などの<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a>ごとに、キーが Face movement を動かします。</p>
-<p>State（<code>joy</code> など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば <code>joy</code> で目を上書きすると、<code>joy</code> の間はまばたきのキーで「笑い目」のシェイプキーが動きます。上書きしない Region は、neutral のまま動きます。</p>
+<p>State（<code>joy</code> など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば <code>joy</code> で目を上書きすると、<code>joy</code> の間は、まばたきのキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。</p>
 <p>State は<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a> の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら <code>joy</code> に入る」など）で切り替わります。State Machine は複数並べられます。</p>
 <h3 id="vr-とデスクトップ">VR とデスクトップ</h3>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違います。FTG は、Transition・ Curve ・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」にあります。</p>
@@ -186,7 +186,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="state-の顔を作る">State の顔を作る</h3>
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に State の設定が出ます</li>
-<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。<code>joy</code> の間だけ使う Face movement は、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は左目のまばたきで笑い目が閉じます（下の画像の行）</li>
+<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。<code>joy</code> の間だけ使う Face movement は、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、目を弧の形にして閉じるシェイプキーなど、<code>joy</code> の間に使いたいシェイプキーを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は、左目のまばたきでそのシェイプキーが動きます（下の画像の行）</li>
 <li>口の Region（lip）を <strong>Off</strong> にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します</li>
 <li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、<code>joy</code> の間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを追加すると頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
@@ -227,7 +227,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、左右の口角を上げると <code>joy</code> に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、左右の口角を上げると <code>joy</code> に入り、まばたきで手順 2 のシェイプキーが動き、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。</p>
 <ul>
