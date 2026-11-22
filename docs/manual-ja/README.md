@@ -325,7 +325,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Not set | ブレンドシェイプを選んでいない顔の動き |
 | unused | どの状態も使わない顔の動きに付く印 |
 | Scale | このアバターでの顔の動きの強さ（0〜1） |
-| + Add Face Movement | 顔の動きを足します。開く小さな窓（**New face movement…**、窓の見出しは **New face movement**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
+| + Add Face Movement | 顔の動きを足します。開く小さな窓（見出しは **New face movement**）の **Name** に `部位.名前` を入れ、**Add** で足し、**Cancel** でやめます |
 | ゴミ箱 / Del | どの状態も使わない顔の動きを消します（ゴミ箱の絵を出せないときは Del と出ます） |
 | Rename… | 顔の動きの名前を、2 つの設定の両方で変えます。開く小さな窓は **Rename face movement** で、**Rename** で決めます |
 | Layers | アバターの元の層の一覧。層を足すときは、コントローラー（**FX**・**Gesture**・**Action**）を選びます。列は **Layer**（層の名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
@@ -374,7 +374,7 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 | Add Key/ / Remove Key/ | 最初の状態（無表情）で、部位の見出しの右クリックから、キーを足す・外す |
 | Don't move | その行のキーで何も動かしません |
 | Copy from / Copy | 写す元の状態を選び、**Copy** で行を写します |
-| Key / Movement / Curve | 行の列。トラッキングキー、動かす顔の動き、応答の曲線 |
+| Key / Movement / Curve | 行の列。トラッキングキー、動かす顔の動き、応答の曲線。Movement の選択肢の **New face movement…** と、Fixed face movements の **+ Add Face Movement** のメニューの **New face movement…** は、顔の動きを足す小さな窓（見出しは New face movement）を開きます |
 | Curve | 行の応答の曲線 |
 | Fixed face movements | 状態の間ずっと出す顔の動き（0〜100） |
 | Make Transition / Set as Default / Delete State | 状態の右クリックのメニュー。最初の状態には **(default)** と出ます |
