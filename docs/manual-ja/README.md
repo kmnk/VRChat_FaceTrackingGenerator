@@ -19,26 +19,26 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ![FT の値がシェイプキーを動かすまでの流れ](images/overview.png)
 
-VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression から、顔の値を受け取ります。この値を[キー](#用語集)と呼びます。`EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のように名前があり、0〜1 の値をとります。
+VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression から、顔の値を受け取ります。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[キー](#用語集)と呼びます。値は 0〜1 です。
 
 FTG は、キーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
 
 - 表情の設定（`expression.jsonc`）: どのキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: Face movement ごとに、このアバターのどのシェイプキーを動かすか
 
-出来上がった Face movement は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
+Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
 
 ### neutral と State
 
-どの State にも入っていないときの顔を [neutral](#用語集) と呼びます。neutral では、目・口などの[Region](#用語集)ごとに、キーが Face movement を動かします。
+どの State にも入っていないときの顔を [neutral](#用語集) と呼びます。neutral では、目・口などの [Region](#用語集) ごとに、キーが Face movement を動かします。
 
 State（`joy` など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば `joy` で目を上書きすると、`joy` の間は、まばたきのキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。
 
-State は[State Machine](#用語集) の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら `joy` に入る」など）で切り替わります。State Machine は複数並べられます。
+State は [State Machine](#用語集) の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら `joy` に入る」など）で切り替わります。State Machine は複数並べられます。
 
 ### VR とデスクトップ
 
-VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違います。FTG は、Transition・ Curve ・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「[VR とデスクトップで分ける](#vr-とデスクトップで分ける)」にあります。
+VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違うことがあります。FTG は、Transition・Curve・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「[VR とデスクトップで分ける](#vr-とデスクトップで分ける)」にあります。
 
 ## 動作環境
 
@@ -64,22 +64,20 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 ## はじめての設定
 
-この章では、アバターに FT を付けて、VRChat で顔が動くところまでを順に進めます。手順は、FTG のウィンドウに並んでいる 4 つ（「1. FT の設定を作る」「2. 設定を編集する」「3. 設定を確かめる」「4. アバターに設定コンポーネントを付ける」）と、最後の Build & Test です。ウィンドウの手順の見出しは、Help を英語にすると英語（Create the FT settings など）になります。
+この章では、アバターに FT を付けて、VRChat で顔が動くところまでを順に進めます。手順は、FTG のウィンドウに並んでいる 4 つ（「1. FT の設定を作る」「2. 設定を編集する」「3. 設定を確かめる」「4. アバターに設定コンポーネントを付ける」）と、最後の Build & Test です。
 
 アバターがパーフェクトシンク（ARKit の 52 種類のシェイプキー）に対応していれば、手順 2 でシェイプキーがほぼ自動で割り当てられます。対応していないアバターでは、手順 2 で Face movement ごとにシェイプキーを自分で選びます（「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）。
 
-ウィンドウの上の **Help** で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。
+ウィンドウの上の **Help** で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。
 
 ### 1. FT の設定を作る
 
-1. FTG のウィンドウの「1. FT の設定を作る」の **Avatar name** に、アバターの名前を入れます
-2. **Create** を押します
+1. FTG のウィンドウの「1. FT の設定を作る」の **Avatar name** に、設定の名前（アバターの名前など）を入れます
+2. **Create** を押します。設定が作られると、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります
 
-`Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`・`angry`・`sad` を持つ State Machine `Emotion` が入っています。
+設定は `Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` としてテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`・`angry`・`sad` を持つ State Machine `Emotion` が入っています。
 
-![FTG のウィンドウ](images/generator-window.png)
-
-設定が作られると、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります。同じ名前の設定が既にあると何も作りません。そのときは **Settings file** で既にある設定を選んでください。
+同じ名前の設定が既にあると、何も作りません。そのときは **Settings file** で既にある設定を選んでください。
 
 ### 2. 設定を編集する
 
@@ -106,13 +104,13 @@ FTG のウィンドウに戻り、**Check** を押します。指摘があれば
 
 1. シーンにアバターを置きます
 2. FTG のウィンドウの **Avatar in scene** でアバターを選びます（Hierarchy で選んでも入ります）
-3. **Add Settings Component** を押します
+3. **Add Settings Component** を押します。アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます
 
 ![アバターを選んだ FTG のウィンドウ](images/generator-avatar.png)
 
 画像のアバターの名前は隠しています。
 
-ボタンを押すと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。
+Inspector でアバターを見ると、Settings Component に使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。
 
 ### 5. Build & Test で確認する
 
@@ -136,7 +134,8 @@ FT が動いていると、まばたきや口が自分の顔に合わせて動�
 ### State の顔を作る
 
 1. グラフで **joy** を選びます。右に State の設定が出ます
-2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。`joy` の間だけ使う Face movement は、設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、目を弧の形にして閉じるシェイプキーなど、`joy` の間に使いたいシェイプキーを当てておきます。`EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきでそのシェイプキーが動きます（下の画像の行）
+2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。たとえば `EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきで `eye.joy.eyeBlinkLeft` に当てたシェイプキーが動きます（下の画像の行）
+   - `joy` の間だけ使う Face movement は、先に設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、使いたいシェイプキー（目を弧の形にして閉じるシェイプキーなど）を当てておきます
 3. 口の Region（lip）を **Off** にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します
 4. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `lip.mouthSmileLeft` と `lip.mouthSmileRight` を 50 にすると口角が上がったまま、`cheek.joy.blush` のような頬の赤らみを追加すると頬が赤くなります
 5. **Save** を押します
@@ -157,13 +156,12 @@ Region の **Off** は、その Region の neutral の動きを止めます。**
 
 値は目安です。FT Measure で利用者の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
 
-1. Transition（State の間の線）を選びます
-2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます
-3. 1 本の Transition の条件は、すべて満たしたときに移ります（joy の入り方）。どれか 1 つで移る形は、同じ State の間に Transition を条件ごとに作ります（joy の出方）
+1. Transition（State の間の線）を選びます。右に **Conditions** と条件の値が出ます
 
 ![Transition を選んだ State Machine のウィンドウ](images/state-machine-transition.png)
 
-Transition を選ぶと、右に **Conditions** と条件の値が出ます。値を変えると、Preview で State が切り替わる値も変わります。
+2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます。変えた値は Preview にもすぐ効きます
+3. 1 本の Transition の条件は、すべて満たしたときに移ります（テンプレートの joy の入り方）。どれか 1 つで移る形は、同じ State の間に Transition を条件ごとに作ります（テンプレートの joy の出方）
 
 ### Preview で確認する
 
@@ -211,7 +209,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ## VR とデスクトップで分ける
 
-VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違います。FTG では、次を機器ごとに書けます。
+VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。
 
 - Transition（条件のキーと値）
 - 行の [Curve](#用語集)
@@ -250,8 +248,7 @@ FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録�
 
 画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、アバターの名前は隠しています。
 
-
-## State を追加する
+## State Machine の詳しい設定
 
 ### State と Transition を追加する
 
@@ -301,7 +298,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 ### 設定エディタ
 
-`Tools/Kmnk/Face Tracking Settings Editor`。上の行に **Settings file**・**Reload**・**Save**・**Share**、その下に **Face view** と **State Machine** のボタンがあります。
+`Tools/Kmnk/Face Tracking Settings Editor`（ウィンドウのタイトルは **FT Settings Editor**）。上の行に **Settings file**・**Reload**・**Save**・**Share**、その下に **Face view** と **State Machine** のボタンがあります。
 
 | 名前 | 何をするか |
 | --- | --- |
@@ -311,8 +308,6 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Unsaved changes | 保存していない変更があるときに出ます（State Machine のウィンドウにも出ます） |
 | Share | **Export expression…** で表情の設定をフォルダに書き出し、**Import expression…** でフォルダから読み込みます。アバターの設定は書き出しも上書きもしません |
 | Resume | VRChat SDK のビルドが失敗して止まったままのときに、ウィンドウを再開します |
-
-ウィンドウのタイトルは **FT Settings Editor** です。
 
 #### Avatar タブ
 
@@ -334,14 +329,14 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | ゴミ箱 / Del | どの State も使わない Face movement を消します（ゴミ箱の絵を出せないときは Del と出ます） |
 | Rename… | Face movement の名前を、2 つの設定の両方で変えます。開く小さなウィンドウは **Rename face movement** で、**Rename** で決めます |
 | Layers | アバターの元のレイヤーの一覧。レイヤーを追加するときは、コントローラー（**FX**・**Gesture**・**Action**）を選びます。列は **Layer**（レイヤーの名前）と、Stop while FT・Mute while FT・**Remove**（一覧から外す） |
-| Stop while FT / Mute while FT | FT の間、アバターの元のレイヤーを止める・黙らせます |
+| Stop while FT / Mute while FT | FT の間、アバターの元のレイヤーを止めます（Stop while FT）・ミュートします（Mute while FT） |
 
 #### Preview タブ
 
 | 名前 | 何をするか |
 | --- | --- |
 | Start preview / Stop preview | シーンのアバターで顔を試します。止めると元に戻ります |
-| Device | スライダーの下に出す機器の値の幅。**None** は設定のまま |
+| Device | スライダーの下に値の幅を出す機器。選んだ機器で、Preview が VR とデスクトップのどちらの Transition と Curve で動くかも決まります。**None** は設定のまま |
 | Menu | Expressions Menu で State を選んだときの顔を試します |
 | Inputs | キーのスライダーの見出し |
 | Reset | スライダーを 0 に戻します |
@@ -406,9 +401,9 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Face movement | 表情の設定の中の動きの名前。`eye.eyeBlinkLeft` のように「Region.名前」。アバターの設定で、シェイプキーに当てます |
 | Region | 目（eye）・口（lip）など、State が上書きする単位 |
 | neutral | どの State にも入っていないときの、Region ごとの動き |
-| State | `joy` などの表情。Region の上書きと、Fixed face movements を持ちます |
+| State | `joy` などの、顔の切り替え先。Region の上書きと、Fixed face movements を持ちます |
 | State Machine | State と Transition のまとまり。複数並べられます |
-| Transition | State から State への移り。キーの条件を持ちます |
+| Transition | State から State への切り替え。キーの条件を持ちます |
 | しきい値 | Transition の条件で、キーと比べる値 |
 | Curve | キーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1） |
 | Scale | アバターごとの、Face movement を動かす量の補正 |
@@ -420,7 +415,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 ### 更新のしかた
 
-VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。自分の設定（`Assets/Kmnk/FaceTrackingGenerator/Settings/`）はパッケージの外にあるので残ります。`Packages/dev.kmnk.face-tracking-generator/` の中に自分のファイルを置かないでください。更新で消えます。
+VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。作った設定（`Assets/Kmnk/FaceTrackingGenerator/Settings/`）はパッケージの外にあるので残ります。`Packages/dev.kmnk.face-tracking-generator/` の中に自分のファイルを置かないでください。更新で消えます。
 
 ### 消し方
 
@@ -448,7 +443,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 
 ### ウィンドウが止まったまま
 
-- VRChat SDK がビルドしている間、設定エディタ・Face view・ State Machine のウィンドウは止まります。ビルドが失敗して止まったままのときは **Resume** を押してください
+- VRChat SDK がビルドしている間、設定エディタ・Face view・State Machine のウィンドウは止まります。ビルドが失敗して止まったままのときは **Resume** を押してください
 
 ### NDMF の Manual Bake で FT が無い
 
