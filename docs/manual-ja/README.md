@@ -48,13 +48,12 @@ VR の機器とデスクトップの Selfie Expression では、同じ顔をし�
 - PC 版の VRChat。Android（Quest）版の VRChat では確認していません
 - VR の機器で使うときは、2026-11-02 以降の VRCFaceTracking
 
-Modular Avatar は要りません。入っているプロジェクトでも使えます。
-
 ## 入れ方
 
 FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 1. NDMF のリポジトリを追加します: `https://vpm.nadena.dev/vpm.json`
+   このリポジトリは Modular Avatar も配っていますが、FTG に要るのは NDMF だけです（Modular Avatar が入ったプロジェクトでも使えます）
 2. FTG のリポジトリを追加します: `https://kmnk.github.io/vpm-repos/index.json`
 3. Unity でプロジェクトを閉じてから、パッケージの一覧で **Face Tracking Generator** を追加します
 4. Unity でプロジェクトを開き、メニューバーの `Tools/Kmnk/Face Tracking Generator` を開きます
