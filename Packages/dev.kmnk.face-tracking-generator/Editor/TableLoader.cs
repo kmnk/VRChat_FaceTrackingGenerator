@@ -450,8 +450,8 @@ namespace Kmnk.FaceTrackingGenerator
             {
                 if (part == null || m.Parts.ContainsKey(part)) return true;
                 var msg = $"{where}: part {part} is not in the avatar layer";
-                // Not set (no blendshape in the avatar layer yet) is not a mistake: the row is left out, and Check
-                // says how many there are in one line (UnsetParts) instead of one finding per row.
+                // Not set (no blendshape in the avatar layer yet) is not a mistake: the row is left out and is not a
+                // finding of Check. UnsetParts keeps them for the command line's check log.
                 if (!m.Dropped.Contains(msg)) m.Dropped.Add(msg);
                 m.UnsetParts.Add(part);
                 return false;

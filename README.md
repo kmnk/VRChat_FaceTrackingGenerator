@@ -118,7 +118,7 @@ The output folder (`outputFolder`, `Assets/FaceTrackingGeneratorOutput/<name>/` 
 - **AFK animation**: the six clips (Action and FX, each Intro, Loop and Outro).
 - **Face movements**: pick the blendshape of each face movement from a searchable list, grouped by region.
   - A movement with a state in its name, such as `eye.joy.tear`, shows the state as a tag. Each row shows what moves it.
-  - A movement left **Not set** is not used. Check says how many there are.
+  - A movement left **Not set** is not used. The **Face movements** heading shows how many there are.
   - **Scale** (0 to 1, default 1) corrects a blendshape that is too strong on this avatar, without changing the shared expression table. It is written as `{ "shape": ..., "scale": 0.7 }`.
   - The list also has the Float and Range properties of the face mesh's materials, under a heading per material. They are for movements used only as fixed face movements (see [Material properties](#material-properties)).
   - **+ Add Face Movement** adds a movement (`region.movement` or `region.state.movement`) and opens its blendshape list. The **+** at the right of a region's heading does the same with `<region>.` typed.

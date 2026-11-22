@@ -98,7 +98,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 FTG のウィンドウに戻り、**Check** を押します。指摘があれば、読んで設定エディタで直します。
 
-うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。*Not set* の Face movement が残っていると、その数と、そのままでかまわないことが一緒に出ます。
+うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。
 
 ![Check の結果](images/generator-check.png)
 
@@ -195,7 +195,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。
 
 - Face movement の行を押すと、検索できるシェイプキーの一覧が開きます。一覧を動かす間、Face view にそのシェイプキーを 100 にした顔が出ます
-- 選ばなかった Face movement は *Not set* のままで、使われません。**Check** がその数を出します
+- 選ばなかった Face movement は *Not set* のままで、使われません。その数は一覧の見出し（**Face movements**）の右に出ます
 - **[Scale](#用語集)**（0〜1、既定は 1）で、このアバターで強すぎるシェイプキーを弱められます。表情の設定は変わらないので、他のアバターに持っていっても影響しません
 - **+ Add Face Movement** で Face movement を追加できます。Region の見出しの右の **+** でも同じです
 - Face movement を右クリックして **Rename…** で、2 つの設定の両方で名前を変えられます。どの State も使わない Face movement は、ゴミ箱のボタン（画像を出せないときは **Del**）で消せます

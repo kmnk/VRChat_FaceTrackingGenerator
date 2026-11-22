@@ -300,8 +300,7 @@ namespace Kmnk.FaceTrackingGenerator
             var refs = AssetRefs.Warnings(model);
             var text = f.Count == 0 ? EditorText.Get("gen.checkNone") : string.Format(EditorText.Get("gen.checkFindings"), f.Count, string.Join("\n", f));
             if (refs.Count > 0) text += "\n" + string.Join("\n", refs);
-            // Face movements still Not set: one line first, not counted as findings.
-            if (model.UnsetParts.Count > 0) text = string.Format(EditorText.Get("gen.unset"), model.UnsetParts.Count) + "\n" + text;
+            // Face movements left Not set are not findings and are not shown: the Avatar tab counts them.
             return (text, f.Count == 0 && refs.Count == 0 ? MessageType.Info : MessageType.Warning);
         }
 
