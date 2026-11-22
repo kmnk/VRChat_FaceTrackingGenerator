@@ -46,7 +46,7 @@ VR の機器とデスクトップの Selfie Expression では、同じ顔をし�
 - VRChat SDK - Avatars 3.10.6 以上
 - NDMF 1.14.7 以上 2.0.0 未満（FTG と一緒に入ります）
 - PC 版の VRChat。Android（Quest）版の VRChat では確認していません
-- VR の機器で使うときは、2026-11-02 以降の VRCFaceTracking
+- VR の機器で使うときは、VRChat のネイティブ FT に値を送る VRCFaceTracking（Steam 版の 2026-11-02 の更新「Avalonia Update」以降。Steam 版は自動で更新されます）
 
 ## 入れ方
 
@@ -433,7 +433,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 ### 顔が動かない
 
 - VRChat に FT の入力が無いと、アバターの元の表情に戻ります。VR の機器では VRCFaceTracking が動いているか、デスクトップでは Selfie Expression が有効かを見てください
-- 2026-11-02 より前の VRCFaceTracking は、FTG が読まない形で値を送ります。VRCFaceTracking を更新してください
+- VRCFaceTracking が古い（Steam 版の 2026-11-02 の更新「Avalonia Update」より前）と、値をアバターのパラメータとして送るので、FTG は読めません。VRCFaceTracking を更新してください
 - アバターの Face Tracking の区画に既に値があると、FTG はその値を残し、自分の値を書きません。FTG の値で上書きするには、`avatar.jsonc` に `"overwriteFaceTracking": true` を書きます
 
 ### まばたきが重なる
@@ -469,7 +469,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 - アバターごとの設定を作ること、シェイプキーの割り当ての代行
 - 他の表情の改変のツールと組み合わせたときの振る舞い
 - VRCFaceTracking と FT の機器の設定
-- 2026-11-02 より前の VRCFaceTracking、Unity 2022.3 以外、Android 版の VRChat
+- 2026-11-02 の「Avalonia Update」より前の VRCFaceTracking、Unity 2022.3 以外、Android 版の VRChat
 
 ### ライセンスと無保証
 
