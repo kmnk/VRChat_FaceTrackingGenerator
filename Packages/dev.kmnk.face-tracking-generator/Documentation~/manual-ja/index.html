@@ -95,7 +95,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="できること">できること</h3>
 <ul>
 <li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
-<li><code>joy</code>（笑顔）・<code>angry</code>・<code>sad</code> のような表情を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> として作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
+<li><code>joy</code>・<code>angry</code>・<code>sad</code> のような <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> を作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
 <li>VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます</li>
 <li>VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a> を分けて書けます</li>
@@ -143,7 +143,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>FTG のウィンドウの「1. FT の設定を作る」（Help が英語なら Create the FT settings）の <strong>Avatar name</strong> に、アバターの名前を入れます</li>
 <li><strong>Create</strong> を押します</li>
 </ol>
-<p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>（笑顔）・<code>angry</code>（怒り）・<code>sad</code>（悲しみ）を持つ State Machine <code>Emotion</code> が入っています。</p>
+<p><code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>・<code>angry</code>・<code>sad</code> を持つ State Machine <code>Emotion</code> が入っています。</p>
 <p><img src="images/generator-window.png" alt="FTG のウィンドウ"></p>
 <p>うまくいくと、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります。同じ名前の設定が既にあると何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
@@ -187,7 +187,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に State の設定が出ます</li>
 <li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。<code>joy</code> の間だけ使う Face movement は、設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。<code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は左目のまばたきで笑い目が閉じます（下の画像の行）</li>
-<li>口の Region（lip）を <strong>Off</strong> にし、neutral の口の動きを止めます。笑った口は次の 4 で Fixed face movements として出します</li>
+<li>口の Region（lip）を <strong>Off</strong> にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します</li>
 <li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、<code>joy</code> の間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを追加すると頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
@@ -227,7 +227,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、笑うと <code>joy</code> に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、左右の口角を上げると <code>joy</code> に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。</p>
 <ul>

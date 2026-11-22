@@ -9,7 +9,7 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 ### できること
 
 - [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
-- `joy`（笑顔）・`angry`・`sad` のような表情を [State](#用語集) として作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
+- `joy`・`angry`・`sad` のような [State](#用語集) を作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
 - State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
 - VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます
 - VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や [Curve](#用語集) を分けて書けます
@@ -74,7 +74,7 @@ FTG のウィンドウのボタンの結果は、ボタンのすぐ下に出ま�
 1. FTG のウィンドウの「1. FT の設定を作る」（Help が英語なら Create the FT settings）の **Avatar name** に、アバターの名前を入れます
 2. **Create** を押します
 
-`Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`（笑顔）・`angry`（怒り）・`sad`（悲しみ）を持つ State Machine `Emotion` が入っています。
+`Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` がテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`・`angry`・`sad` を持つ State Machine `Emotion` が入っています。
 
 ![FTG のウィンドウ](images/generator-window.png)
 
@@ -138,7 +138,7 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 
 1. グラフで **joy** を選びます。右に State の設定が出ます
 2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。`joy` の間だけ使う Face movement は、設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、笑い目のシェイプキーを当てておきます。`EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は左目のまばたきで笑い目が閉じます（下の画像の行）
-3. 口の Region（lip）を **Off** にし、neutral の口の動きを止めます。笑った口は次の 4 で Fixed face movements として出します
+3. 口の Region（lip）を **Off** にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します
 4. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `lip.mouthSmileLeft` と `lip.mouthSmileRight` を 50 にすると口角が上がったまま、`cheek.joy.blush` のような頬の赤らみを追加すると頬が赤くなります
 5. **Save** を押します
 
@@ -189,7 +189,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確認する
 
-「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、笑うと `joy` に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
+「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、左右の口角を上げると `joy` に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 
