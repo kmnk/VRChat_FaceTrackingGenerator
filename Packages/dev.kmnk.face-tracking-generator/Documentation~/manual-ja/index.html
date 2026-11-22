@@ -201,7 +201,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>sad: <code>MouthFrownLeft</code> と <code>MouthFrownRight</code> で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）</li>
 <li>angry: Transition を持たず、Expressions Menu から選ぶだけです</li>
 </ul>
-<p>値は目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
+<p>値は目安です。FT Measure で利用者の顔を測り、Devices タブで値の幅を見て直してください（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
 <ol>
 <li>Transition（State の間の線）を選びます</li>
 <li>条件の値（<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">しきい値</a>）を変えます。入りにくければ下げ、入りすぎるなら上げます</li>
@@ -264,7 +264,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>Preview タブの <strong>Device</strong> で VR かデスクトップを選ぶと、Preview はその機器の Transition と Curve で動きます。</p>
 <h3 id="ft-measure-で値の幅を見る">FT Measure で値の幅を見る</h3>
-<p>FT Measure は、自分の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
+<p>FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
 <p>測り方は FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
 <ol>
 <li>設定エディタの <strong>Devices</strong> タブで、<strong>Add VR recording</strong> か <strong>Add Desktop recording</strong> を押し、記録のファイルを選びます。<code>avatar.jsonc</code> の隣の <code>Measurements/</code> に写されます</li>
@@ -739,7 +739,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <ul>
 <li>VRChat に FT の入力が無いと、アバターの元の表情に戻ります。VR の機器では VRCFaceTracking が動いているか、デスクトップでは Selfie Expression が有効かを見てください</li>
 <li>VRCFaceTracking が古い（Steam 版の 2026-11-02 の更新「Avalonia Update」より前）と、値をアバターのパラメータとして送るので、FTG は読めません。VRCFaceTracking を更新してください</li>
-<li>アバターの Face Tracking の区画に既に値があると、FTG はその値を残し、自分の値を書きません。FTG の値で上書きするには、<code>avatar.jsonc</code> に <code>&quot;overwriteFaceTracking&quot;: true</code> を書きます</li>
+<li>アバターの Face Tracking の区画に既に値があると、FTG はその値を残し、FTG の値を書きません。FTG の値で上書きするには、<code>avatar.jsonc</code> に <code>&quot;overwriteFaceTracking&quot;: true</code> を書きます</li>
 </ul>
 <h3 id="まばたきが重なる">まばたきが重なる</h3>
 <ul>

@@ -155,7 +155,7 @@ Region の **Off** は、その Region の neutral の動きを止めます。**
 - sad: `MouthFrownLeft` と `MouthFrownRight` で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）
 - angry: Transition を持たず、Expressions Menu から選ぶだけです
 
-値は目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
+値は目安です。FT Measure で利用者の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
 
 1. Transition（State の間の線）を選びます
 2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます
@@ -232,7 +232,7 @@ Preview タブの **Device** で VR かデスクトップを選ぶと、Preview 
 
 ### FT Measure で値の幅を見る
 
-FT Measure は、自分の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
+FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
 
 測り方は FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
 
@@ -434,7 +434,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 
 - VRChat に FT の入力が無いと、アバターの元の表情に戻ります。VR の機器では VRCFaceTracking が動いているか、デスクトップでは Selfie Expression が有効かを見てください
 - VRCFaceTracking が古い（Steam 版の 2026-11-02 の更新「Avalonia Update」より前）と、値をアバターのパラメータとして送るので、FTG は読めません。VRCFaceTracking を更新してください
-- アバターの Face Tracking の区画に既に値があると、FTG はその値を残し、自分の値を書きません。FTG の値で上書きするには、`avatar.jsonc` に `"overwriteFaceTracking": true` を書きます
+- アバターの Face Tracking の区画に既に値があると、FTG はその値を残し、FTG の値を書きません。FTG の値で上書きするには、`avatar.jsonc` に `"overwriteFaceTracking": true` を書きます
 
 ### まばたきが重なる
 
