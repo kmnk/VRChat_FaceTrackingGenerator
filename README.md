@@ -33,7 +33,7 @@ Coming from an older version? See [Upgrading](#upgrading).
 The `Tools/Kmnk/Face Tracking Generator` window lists the steps in order.
 
 - **Help** at the top switches the descriptions between English and Japanese, or hides them.
-- Each button's result shows right under it: a plain note when it is done, a yellow warning when there is something to look at, a red error when it failed.
+- The result of the last button you pressed shows under its step, in an info, warning or error box. Pressing another button replaces it.
 - The window reads the settings files again when they change, so Check always sees what the settings editor saved.
 
 ### 1. Create the FT settings
