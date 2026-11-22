@@ -289,7 +289,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="expressions-menu-から選べる-state">Expressions Menu から選べる State</h3>
 <p>State の <strong>Selectable from menu</strong> を入れると、Expressions Menu の State Machine のサブメニューに、その State のトグルが出ます。Expressions Menu で選んでいる間は Transition が動かず、トグルを切ると最初の State に戻ります。</p>
 <h3 id="stop-visemes">Stop visemes</h3>
-<p>State の <strong>Stop visemes</strong> を入れると、その State の間は、話しても口がビセームで動かなくなります。口の形を決めた State（舌を出すなど）で使います。</p>
+<p>State の <strong>Stop visemes</strong> を入れると、その State の間は、話しても声に合わせて口が動かなくなります（VRChat のリップシンクを止めます）。口の形を決めた State（舌を出すなど）で使います。</p>
 <h3 id="curve">Curve</h3>
 <p>行の <strong>Curve</strong> は、キーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。</p>
 <p>Curve の行は、VRChat の Parameter Behavior で動かします。数が多いと VRChat の上限を超えるので、State Machine のウィンドウの下の <strong>Face tracking cost</strong> を見てください。VRChat の上限を超えると赤、Excellent を超えると黄色で出ます。</p>
@@ -590,7 +590,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Stop visemes</td>
-<td>State の間、ビセームで口を動かしません</td>
+<td>State の間、声に合わせて口を動かしません（リップシンクを止めます）</td>
 </tr>
 <tr>
 <td>Regions</td>

@@ -265,7 +265,7 @@ State の **Selectable from menu** を入れると、Expressions Menu の State 
 
 ### Stop visemes
 
-State の **Stop visemes** を入れると、その State の間は、話しても口がビセームで動かなくなります。口の形を決めた State（舌を出すなど）で使います。
+State の **Stop visemes** を入れると、その State の間は、話しても声に合わせて口が動かなくなります（VRChat のリップシンクを止めます）。口の形を決めた State（舌を出すなど）で使います。
 
 ### Curve
 
@@ -372,7 +372,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Frame All | グラフ全体を表示します（**F** キーでも同じ） |
 | State | 選んだ State の名前 |
 | Selectable from menu | Expressions Menu から選べる State にします |
-| Stop visemes | State の間、ビセームで口を動かしません |
+| Stop visemes | State の間、声に合わせて口を動かしません（リップシンクを止めます） |
 | Regions | State の Region ごとの設定の見出し |
 | Neutral / Override / Off | Region を neutral のまま・上書き・止める |
 | + Add Row | 上書きする Region に行を追加します。追加できるキーが無いときは **(every key is written)** と出ます |
