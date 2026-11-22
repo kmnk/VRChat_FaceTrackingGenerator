@@ -64,7 +64,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li class="toc-3"><a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a></li>
 <li class="toc-2"><a href="#state-%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B">State を追加する</a></li>
 <li class="toc-3"><a href="#state-%E3%81%A8-transition-%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B">State と Transition を追加する</a></li>
-<li class="toc-3"><a href="#%E3%83%A1%E3%83%8B%E3%83%A5%E3%83%BC%E3%81%8B%E3%82%89%E9%81%B8%E3%81%B9%E3%82%8B-state">メニューから選べる State</a></li>
+<li class="toc-3"><a href="#expressions-menu-%E3%81%8B%E3%82%89%E9%81%B8%E3%81%B9%E3%82%8B-state">Expressions Menu から選べる State</a></li>
 <li class="toc-3"><a href="#stop-visemes">Stop visemes</a></li>
 <li class="toc-3"><a href="#curve">Curve</a></li>
 <li class="toc-3"><a href="#%E5%88%A5%E3%81%AE-state-machine-%E3%82%92%E4%B8%A6%E3%81%B9%E3%82%8B">別の State Machine を並べる</a></li>
@@ -97,9 +97,9 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
 <li>喜び・怒り・悲しみなどの表情を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> として作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
-<li>メニューから State を選べるようにできます</li>
+<li>VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます</li>
 <li>VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a> を分けて書けます</li>
-<li>FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、メニュー、Expression Parameters）は書き換えません</li>
+<li>FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません</li>
 </ul>
 <h3 id="仕組み">仕組み</h3>
 <p><img src="images/overview.png" alt="FT の値がシェイプキーを動かすまでの流れ"></p>
@@ -131,7 +131,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>NDMF のリポジトリを追加します: <code>https://vpm.nadena.dev/vpm.json</code></li>
 <li>FTG のリポジトリを追加します: <code>https://kmnk.github.io/vpm-repos/index.json</code></li>
 <li>Unity でプロジェクトを閉じてから、パッケージの一覧で <strong>Face Tracking Generator</strong> を追加します</li>
-<li>Unity でプロジェクトを開き、メニューの <code>Tools/Kmnk/Face Tracking Generator</code> を開きます</li>
+<li>Unity でプロジェクトを開き、メニューバーの <code>Tools/Kmnk/Face Tracking Generator</code> を開きます</li>
 </ol>
 <p><img src="images/generator-window.png" alt="FTG のウィンドウ"></p>
 <p>リポジトリを追加できないときは、「<a href="#%E4%BB%98%E9%8C%B2-zip-%E3%81%8B%E3%82%89%E5%85%A5%E3%82%8C%E3%82%8B">付録: zip から入れる</a>」を見てください。</p>
@@ -149,10 +149,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
 <ol>
 <li><strong>Open Settings Editor</strong> を押して設定エディタを開きます</li>
-<li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、メニュー、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）</li>
+<li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）</li>
 <li>一覧に <em>Not set</em> が残った Face movement があれば、シェイプキーを選びます</li>
-<li><strong>Menu</strong> で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（<strong>Submenu name (optional)</strong>、テンプレートの既定は <code>Face Tracking</code>）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターのメニューの直下に並び、アバターの元のメニューと混ざるので、名前を入れておくのがおすすめです</li>
-<li><strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、AFK のトグルもメニューに入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします</li>
+<li><strong>Menu</strong> で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（<strong>Submenu name (optional)</strong>、テンプレートの既定は <code>Face Tracking</code>）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです</li>
+<li><strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p><img src="images/avatar-tab.png" alt="設定エディタの Avatar タブ"></p>
@@ -170,14 +170,14 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p><img src="images/generator-avatar.png" alt="アバターを選んだ FTG のウィンドウ"></p>
 <p>画像のアバターの名前は隠しています。</p>
-<p>うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、メニュー、Expression Parameters）は書き換えません。</p>
+<p>うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。</p>
 <h3 id="5-build--test-で確認する">5. Build &amp; Test で確認する</h3>
 <p>VRChat SDK の Build &amp; Test でアバターを作り、VRChat で着替えます。</p>
 <ul>
 <li>VR の機器: VRCFaceTracking を動かしてから VRChat を起動します</li>
 <li>デスクトップ: VRChat の Selfie Expression を有効にします</li>
 </ul>
-<p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。メニューの <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
+<p>うまくいくと、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
 <p>「はじめての設定」で作った喜び（joy）の State に、目と口の動きを追加します。</p>
 <h3 id="state-machine-のウィンドウを開く">State Machine のウィンドウを開く</h3>
@@ -199,7 +199,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <ul>
 <li>joy: <code>MouthCornerPullLeft</code> と <code>MouthCornerPullRight</code> の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです</li>
 <li>sad: <code>MouthFrownLeft</code> と <code>MouthFrownRight</code> で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです</li>
-<li>angry: Transition を持たず、メニューから選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです</li>
+<li>angry: Transition を持たず、Expressions Menu から選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです</li>
 </ul>
 <p>値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
 <ol>
@@ -227,7 +227,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>うまくいくと、ボタンの下に値が届いていることが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
-<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、笑うと喜びの State に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。メニューの State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
+<p>「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、笑うと喜びの State に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。</p>
 <ul>
@@ -243,7 +243,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <ul>
 <li><strong>Stop while FT</strong>: 手のジェスチャーで表情を変えるレイヤー</li>
 <li><strong>Mute while FT</strong>: 何も入力が無くても顔を動かすレイヤー（ずっとまばたきさせるレイヤーなど）。これを止めないと、FT のまぶたの上にまばたきが重なります</li>
-<li>メニューからだけ動かすレイヤーは、そのままでかまいません</li>
+<li>Expressions Menu からだけ動かすレイヤーは、そのままでかまいません</li>
 </ul>
 <h2 id="vr-とデスクトップで分ける">VR とデスクトップで分ける</h2>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違います。FTG では、次を機器ごとに書けます。</p>
@@ -252,7 +252,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>行の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a></li>
 <li>State の Stop visemes</li>
 </ul>
-<p>State の一覧、メニュー、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。</p>
+<p>State の一覧、Expressions Menu、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。</p>
 <h3 id="機器を切り替えて書く">機器を切り替えて書く</h3>
 <ol>
 <li>State Machine のウィンドウの右上の <strong>Input</strong> で、書く機器（<strong>VR</strong> か <strong>Desktop</strong>）を選びます。ツールバーの下の帯に、どちらを書いているかが出ます</li>
@@ -286,15 +286,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>State を右クリックして <strong>Make Transition</strong> を選び、行き先の State を押すと、Transition ができます。<strong>Set as Default</strong> で最初の State にし、<strong>Delete State</strong> で消します</li>
 <li>State をドラッグして動かせます。マウスホイールで拡大・縮小、<strong>F</strong> か <strong>Frame All</strong> で全体を出します</li>
 </ul>
-<h3 id="メニューから選べる-state">メニューから選べる State</h3>
-<p>State の <strong>Selectable from menu</strong> を入れると、メニューの State Machine のサブメニューに、その State のトグルが出ます。メニューで選んでいる間は Transition が動かず、トグルを切ると最初の State に戻ります。</p>
+<h3 id="expressions-menu-から選べる-state">Expressions Menu から選べる State</h3>
+<p>State の <strong>Selectable from menu</strong> を入れると、Expressions Menu の State Machine のサブメニューに、その State のトグルが出ます。Expressions Menu で選んでいる間は Transition が動かず、トグルを切ると最初の State に戻ります。</p>
 <h3 id="stop-visemes">Stop visemes</h3>
 <p>State の <strong>Stop visemes</strong> を入れると、その State の間は、話しても口がビセームで動かなくなります。口の形を決めた State（舌を出すなど）で使います。</p>
 <h3 id="curve">Curve</h3>
 <p>行の <strong>Curve</strong> は、キーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。</p>
 <p>Curve の行は、VRChat の Parameter Behavior で動かします。数が多いと VRChat の上限を超えるので、State Machine のウィンドウの下の <strong>Face tracking cost</strong> を見てください。VRChat の上限を超えると赤、Excellent を超えると黄色で出ます。</p>
 <h3 id="別の-state-machine-を並べる">別の State Machine を並べる</h3>
-<p>State Machine は複数並べられます。たとえば表情の <code>Emotion</code> とは別に、頬の State Machine <code>Cheek</code> を作り、メニューから選べる State blush（赤らみ）と pale（青ざめ）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、<strong>New State Machine…</strong> を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（<strong>Check</strong> が指摘します）。</p>
+<p>State Machine は複数並べられます。たとえば表情の <code>Emotion</code> とは別に、頬の State Machine <code>Cheek</code> を作り、Expressions Menu から選べる State blush（赤らみ）と pale（青ざめ）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、<strong>New State Machine…</strong> を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（<strong>Check</strong> が指摘します）。</p>
 <h2 id="画面ごとの説明">画面ごとの説明</h2>
 <h3 id="ftg-のウィンドウ">FTG のウィンドウ</h3>
 <p><code>Tools/Kmnk/Face Tracking Generator</code>。</p>
@@ -412,7 +412,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Fill from Prefab</td>
-<td>プレハブから、顔のメッシュ・メニュー・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます</td>
+<td>プレハブから、顔のメッシュ・Expressions Menu・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます</td>
 </tr>
 <tr>
 <td>Face mesh</td>
@@ -428,15 +428,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Menu</td>
-<td>FT と AFK のトグルを入れるメニュー</td>
+<td>FT と AFK のトグルを入れる Expressions Menu</td>
 </tr>
 <tr>
 <td>FT toggle name / AFK toggle name</td>
-<td>メニューに入れる FT と AFK のトグルの名前</td>
+<td>Expressions Menu に入れる FT と AFK のトグルの名前</td>
 </tr>
 <tr>
 <td>Submenu name (optional)</td>
-<td>トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は <code>Face Tracking</code>。空ならメニューの直下</td>
+<td>トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は <code>Face Tracking</code>。空なら Expressions Menu の直下</td>
 </tr>
 <tr>
 <td>AFK animation (optional)</td>
@@ -495,7 +495,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Menu</td>
-<td>メニューで State を選んだときの顔を試します</td>
+<td>Expressions Menu で State を選んだときの顔を試します</td>
 </tr>
 <tr>
 <td>Inputs</td>
@@ -586,7 +586,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Selectable from menu</td>
-<td>メニューから選べる State にします</td>
+<td>Expressions Menu から選べる State にします</td>
 </tr>
 <tr>
 <td>Stop visemes</td>

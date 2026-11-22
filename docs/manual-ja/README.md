@@ -11,9 +11,9 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 - [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
 - 喜び・怒り・悲しみなどの表情を [State](#用語集) として作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
 - State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
-- メニューから State を選べるようにできます
+- VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます
 - VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や [Curve](#用語集) を分けて書けます
-- FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、メニュー、Expression Parameters）は書き換えません
+- FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません
 
 ### 仕組み
 
@@ -57,7 +57,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 1. NDMF のリポジトリを追加します: `https://vpm.nadena.dev/vpm.json`
 2. FTG のリポジトリを追加します: `https://kmnk.github.io/vpm-repos/index.json`
 3. Unity でプロジェクトを閉じてから、パッケージの一覧で **Face Tracking Generator** を追加します
-4. Unity でプロジェクトを開き、メニューの `Tools/Kmnk/Face Tracking Generator` を開きます
+4. Unity でプロジェクトを開き、メニューバーの `Tools/Kmnk/Face Tracking Generator` を開きます
 
 ![FTG のウィンドウ](images/generator-window.png)
 
@@ -83,10 +83,10 @@ FTG のウィンドウのボタンの結果は、ボタンのすぐ下に出ま�
 ### 2. 設定を編集する
 
 1. **Open Settings Editor** を押して設定エディタを開きます
-2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、メニュー、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）
+2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）
 3. 一覧に *Not set* が残った Face movement があれば、シェイプキーを選びます
-4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターのメニューの直下に並び、アバターの元のメニューと混ざるので、名前を入れておくのがおすすめです
-5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作られ、AFK のトグルもメニューに入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします
+4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです
+5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作られ、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします
 6. **Save** を押します
 
 ![設定エディタの Avatar タブ](images/avatar-tab.png)
@@ -113,7 +113,7 @@ FTG のウィンドウに戻り、**Check** を押します。指摘があれば
 
 画像のアバターの名前は隠しています。
 
-うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、メニュー、Expression Parameters）は書き換えません。
+うまくいくと、アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます。Inspector でアバターを見ると、コンポーネントに使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません。
 
 ### 5. Build & Test で確認する
 
@@ -122,7 +122,7 @@ VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます
 - VR の機器: VRCFaceTracking を動かしてから VRChat を起動します
 - デスクトップ: VRChat の Selfie Expression を有効にします
 
-うまくいくと、まばたきや口が自分の顔に合わせて動きます。メニューの **Face Tracking** のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「[困ったとき](#困ったとき)」を見てください。
+うまくいくと、まばたきや口が自分の顔に合わせて動きます。Expressions Menu の **Face Tracking** のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「[困ったとき](#困ったとき)」を見てください。
 
 ## 表情を作る
 
@@ -154,7 +154,7 @@ Region の **Off** は、その Region の neutral の動きを止めます。**
 
 - joy: `MouthCornerPullLeft` と `MouthCornerPullRight` の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです
 - sad: `MouthFrownLeft` と `MouthFrownRight` で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです
-- angry: Transition を持たず、メニューから選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです
+- angry: Transition を持たず、Expressions Menu から選ぶだけです。眉を取れる機器が少なく、唇をすぼめるキーは話すだけでも上がるためです
 
 値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
 
@@ -189,7 +189,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確認する
 
-「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、笑うと喜びの State に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。メニューの State Machine のサブメニューで joy を選んでも、同じ顔になります。
+「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、笑うと喜びの State に入り、まばたきで笑い目が閉じ、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 
@@ -208,7 +208,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 - **Stop while FT**: 手のジェスチャーで表情を変えるレイヤー
 - **Mute while FT**: 何も入力が無くても顔を動かすレイヤー（ずっとまばたきさせるレイヤーなど）。これを止めないと、FT のまぶたの上にまばたきが重なります
-- メニューからだけ動かすレイヤーは、そのままでかまいません
+- Expressions Menu からだけ動かすレイヤーは、そのままでかまいません
 
 ## VR とデスクトップで分ける
 
@@ -218,7 +218,7 @@ VR の機器とデスクトップの Selfie Expression では、同じ顔でも�
 - 行の [Curve](#用語集)
 - State の Stop visemes
 
-State の一覧、メニュー、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。
+State の一覧、Expressions Menu、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。
 
 ### 機器を切り替えて書く
 
@@ -260,9 +260,9 @@ FT Measure は、自分の顔で表情ごとに FT の値を測り、記録の�
 - State を右クリックして **Make Transition** を選び、行き先の State を押すと、Transition ができます。**Set as Default** で最初の State にし、**Delete State** で消します
 - State をドラッグして動かせます。マウスホイールで拡大・縮小、**F** か **Frame All** で全体を出します
 
-### メニューから選べる State
+### Expressions Menu から選べる State
 
-State の **Selectable from menu** を入れると、メニューの State Machine のサブメニューに、その State のトグルが出ます。メニューで選んでいる間は Transition が動かず、トグルを切ると最初の State に戻ります。
+State の **Selectable from menu** を入れると、Expressions Menu の State Machine のサブメニューに、その State のトグルが出ます。Expressions Menu で選んでいる間は Transition が動かず、トグルを切ると最初の State に戻ります。
 
 ### Stop visemes
 
@@ -276,7 +276,7 @@ Curve の行は、VRChat の Parameter Behavior で動かします。数が多�
 
 ### 別の State Machine を並べる
 
-State Machine は複数並べられます。たとえば表情の `Emotion` とは別に、頬の State Machine `Cheek` を作り、メニューから選べる State blush（赤らみ）と pale（青ざめ）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、**New State Machine…** を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（**Check** が指摘します）。
+State Machine は複数並べられます。たとえば表情の `Emotion` とは別に、頬の State Machine `Cheek` を作り、Expressions Menu から選べる State blush（赤らみ）と pale（青ざめ）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、**New State Machine…** を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（**Check** が指摘します）。
 
 ## 画面ごとの説明
 
@@ -320,13 +320,13 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | 名前 | 何をするか |
 | --- | --- |
 | Prefab | FT を作るアバターのプレハブ |
-| Fill from Prefab | プレハブから、顔のメッシュ・メニュー・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます |
+| Fill from Prefab | プレハブから、顔のメッシュ・Expressions Menu・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます |
 | Face mesh | 顔のメッシュ |
 | Face movements | Face movement の一覧の見出し。右に、シェイプキーを選んだ数と Not set の数が出ます |
 | Movement / Blendshape / Property / Scale | 一覧の列。Face movement、当てるシェイプキーかマテリアルのプロパティ（列の見出しは **Blendshape / Property**）、このアバターでの量の補正 |
-| Menu | FT と AFK のトグルを入れるメニュー |
-| FT toggle name / AFK toggle name | メニューに入れる FT と AFK のトグルの名前 |
-| Submenu name (optional) | トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は `Face Tracking`。空ならメニューの直下 |
+| Menu | FT と AFK のトグルを入れる Expressions Menu |
+| FT toggle name / AFK toggle name | Expressions Menu に入れる FT と AFK のトグルの名前 |
+| Submenu name (optional) | トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は `Face Tracking`。空なら Expressions Menu の直下 |
 | AFK animation (optional) | AFK の間に再生するクリップ。**Action Intro**・**Action Loop**・**Action Outro**・**FX Intro**・**FX Loop**・**FX Outro** の 6 つで、Loop の 2 つだけが必須です |
 | Not set | シェイプキーを選んでいない Face movement |
 | unused | どの State も使わない Face movement に付く印 |
@@ -343,7 +343,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | --- | --- |
 | Start preview / Stop preview | シーンのアバターで顔を試します。止めると元に戻ります |
 | Device | スライダーの下に出す機器の値の幅。**None** は設定のまま |
-| Menu | メニューで State を選んだときの顔を試します |
+| Menu | Expressions Menu で State を選んだときの顔を試します |
 | Inputs | キーのスライダーの見出し |
 | Reset | スライダーを 0 に戻します |
 | Try expressions | 崩れやすい表情にスライダーを合わせます。ボタンは **ふつうの顔**・**笑って目を閉じる**・**口を開けて笑う**・**口を大きく開ける**・**目を見開く**・**横を見る**（Help が英語なら英語の名前） |
@@ -372,7 +372,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Input | 書く機器（VR か Desktop） |
 | Frame All | グラフ全体を表示します（**F** キーでも同じ） |
 | State | 選んだ State の名前 |
-| Selectable from menu | メニューから選べる State にします |
+| Selectable from menu | Expressions Menu から選べる State にします |
 | Stop visemes | State の間、ビセームで口を動かしません |
 | Regions | State の Region ごとの設定の見出し |
 | Neutral / Override / Off | Region を neutral のまま・上書き・止める |
