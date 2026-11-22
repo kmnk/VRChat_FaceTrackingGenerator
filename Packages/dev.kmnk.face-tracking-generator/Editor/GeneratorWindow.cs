@@ -142,7 +142,7 @@ namespace Kmnk.FaceTrackingGenerator
             Reload();
         }
 
-        // Steps in the order of the README's Use section. The buttons call the same code as the command line.
+        // Steps in the order of the README's Getting started section. The buttons call the same code as the command line.
         bool showAdvanced;
         // The result of the last button, shown under the step that has the button (1 to 4, 5 Generate, 6 Scenario).
         int messageStep;
