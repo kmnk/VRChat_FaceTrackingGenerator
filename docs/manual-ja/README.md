@@ -151,8 +151,8 @@ Region の **Off** は、その Region の neutral の動きを止めます。**
 
 テンプレートの Transition は、入り方の 3 つの見本になっています。
 
-- joy: `MouthCornerPullLeft` と `MouthCornerPullRight` の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです
-- sad: `MouthFrownLeft` と `MouthFrownRight` で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです
+- joy: `MouthCornerPullLeft` と `MouthCornerPullRight` の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます
+- sad: `MouthFrownLeft` と `MouthFrownRight` で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）
 - angry: Transition を持たず、Expressions Menu から選ぶだけです
 
 値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。

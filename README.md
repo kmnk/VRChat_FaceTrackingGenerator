@@ -248,13 +248,13 @@ NDMF's **Manual Bake** does not work with FTG: it stops with an error and the ba
 - **Neutral**: moves the 52 perfect sync (ARKit) blendshapes, as face movements named `<region>.<ARKit name>` (for example `eye.eyeBlinkLeft`, `jaw.jawOpen`). **Fill from Prefab** fills their blendshapes from the avatar's blendshapes with the same name (the last part of the name), ignoring capitals.
 - **State machine `Emotion`**: the empty states joy, angry and sad, all selectable from the menu. Add overrides and fixed movements for your avatar in the State Machine window. The transitions show three ways to enter a state:
 
-| State | Enters | Leaves | Why |
-| --- | --- | --- | --- |
-| joy | both `MouthCornerPull` keys over 0.8 | either under 0.6 | one side alone enters too easily, for example while talking |
-| sad | both `MouthFrown` keys over 0.6 (VR) or 0.2 (desktop) | either under 0.4 (VR) or 0.1 (desktop) | desktop tracking moves `MouthFrown` much less than VR |
-| angry | from the menu only | from the menu only | few devices track the brows, and puckered lips also come with speaking |
+| State | Enters | Leaves |
+| --- | --- | --- |
+| joy | both `MouthCornerPull` keys over 0.8 | either under 0.6 |
+| sad | both `MouthFrown` keys over 0.6 (VR) or 0.2 (desktop) | either under 0.4 (VR) or 0.1 (desktop) |
+| angry | from the menu only | from the menu only |
 
-The values are a start: read your own ft-measure recordings in the Devices tab and change them.
+The values are a start, taken from the author's own recordings: read your own ft-measure recordings in the Devices tab and change them.
 
 How perfect sync, VRChat's Face Tracking section and FTG correspond, with sources: `Packages/dev.kmnk.face-tracking-generator/Documentation~/perfect-sync.md`. `scripts/check-perfect-sync.py` checks the template against it.
 

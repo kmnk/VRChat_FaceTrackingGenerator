@@ -36,9 +36,8 @@
 // ARKit blendshape and why: Documentation~/perfect-sync.md in this package. The states joy, angry and sad are empty: add
 // overrides and fixed movements for your avatar in the State Machine window. Their transitions show three ways to enter
 // a state, with values to start from (read your own ft-measure recordings in the Devices tab and change them):
-// joy enters when both mouth corners are up and leaves when either goes down; sad does the same with values per device,
-// because desktop tracking moves MouthFrown much less than VR; angry is chosen from the menu only, because few devices
-// track the brows and puckered lips also come with speaking.
+// joy enters when both mouth corners are up and leaves when either goes down; sad does the same with values per device;
+// angry is chosen from the menu only. The values come from the author's own recordings.
 // Copy this file to Settings/ and edit the copy.
 {
   // Regions that stop while talking (Voice > 0.1). Other regions keep moving.

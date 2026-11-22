@@ -197,8 +197,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="transition-の条件を変える">Transition の条件を変える</h3>
 <p>テンプレートの Transition は、入り方の 3 つの見本になっています。</p>
 <ul>
-<li>joy: <code>MouthCornerPullLeft</code> と <code>MouthCornerPullRight</code> の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます。片方だけで入る形にすると、話すときなどに入ってしまいやすいためです</li>
-<li>sad: <code>MouthFrownLeft</code> と <code>MouthFrownRight</code> で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）。デスクトップの Selfie Expression は VR の機器より値が小さく出るためです</li>
+<li>joy: <code>MouthCornerPullLeft</code> と <code>MouthCornerPullRight</code> の両方が 0.8 を超えると入り、どちらかが 0.6 を下回ると出ます</li>
+<li>sad: <code>MouthFrownLeft</code> と <code>MouthFrownRight</code> で同じ形にし、値を機器ごとに分けています（VR は 0.6 で入り 0.4 で出る、デスクトップは 0.2 で入り 0.1 で出る）</li>
 <li>angry: Transition を持たず、Expressions Menu から選ぶだけです</li>
 </ul>
 <p>値は作者の記録から決めた目安です。FT Measure で自分の顔を測り、Devices タブで値の幅を見て直してください（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
