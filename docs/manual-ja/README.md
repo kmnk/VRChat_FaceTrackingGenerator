@@ -98,7 +98,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 FTG のウィンドウに戻り、**Check** を押します。指摘があれば、読んで設定エディタで直します。
 
-うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。*Not set* の Face movement が残っていると、その数が 1 行で出ます。
+うまくいくと、ボタンの下に「Check: 指摘はありません。」と出ます。*Not set* の Face movement が残っていると、その数と、そのままでかまわないことが一緒に出ます。
 
 ![Check の結果](images/generator-check.png)
 

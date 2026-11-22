@@ -142,7 +142,7 @@ namespace Kmnk.FaceTrackingGenerator
             ["gen.created"] = ("Created {0}.", "{0} を作りました。"),
             ["gen.checkNone"] = ("Check: no findings.", "Check: 指摘はありません。"),
             ["gen.checkFindings"] = ("Check: {0} findings.\n{1}", "Check: 指摘が {0} 件あります。\n{1}"),
-            ["gen.unset"] = ("{0} face movements have no blendshape yet. If the avatar has them, set them in the Avatar tab of the settings editor.", "まだ blendshape を当てていない顔の動きが {0} 個あります。アバターにあれば、設定エディタの Avatar タブで当ててください。"),
+            ["gen.unset"] = ("{0} face movements have no blendshape and are not used, which is fine. To use one, set its blendshape in the Avatar tab of the settings editor.", "シェイプキーを当てていない顔の動きが {0} 個あります。これらは使われないだけなので、そのままでもかまいません。使いたいものがあれば、設定エディタの Avatar タブで当ててください。"),
             ["gen.attached"] = ("Added the settings component to {0}. FT is made on Play and upload.", "{0} に設定のコンポーネントを付けました。Play とアップロードのときに FT が作られます。"),
             ["gen.generated"] = ("Generated.\n{0}", "生成しました。\n{0}"),
             ["gen.running"] = ("Running {0}. The record goes to {1}.", "{0} を流しています。記録は {1} に書きます。"),
