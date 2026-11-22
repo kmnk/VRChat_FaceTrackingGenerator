@@ -188,7 +188,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確認する
 
-「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、左右の口角を上げると `joy` に入り、まばたきで手順 2 のシェイプキーが動き、口角が上がったままになることを確認します。Expressions Menu の State Machine のサブメニューで joy を選んでも、同じ顔になります。
+設定を変えたら、「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、VRChat で確認します。Transition の条件に合う顔をするとその State に入り、上書きした Region と Fixed face movements がその State の顔になることを見ます。Expressions Menu の State Machine のサブメニューでその State を選んだときにも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 
