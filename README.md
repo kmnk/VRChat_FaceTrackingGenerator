@@ -6,7 +6,7 @@ Face Tracking Generator (FTG) is a Unity Editor tool that builds face tracking (
 
 ## What it does
 
-- **Face**: the expression table maps face tracking keys (such as `EyeClosedLeft`) to face movements (such as `eye.eyeBlinkLeft`), and the avatar table maps face movements to the avatar's blendshapes. FTG writes them into the avatar's Face Tracking section as Blendshapes Sets, so VRChat moves the blendshapes directly. The default template moves the 52 perfect sync (ARKit) blendshapes.
+- **Face**: the expression table maps face tracking keys (such as `EyeClosedLeft`) to face movements (such as `eye.eyeBlinkLeft`), and the avatar table maps face movements to the avatar's blendshapes. FTG writes them into the generated avatar's Face Tracking section as Blendshapes Sets, so VRChat moves the blendshapes directly. The default template moves the 52 perfect sync (ARKit) blendshapes.
 - **States**: state machines switch between states such as joy, by face tracking key values or from the menu. A state can override regions of the face, turn them off, and hold fixed face movements.
 - **FX layers**: FTG builds FX layers for the state machines, the fixed face movements, and the weights of the Blendshapes Sets (FT on/off, AFK, talking, states).
 - **Input**: the keys the transitions compare are forwarded to the Animator (Forward to Animator). FT works with the desktop Selfie Expression and with face tracking devices through VRCFaceTracking (2026-11-02 or later). Values are not synced: every client computes them from VRChat's face tracking data.
@@ -43,7 +43,7 @@ Type the avatar name in **Avatar name** and press **Create**.
 - `Assets/Kmnk/FaceTrackingGenerator/Settings/<name>/` gets `avatar.jsonc` and `expression.jsonc`, copied from the templates.
 - **Create from Folder…** takes `expression.jsonc` from a folder exported with **Share** in the settings editor instead (see [Share](#share)).
 - Either way, `avatar.jsonc` starts with no face movements assigned. The movements the expressions use show as *Not set* in the Avatar tab.
-- When settings of that name already exist, nothing is made. Choose them in **Settings file** instead.
+- When settings of that name already exist, nothing is made and the window says so. Choose them in **Settings file** instead.
 - The project remembers the name you typed last.
 
 ### 2. Edit the settings
@@ -136,7 +136,7 @@ Select your avatar in the scene, press **Start preview**, and move the sliders. 
 
 - **Avatar in scene**: remembered for the settings file and the scene (save the scene once). In a scene where you have not chosen one, the only avatar made from the settings' prefab is chosen; with two or more, choose one yourself. The preview does not start by itself.
 - **Sliders**: the face tracking keys (`key:<name>`). They move the face and change the states. They always go from 0 to 1.
-- **Device**: shows the range a device sends under each slider, in yellow when the slider is outside it and in orange for a key the device does not send. The list has VIVE Focus Vision, Meta Quest Pro and the desktop Selfie Expression (as they are said to send), **VR (records)** and **Desktop (records)** when the settings have ft-measure recordings, and **None** to use the settings as they are. A box above the sliders says whether the preview runs as VR or as desktop, which decides the transitions and curves it uses.
+- **Device**: shows the range a device sends under each slider, in yellow when the slider is outside it and in orange for a key the device does not send. The list has VIVE Focus Vision, Meta Quest Pro and the desktop Selfie Expression (as they are said to send), **VR (records)** and **Desktop (records)** when the settings have ft-measure recordings, and **None** to use the settings as they are. A box above the sliders says whether the preview runs as VR or as desktop, which decides the transitions and curves it uses (the box says "the transitions and strengths").
 - **Menu**: chooses a state as the menu does. The keys then do not change it; **None** goes back.
 - **Try expressions**: sets the sliders to expressions that break easily. The line under it says how many face movements add up on the same part of the face, and the warnings under the sliders show them, with buttons to choose again or not use one.
 - **Weights**: what moves each blendshape (a key in neutral or in a state, or a state's fixed amount).
@@ -161,7 +161,7 @@ FTG receives VRChat's native face tracking input (`/tracking/face/v1`) on `127.0
 The Devices tab shows the range of values your device sends, from ft-measure recordings (https://github.com/kmnk/ft-measure) of your face: one for VR and one for desktop. The recordings are only for looking; the output does not use them.
 
 - **Add VR recording** / **Add Desktop recording** copy a `.jsonl` file to `Measurements/` next to `avatar.jsonc`.
-- **Recorded faces** lists, for a recorded face (**Face**), each key's smallest to largest value in four columns: the neutral face, talking with a neutral face, talking with a smile, and that face. The keys that move most above the neutral face come first, and those that hardly move are faint. Use it to choose keys and thresholds.
+- **Recorded faces** lists, for a recorded face (**Face**), each key's smallest to largest value with the neutral face, while talking with a neutral face and with a smile (when the recording has those readings), and in that face. The keys that move most above the neutral face come first, and those that hardly move are faint. Use it to choose keys and thresholds.
 - **VR** / **Desktop** is the same switch as the State Machine window's **Input**; pressing one switches both.
 
 #### Share
@@ -170,7 +170,7 @@ The Devices tab shows the range of values your device sends, from ft-measure rec
 
 - **Export expression…** copies `expression.jsonc` of the open settings to a folder you choose.
 - **Import expression…** overwrites it with a folder's copy, after saying whether it would change.
-- The avatar table (blendshapes, Scale, prefab) is never exported or overwritten. Movements the imported expressions use that the avatar table does not have show as *Not set*.
+- The avatar table (blendshapes, Scale, prefab) is never exported or overwritten. Movements the imported expressions use that the avatar table does not have show as *Not set* in the Avatar tab.
 - Save or discard your changes before exporting or importing.
 
 #### Saving
@@ -186,7 +186,7 @@ Open it with the button next to Face view, or `Tools/Kmnk/Face Tracking State Ma
 **State machines**
 
 - The dropdown at the top left chooses the state machine to show, and has **New State Machine…**, **Rename "<name>"…** and **Delete "<name>"…**.
-- Several state machines run side by side, each with its own menu. For example, `Emotion` for the expressions and `Cheek` with the menu states blush and pale, so that blush can go with any expression.
+- Several state machines run side by side, each with its own menu. For example, `Emotion` for the expressions and `Cheek` with the menu states blush and pale (fixed face movements), so that blush can go with any expression.
 - Two state machines should not override the same region (Check reports it).
 
 **States**
@@ -220,7 +220,7 @@ A row's **Curve** is how much the movement moves (up) for the key's value (right
 
 **View**
 
-- Drag states to move them. The mouse wheel zooms at the pointer; **Frame All** or **F** fits the view; Alt-drag or the middle button moves it.
+- Drag states to move them. The mouse wheel zooms at the pointer; **Frame All** or **F** fits the view (zooming out if needed); Alt-drag or the middle button moves it.
 - Drag the line between the graph and the settings on the right to widen the settings (kept for your Unity).
 - Edits are unsaved changes of the settings editor: undo them, or press **Save** (shown here with **Unsaved changes**, or in the settings editor).
 - When no settings are open, **Open Settings Editor** opens them.
@@ -297,7 +297,7 @@ A row can have a response curve instead of a strength (from 0.20.0):
 "EyeClosedLeft": { "part": "eye.eyeBlinkLeft", "curve": [{ "time": 0, "value": 0 }, { "time": 0.5, "value": 0.4, "inTangent": 1.6, "outTangent": 1.6 }, { "time": 1, "value": 0.8 }] }
 ```
 
-- The keys are Unity AnimationCurve keys. `time` is the tracking key's value and `value` how much the movement moves, both from 0 to 1.
+- The keys are Unity AnimationCurve keys. `time` is the tracking key's value and `value` how much the movement moves, both from 0 to 1. The first key's `time` must be 0 and the last key's 1.
 - `inTangent` / `outTangent`, `leftTangent` / `rightTangent` (`Auto`, `ClampedAuto`, `Free`, `Linear`, `Constant`), `inWeight` / `outWeight` and `weightedMode` work as in Unity's curve editor, which the State Machine window opens.
 - The curve's highest point is the row's strength, so a row has `"curve"` or `"strength"`, not both. A straight curve from (0, 0) to (1, s) is written as `"strength": s`.
 - `{"vr": [...], "desktop": [...]}` writes a curve per device.
