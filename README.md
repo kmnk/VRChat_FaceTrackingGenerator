@@ -60,7 +60,7 @@ Change each state in the State Machine window, or edit `expression.jsonc` in a t
 
 ### 3. Check the settings
 
-Press **Check**. It looks at the saved settings, and at the generated FX controller when there is one. When it reports findings, fix them in the settings editor.
+Press **Check**. It looks at the saved settings, and at the generated FX controller when there is one. When it reports findings, fix them in the settings editor. Movements left **Not set** are not findings, but Check reports when no movement has a blendshape at all, because then nothing moves.
 
 ### 4. Add the settings component to the avatar
 

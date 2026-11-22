@@ -18,6 +18,10 @@ namespace Kmnk.FaceTrackingGenerator
         {
             var f = new List<string>();
             f.AddRange(m.Warnings.Select(w => "table: " + w));
+            // No face movement has a blendshape yet: nothing would move. Unlike some movements left Not set, this is
+            // never what the avatar wants, so it is a finding.
+            if (!m.Parts.Values.Any(t => t.Shape != null))
+                f.Add("avatar: no face movement has a blendshape, so nothing moves: choose blendshapes in the Avatar tab");
             Asymmetry(m, f);
             MissingShapes(m, f);
             MissingLayers(m, f);

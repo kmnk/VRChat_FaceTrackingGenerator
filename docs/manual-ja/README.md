@@ -83,7 +83,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 1. **Open Settings Editor** を押して設定エディタを開きます
 2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
-3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。選ばないと、手順 5 で動くものがありません（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
+3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。1 つも選ばないと手順 5 で動くものが無く、手順 3 の Check が指摘します（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
 4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです
 5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作られ、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします
 6. **Save** を押します。保存できると、**State Machine** のボタンの右に出ていた **Unsaved changes** が消えます
