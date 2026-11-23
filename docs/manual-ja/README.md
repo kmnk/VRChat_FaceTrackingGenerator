@@ -1,6 +1,6 @@
 # Face Tracking Generator マニュアル
 
-Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。
+Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作成するツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。
 
 FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。
 
