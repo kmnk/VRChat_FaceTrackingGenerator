@@ -2,15 +2,15 @@
 
 Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作成するツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。
 
-FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。
+トラッキングキーの値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。
 
 ## はじめに
 
 ### できること
 
 - デスクトップでは Web カメラ（VRChat の Selfie Expression）で、VR では FT の機器（VRCFaceTracking）で使えます。FT の機器が無くても、デスクトップの VRChat で使えます（「[デスクトップ（Selfie Expression）で使う](#デスクトップselfie-expressionで使う)」）
-- [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
-- `joy`・`angry`・`sad` のような [State](#用語集) を作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
+- [Face movement](#用語集)（まばたき、口の開き、口角など）を、トラッキングキーの値でアバターのシェイプキーに当てます
+- `joy`・`angry`・`sad` のような [State](#用語集) を作り、State から State へ移る [Transition](#用語集) とその条件（トラッキングキーの値）を、Unity の Animator に似たグラフで書けます
 - State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
 - VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます
 - VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や [Curve](#用語集) を分けて書けます
@@ -18,16 +18,16 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ### 仕組み
 
-![FT の値がシェイプキーを動かすまでの流れ](images/overview.png)
+![トラッキングキーの値がシェイプキーを動かすまでの流れ](images/overview.png)
 
-VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを受け取ります。これを FT の値と呼びます。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[トラッキングキー](#用語集)と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では **Key** の列）。値は 0〜1 で、たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
+VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを、0〜1 の値で受け取ります。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[トラッキングキー](#用語集)と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では **Key** の列）。たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
 
 FTG は、トラッキングキーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
 
 - 表情の設定（`expression.jsonc`）: どのトラッキングキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: Face movement ごとに、このアバターのどのシェイプキーを動かすか
 
-![左目を閉じたときに、FT の値がシェイプキーに届くまでの例](images/value-flow.png)
+![左目を閉じたときに、トラッキングキーの値がシェイプキーに届くまでの例](images/value-flow.png)
 
 たとえば左目を閉じて `EyeClosedLeft` が 0.9 になると、[neutral](#用語集) では、表情の設定の行「`EyeClosedLeft` → `eye.eyeBlinkLeft`」と、アバターの設定で `eye.eyeBlinkLeft` に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。`joy` に入っていて `joy` が目の [Region](#用語集) を上書きしていると、同じ `EyeClosedLeft` が `eye.joy.eyeBlinkLeft` を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の [Curve](#用語集) とアバターの設定の [Scale](#用語集) で変えられます。
 
@@ -278,7 +278,7 @@ Preview タブの **Device** で機器を選ぶと、Preview はその機器の 
 
 ### FT Measure で値の幅を見る
 
-FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのトラッキングキーがどのくらい動くかを見て、Transition のトラッキングキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
+FT Measure は、利用者の顔で表情ごとにトラッキングキーの値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのトラッキングキーがどのくらい動くかを見て、Transition のトラッキングキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
 
 測り方は FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
 
