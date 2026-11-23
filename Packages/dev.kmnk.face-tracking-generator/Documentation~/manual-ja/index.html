@@ -110,7 +110,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="仕組み">仕組み</h3>
 <p><img src="images/overview.png" alt="トラッキングキーの値がシェイプキーを動かすまでの流れ"></p>
 <p>VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを、0〜1 の値で受け取ります。値には <code>EyeClosedLeft</code>（左目の閉じ具合）や <code>JawOpen</code>（あごの開き）のような名前があり、この名前を<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">トラッキングキー</a>と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では <strong>Key</strong> の列）。たとえば左目を閉じると <code>EyeClosedLeft</code> が 1 に近づきます。</p>
-<p>FTG は、トラッキングキーを Face movement に当て、Face movement をアバターのシェイプキーに当てます。Face movement は、トラッキングキーとシェイプキーの間に置く動きで、名前は利用者が付けます（<code>eye.eyeBlinkLeft</code> のように「Region.名前」。テンプレートにはパーフェクトシンクの 52 の名前で入っています）。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。</p>
+<p>FTG は、トラッキングキーを Face movement に当て、Face movement をアバターのシェイプキーに当てます。Face movement は、トラッキングキーとシェイプキーの間に置く動きで、名前は利用者が付けます（<code>eye.eyeBlinkLeft</code> のように「<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a>.名前」。テンプレートにはパーフェクトシンクの 52 の名前で入っています）。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。</p>
 <ul>
 <li>表情の設定（<code>expression.jsonc</code>）: どのトラッキングキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます</li>
 <li>アバターの設定（<code>avatar.jsonc</code>）: Face movement ごとに、このアバターのどのシェイプキーを動かすか</li>
