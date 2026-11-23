@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;width:1200px;height:520px;background:#fff;font-family:"Hiragino Sans",sans-serif;color:#1f2328}
+h2{font-size:30px;text-align:center;margin:40px 0 50px}
+.row{display:flex;align-items:center;justify-content:center;gap:14px}
+.box{width:224px;height:142px;border:3px solid #1f6feb;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;padding:6px}
+.box .t{font-size:24px;margin-bottom:8px}
+.box .s{font-size:16px;color:#59636e;line-height:1.5}
+.ar{font-size:30px;color:#59636e}
+.files{display:flex;justify-content:center;gap:120px;margin-top:44px}
+.file{width:368px;border:2px dashed #9a6700;border-radius:12px;padding:14px 10px;text-align:center;font-size:18px;line-height:1.6;box-sizing:border-box}
+.file b{font-size:19px}
+</style></head><body>
+<h2>FT の値がシェイプキーを動かすまで</h2>
+<div class="row">
+<div class="box" style="width:300px"><div class="t">FT の入力</div><div class="s" style="white-space:nowrap;font-size:15px">VR の機器（VRCFaceTracking）か<br>Web カメラ（Selfie Expression）</div></div><div class="ar">→</div>
+<div class="box"><div class="t">トラッキングキー</div><div class="s">EyeClosedLeft など<br>値は 0〜1</div></div><div class="ar">→</div>
+<div class="box"><div class="t">Face movement</div><div class="s">eye.eyeBlinkLeft など</div></div><div class="ar">→</div>
+<div class="box"><div class="t">シェイプキー</div><div class="s">アバターの顔</div></div>
+</div>
+<div class="files">
+<div class="file"><b>表情の設定 expression.jsonc</b><br>トラッキングキー → Face movement、<br>State と Transition<br>（アバターによらない）</div>
+<div class="file"><b>アバターの設定 avatar.jsonc</b><br>Face movement → シェイプキー<br>（アバターごと）</div>
+</div>
+</body></html>
