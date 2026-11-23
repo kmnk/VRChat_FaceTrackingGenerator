@@ -29,7 +29,7 @@ FTG は、キーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face
 
 ![左目を閉じたときに、FT の値がシェイプキーに届くまでの例](images/value-flow.png)
 
-たとえば左目を閉じて `EyeClosedLeft` が 0.9 になると、neutral では、表情の設定の行「`EyeClosedLeft` → `eye.eyeBlinkLeft`」と、アバターの設定で `eye.eyeBlinkLeft` に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。`joy` に入っていて `joy` が目の Region を上書きしていると、同じ `EyeClosedLeft` が `eye.joy.eyeBlinkLeft` を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の [Curve](#用語集) とアバターの設定の [Scale](#用語集) で変えられます。
+たとえば左目を閉じて `EyeClosedLeft` が 0.9 になると、[neutral](#用語集) では、表情の設定の行「`EyeClosedLeft` → `eye.eyeBlinkLeft`」と、アバターの設定で `eye.eyeBlinkLeft` に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。`joy` に入っていて `joy` が目の [Region](#用語集) を上書きしていると、同じ `EyeClosedLeft` が `eye.joy.eyeBlinkLeft` を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の [Curve](#用語集) とアバターの設定の [Scale](#用語集) で変えられます。
 
 Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
 
