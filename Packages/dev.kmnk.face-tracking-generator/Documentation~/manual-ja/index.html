@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Face Tracking Generator 説明書</title>
+<title>Face Tracking Generator マニュアル</title>
 <style>
 :root { color-scheme: light dark; --fg: #1f2328; --bg: #ffffff; --muted: #59636e; --line: #d1d9e0; --code: #f6f8fa; --link: #0969da; }
 @media (prefers-color-scheme: dark) { :root { --fg: #e6edf3; --bg: #0d1117; --muted: #9198a1; --line: #3d444d; --code: #151b23; --link: #4493f8; } }
@@ -31,9 +31,9 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <body>
 <div class="page">
 <main>
-<h1 id="face-tracking-generator-説明書">Face Tracking Generator 説明書</h1>
-<p>Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。この説明書は、FTG と一緒に配っている日本語の説明書です。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator">https://github.com/kmnk/VRChat_FaceTrackingGenerator</a> ）にあります。</p>
-<p>FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。</p>
+<h1 id="face-tracking-generator-マニュアル">Face Tracking Generator マニュアル</h1>
+<p>Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator">https://github.com/kmnk/VRChat_FaceTrackingGenerator</a> ）にあります。</p>
+<p>FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。</p>
 <nav class="toc" aria-label="目次">
 <strong>目次</strong>
 <ul>
@@ -60,6 +60,10 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li class="toc-2"><a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a></li>
 <li class="toc-3"><a href="#%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC%E3%81%AE%E5%85%83%E3%81%AE%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC">アバターの元のレイヤー</a></li>
 <li class="toc-2"><a href="#afk-%E3%81%AE%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3">AFK のアニメーション</a></li>
+<li class="toc-2"><a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a></li>
+<li class="toc-3"><a href="#%E6%9C%89%E5%8A%B9%E3%81%AB%E3%81%99%E3%82%8B">有効にする</a></li>
+<li class="toc-3"><a href="#%E5%8B%95%E3%81%8F%E3%82%82%E3%81%AE%E3%81%A8%E5%8B%95%E3%81%8B%E3%81%AA%E3%81%84%E3%82%82%E3%81%AE">動くものと動かないもの</a></li>
+<li class="toc-3"><a href="#state-%E3%81%AB%E5%85%A5%E3%82%8A%E3%81%AB%E3%81%8F%E3%81%84%E3%81%A8%E3%81%8D">State に入りにくいとき</a></li>
 <li class="toc-2"><a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a></li>
 <li class="toc-3"><a href="#%E6%A9%9F%E5%99%A8%E3%82%92%E5%88%87%E3%82%8A%E6%9B%BF%E3%81%88%E3%81%A6%E6%9B%B8%E3%81%8F">機器を切り替えて書く</a></li>
 <li class="toc-3"><a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a></li>
@@ -95,6 +99,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h2 id="はじめに">はじめに</h2>
 <h3 id="できること">できること</h3>
 <ul>
+<li>Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも、同じ設定で表情が動きます。VR の機器が無くても、デスクトップの VRChat で使えます（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
 <li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
 <li><code>joy</code>・<code>angry</code>・<code>sad</code> のような <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> を作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
@@ -123,6 +128,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>VRChat SDK - Avatars 3.10.6 以上</li>
 <li>NDMF 1.14.7 以上 2.0.0 未満（FTG と一緒に入ります）</li>
 <li>PC 版の VRChat。Android（Quest）版の VRChat では確認していません</li>
+<li>デスクトップで使うときは、Web カメラ。VRChat の Selfie Expression で顔の動きを読みます（VRC+ は要りません）</li>
 <li>VR の機器で使うときは、VRChat のネイティブ FT に値を送る VRCFaceTracking（Steam 版の 2026-11-02 の更新「Avalonia Update」以降。Steam 版は自動で更新されます）</li>
 </ul>
 <h2 id="入れ方">入れ方</h2>
@@ -139,7 +145,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h2 id="はじめての設定">はじめての設定</h2>
 <p>この章では、アバターに FT を付けて、VRChat で顔が動くところまでを順に進めます。手順は、FTG のウィンドウに並んでいる 4 つ（「1. FT の設定を作る」「2. 設定を編集する」「3. 設定を確認する」「4. アバターに設定コンポーネントを付ける」）と、最後の Build &amp; Test です。</p>
 <p>アバターがパーフェクトシンク（ARKit の 52 種類のシェイプキー）に対応していれば、手順 2 でシェイプキーがほぼ自動で割り当てられます。対応していないアバターでは、手順 2 で Face movement ごとにシェイプキーを自分で選びます（「<a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a>」）。</p>
-<p>ウィンドウの上の <strong>Help</strong> で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。</p>
+<p>ウィンドウの上の <strong>Help</strong> で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。このマニュアルの画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。</p>
 <p>画像のアバターは、ぽんでろさんの「しなの」ちゃん（<a href="https://booth.pm/ja/items/6106863">https://booth.pm/ja/items/6106863</a> ）です。</p>
 <h3 id="1-ft-の設定を作る">1. FT の設定を作る</h3>
 <ol>
@@ -195,8 +201,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="5-build--test-で確認する">5. Build &amp; Test で確認する</h3>
 <p>VRChat SDK の Build &amp; Test でアバターをビルドし、VRChat で着替えます。</p>
 <ul>
+<li>デスクトップ: VRChat の Selfie Expression を有効にします（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
 <li>VR の機器: VRCFaceTracking を動かしてから VRChat を起動します</li>
-<li>デスクトップ: VRChat の Selfie Expression を有効にします</li>
 </ul>
 <p>FT が動いていると、シェイプキーを選んだ Face movement（まばたきや口の開きなど）が、自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
@@ -277,6 +283,23 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります。Intro と Outro は空なら飛ばします</li>
 <li>AFK が要らないときは、Loop の枠を空にします</li>
 </ul>
+<h2 id="デスクトップselfie-expressionで使う">デスクトップ（Selfie Expression）で使う</h2>
+<p>Selfie Expression は、PC の Web カメラで顔の動きを読む VRChat の機能です。VR の機器が無くても、デスクトップのモードで FTG の表情を動かせます。読んだ値は、VR の機器と同じく、アバターのネイティブ FT に届きます。</p>
+<h3 id="有効にする">有効にする</h3>
+<ol>
+<li>VRChat をデスクトップのモードで起動します</li>
+<li>Main Menu の <strong>Settings</strong> の <strong>Tracking &amp; IK</strong> で、<strong>Enable Selfie Expression</strong> をオンにします</li>
+<li>同じ所で、使う Web カメラ（<strong>Current Webcam Device</strong>）と読み取りの品質（<strong>Selfie Expression Quality Level</strong>）を選べます。重いときは品質を下げます</li>
+</ol>
+<p>Web カメラの映像は PC の中で処理され、VRChat には送られません。</p>
+<h3 id="動くものと動かないもの">動くものと動かないもの</h3>
+<ul>
+<li>まばたき・眉・口の開き・口角・唇は、FT の値で動きます</li>
+<li>舌は動きません</li>
+<li>目線は FT のキーでは来ません。アバターの Eye Look の設定で動きます</li>
+</ul>
+<h3 id="state-に入りにくいとき">State に入りにくいとき</h3>
+<p>State Machine のウィンドウの <strong>Input</strong> を <strong>Desktop</strong> にして、デスクトップの Transition の条件の値を下げます（「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」）。テンプレートの <code>sad</code> は、デスクトップでは 0.2 で入ります。FT Measure でデスクトップの値を測ると、表情ごとの値の幅を見て値を決められます（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
 <h2 id="vr-とデスクトップで分ける">VR とデスクトップで分ける</h2>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。</p>
 <ul>
@@ -297,7 +320,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>Preview タブの <strong>Device</strong> で機器を選ぶと、Preview はその機器の Transition と Curve で動きます。<strong>Selfie Expression</strong> と <strong>Desktop (records)</strong> はデスクトップとして、ほかの機器と <strong>None</strong> は VR として動きます。</p>
 <h3 id="ft-measure-で値の幅を見る">FT Measure で値の幅を見る</h3>
 <p>FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
-<p>測り方は FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
+<p>測り方は FT Measure のマニュアル（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
 <ol>
 <li>設定エディタの <strong>Devices</strong> タブで、<strong>Add VR recording</strong> か <strong>Add Desktop recording</strong> を押し、記録のファイルを選びます。<code>avatar.jsonc</code> の隣の <code>Measurements/</code> に写されます</li>
 </ol>
@@ -348,7 +371,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Manual</td>
-<td>この説明書を開きます</td>
+<td>このマニュアルを開きます</td>
 </tr>
 <tr>
 <td>Help</td>
@@ -692,7 +715,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="face-view">Face view</h3>
 <p><code>Tools/Kmnk/Face Tracking Face View</code>（ウィンドウのタイトルは <strong>FT Face View</strong>）。プレハブの顔を、シーンとは別に表示します。シェイプキーの一覧を動かす間は、そのシェイプキーを 100 にした顔、Preview の間は Preview の顔が出ます。ドラッグで顔を回せます。<strong>Height</strong> で見る高さを変え、<strong>Reset view</strong> で向きを戻します。</p>
 <h3 id="settings-component">Settings Component</h3>
-<p>アバターに付く <strong>Face Tracking Generator Settings</strong>。Inspector に使う設定のファイルが出て、設定エディタで開けます。右上の <strong>?</strong> は、この説明書の GitHub のページを開きます。</p>
+<p>アバターに付く <strong>Face Tracking Generator Settings</strong>。Inspector に使う設定のファイルが出て、設定エディタで開けます。右上の <strong>?</strong> は、このマニュアルの GitHub のページを開きます。</p>
 <h2 id="用語集">用語集</h2>
 <table>
 <thead>
