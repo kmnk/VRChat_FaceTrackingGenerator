@@ -99,7 +99,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h2 id="はじめに">はじめに</h2>
 <h3 id="できること">できること</h3>
 <ul>
-<li>Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも、同じ設定で表情が動きます。VR の機器が無くても、デスクトップの VRChat で使えます（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
+<li>Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも使えます。VR の機器が無くても、デスクトップの VRChat で使えます（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
 <li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
 <li><code>joy</code>・<code>angry</code>・<code>sad</code> のような <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> を作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
@@ -293,10 +293,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>Web カメラの映像は PC の中で処理され、VRChat には送られません。</p>
 <h3 id="動くものと動かないもの">動くものと動かないもの</h3>
+<p>VRChat は、Selfie Expression がどのキーを送るかを公開していません。作者が 2026-11-16 にデスクトップで FT Measure で測った記録では、次のようでした。</p>
 <ul>
-<li>まばたき・眉・口の開き・口角・唇は、FT の値で動きます</li>
-<li>舌は動きません</li>
-<li>目線は FT のキーでは来ません。アバターの Eye Look の設定で動きます</li>
+<li>まばたき・眉・口の開き・口角・唇のキーは、表情に合わせて動きました</li>
+<li>舌のキーは届きませんでした</li>
+<li>頬を膨らませるキーは、ほとんど動きませんでした</li>
 </ul>
 <h3 id="state-に入りにくいとき">State に入りにくいとき</h3>
 <p>State Machine のウィンドウの <strong>Input</strong> を <strong>Desktop</strong> にして、デスクトップの Transition の条件の値を下げます（「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」）。テンプレートの <code>sad</code> は、デスクトップでは 0.2 で入ります。FT Measure でデスクトップの値を測ると、表情ごとの値の幅を見て値を決められます（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
