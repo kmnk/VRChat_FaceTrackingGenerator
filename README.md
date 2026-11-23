@@ -266,7 +266,7 @@ How perfect sync, VRChat's Face Tracking section and FTG correspond, with source
   "Emotion": {
     "states": {
       "neutral": {},
-      "joy": { "menu": true, "regions": { "eye": { "EyeClosedLeft": "eye.joy.eyeBlinkLeft", "EyeClosedRight": null }, "lip": "off" }, "fixed": { "eye.joy.tear": 60 } }
+      "joy": { "menu": true, "regions": { "eye": { "EyeClosedLeft": "eye.joy.eyeBlinkLeft", "EyeClosedRight": null } }, "fixed": { "eye.joy.tear": 60 } }
     },
     "transitions": [
       { "from": "neutral", "to": "joy", "when": [["MouthCornerPullLeft", ">", 0.8], ["MouthCornerPullRight", ">", 0.8]], "duration": 0.2 },

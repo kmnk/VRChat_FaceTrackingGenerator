@@ -145,15 +145,14 @@ FT が動いていると、シェイプキーを選んだ Face movement（まば
 1. グラフで **joy** を選びます。右に State の設定が出ます
 2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。たとえば `EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきで `eye.joy.eyeBlinkLeft` に当てたシェイプキーが動きます（下の画像の行）
    - `joy` の間だけ使う Face movement は、先に設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、使いたいシェイプキー（目を弧の形にして閉じるシェイプキーなど）を当てておきます
-3. 口の Region（lip）を **Off** にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します
-4. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `lip.mouthSmileLeft` と `lip.mouthSmileRight` を 50 にすると口角が上がったまま、`cheek.joy.blush` のような頬の赤らみを追加すると頬が赤くなります
-5. **Save** を押します
+3. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `cheek.joy.blush` のような頬の赤らみを追加すると、`joy` の間は頬が赤くなります
+4. **Save** を押します
 
 State を選ぶと、Face view にその State の顔が出ます。
 
 ![Face view の joy の顔](images/face-view-joy.png)
 
-Region の **Off** は、その Region の neutral の動きを止めます。**Don't move** の行は、そのキーで何も動かしません。**Copy from** で、別の State の行を写せます。
+Region の **Off** は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る `joy` など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。**Don't move** の行は、そのキーで何も動かしません。**Copy from** で、別の State の行を写せます。
 
 ### Transition の条件を変える
 
