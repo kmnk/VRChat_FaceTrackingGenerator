@@ -90,15 +90,14 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
    - Hierarchy にある、シーンの中のアバターは入れられません
    - ルートに VRC Avatar Descriptor が付いたプレハブを選んでください。FBX などのモデルのファイルも欄には入りますが、Avatar Descriptor が無いので、Fill from Prefab がエラーで止まります
 
-   **Fill from Prefab** を押すと、顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
-3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。1 つも選ばないと手順 5 で動くものが無く、手順 3 の Check が指摘します（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
+   **Fill from Prefab** を押すと、顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ。「[AFK のアニメーション](#afk-のアニメーション)」）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
+3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。1 つも選ばないと「5. Build & Test で確認する」で動くものが無く、「3. 設定を確認する」の Check が指摘します（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
 4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです
-5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK が要らないときは、Loop の枠を空にします
-6. **Save** を押します。保存できると、**State Machine** のボタンの右に出ていた **Unsaved changes** が消えます
+5. **Save** を押します。保存できると、**State Machine** のボタンの右に出ていた **Unsaved changes** が消えます
 
 ![設定エディタの Avatar タブ](images/avatar-tab.png)
 
-画像は、パーフェクトシンクでないアバターで手順 6 まで進めた Avatar タブです。そのため *Not set* が多く残っています。シェイプキーとアセットの名前は隠しています。
+画像は、パーフェクトシンクでないアバターで手順 5 まで進めた Avatar タブです。そのため *Not set* が多く残っています。シェイプキーとアセットの名前は隠しています。
 
 ### 3. 設定を確認する
 
@@ -214,6 +213,14 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 - **Stop while FT**: 手のジェスチャーで表情を変えるレイヤー
 - **Mute while FT**: 何も入力が無くても顔を動かすレイヤー（ずっとまばたきさせるレイヤーなど）。これを止めないと、FT のまぶたの上にまばたきが重なります
 - Expressions Menu からだけ動かすレイヤーは、そのままでかまいません
+
+## AFK のアニメーション
+
+設定エディタの Avatar タブの **AFK animation (optional)** で、AFK の間に再生するクリップを決めます。**Action Intro**・**Action Loop**・**Action Outro**・**FX Intro**・**FX Loop**・**FX Outro** の 6 つの枠があります。
+
+- **Fill from Prefab** は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます
+- **Action Loop** と **FX Loop** の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります。Intro と Outro は空なら飛ばします
+- AFK が要らないときは、Loop の枠を空にします
 
 ## VR とデスクトップで分ける
 
