@@ -22,7 +22,7 @@ Face Tracking Generator（FTG）は、VRChat のアバターのフェイスト�
 
 VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを、0〜1 の値で受け取ります。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[トラッキングキー](#用語集)と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では **Key** の列）。たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
 
-FTG は、トラッキングキーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
+FTG は、トラッキングキーを Face movement に当て、Face movement をアバターのシェイプキーに当てます。Face movement は、トラッキングキーとシェイプキーの間に置く動きで、名前は利用者が付けます（`eye.eyeBlinkLeft` のように「Region.名前」。テンプレートにはパーフェクトシンクの 52 の名前で入っています）。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
 
 - 表情の設定（`expression.jsonc`）: どのトラッキングキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: Face movement ごとに、このアバターのどのシェイプキーを動かすか
