@@ -73,11 +73,14 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 ### 1. FT の設定を作る
 
 1. FTG のウィンドウの「1. FT の設定を作る」の **Avatar name** に、設定の名前（アバターの名前など）を入れます
-2. **Create** を押します。設定が作られると、ボタンの下に作った場所が出て、**Settings file** に作った `avatar.jsonc` が入ります
+2. **Create** を押します。設定が作成されると、ボタンの下に path が出て、**Settings file** に `avatar.jsonc` が入ります
 
-設定は `Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、`avatar.jsonc` と `expression.jsonc` としてテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`・`angry`・`sad` を持つ State Machine `Emotion` が入っています。
+設定は `Assets/Kmnk/FaceTrackingGenerator/Settings/<名前>/` に、次の 2 つのファイルとしてテンプレートから作成されます（2 つの役割は「[仕組み](#仕組み)」）。
 
-同じ名前の設定が既にあると、何も作りません。そのときは **Settings file** で既にある設定を選んでください。
+- `avatar.jsonc`（アバターの設定）: Face movement ごとに、このアバターのどのシェイプキーを動かすか。手順 2 で選びます
+- `expression.jsonc`（表情の設定）: パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State `joy`・`angry`・`sad` を持つ State Machine `Emotion` が入っています
+
+同じ名前の設定が既にあると、何も作成しません。そのときは **Settings file** で既にある設定を選んでください。
 
 ### 2. 設定を編集する
 
@@ -85,7 +88,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
 3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。1 つも選ばないと手順 5 で動くものが無く、手順 3 の Check が指摘します（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
 4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです
-5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作られ、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします
+5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK が要らないときは、Loop の枠を空にします
 6. **Save** を押します。保存できると、**State Machine** のボタンの右に出ていた **Unsaved changes** が消えます
 
 ![設定エディタの Avatar タブ](images/avatar-tab.png)
@@ -114,7 +117,7 @@ Inspector でアバターを見ると、Settings Component に使う設定のフ
 
 ### 5. Build & Test で確認する
 
-VRChat SDK の Build & Test でアバターを作り、VRChat で着替えます。
+VRChat SDK の Build & Test でアバターをビルドし、VRChat で着替えます。
 
 - VR の機器: VRCFaceTracking を動かしてから VRChat を起動します
 - デスクトップ: VRChat の Selfie Expression を有効にします
@@ -123,7 +126,7 @@ FT が動いていると、シェイプキーを選んだ Face movement（まば
 
 ## 表情を作る
 
-「はじめての設定」で作った設定の `joy` の State に、目と口の動きを追加します。
+「はじめての設定」で作成された設定の `joy` の State に、目と口の動きを追加します。
 
 ### State Machine のウィンドウを開く
 
@@ -186,7 +189,7 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 
 ### Build & Test で確認する
 
-設定を変えたら、「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターを作り、VRChat で確認します。Transition の条件に合う顔をするとその State に入り、上書きした Region と Fixed face movements がその State の顔になることを見ます。Expressions Menu の State Machine のサブメニューでその State を選んだときにも、同じ顔になります。
+設定を変えたら、「[5. Build & Test で確認する](#5-build--test-で確認する)」と同じ手順でアバターをビルドし、VRChat で確認します。Transition の条件に合う顔をするとその State に入り、上書きした Region と Fixed face movements がその State の顔になることを見ます。Expressions Menu の State Machine のサブメニューでその State を選んだときにも、同じ顔になります。
 
 ## パーフェクトシンクでないアバター
 
@@ -283,17 +286,17 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | 名前 | 何をするか |
 | --- | --- |
 | Settings file | 使う設定（`avatar.jsonc`）。プロジェクトごとに最後に選んだものを覚えます |
-| Avatar name | **Create** で作る設定の名前。プロジェクトごとに覚えます |
+| Avatar name | **Create** で作成される設定の名前。プロジェクトごとに覚えます |
 | Manual | この説明書を開きます |
 | Help | 説明を日本語・英語・非表示に切り替えます |
-| Create | 入れた名前で、テンプレートから設定を作ります |
-| Create from Folder… | **Share** で書き出したフォルダの表情の設定から、設定を作ります |
+| Create | 入れた名前で、テンプレートから設定を作成します |
+| Create from Folder… | **Share** で書き出したフォルダの表情の設定から、設定を作成します |
 | Open Settings Editor | 設定エディタを開きます |
-| Check | 保存した設定と、作った FX のコントローラーを確認します |
+| Check | 保存した設定と、生成された FX のコントローラーを確認します |
 | Avatar in scene | Settings Component を付けるアバター |
 | Add Settings Component | アバターに Settings Component を付けます |
 | Advanced: Generate files, Scenario check | 開くと、下の 2 つが出ます |
-| Generate（Advanced） | アバターを書き換えずに、作ったコントローラーと Prefab Variant を `Assets/FaceTrackingGeneratorOutput/<名前>/` に書きます |
+| Generate（Advanced） | アバターを書き換えずに、生成されたコントローラーと Prefab Variant を `Assets/FaceTrackingGeneratorOutput/<名前>/` に書きます |
 | Scenario check (Play Mode)（Advanced） | FTG を確認するための機能です。**scenario .txt** にシナリオのファイルを選び、**Run scenario on the generated prefab** で顔を動かして記録します |
 
 ### 設定エディタ
@@ -313,7 +316,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 | 名前 | 何をするか |
 | --- | --- |
-| Prefab | FT を作るアバターのプレハブ |
+| Prefab | FT のコントローラーを生成する対象の、アバターのプレハブ |
 | Fill from Prefab | プレハブから、顔のメッシュ・Expressions Menu・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます |
 | Face mesh | 顔のメッシュ |
 | Face movements | Face movement の一覧の見出し。右に、シェイプキーを選んだ数と Not set の数が出ます |
@@ -361,7 +364,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | 名前 | 何をするか |
 | --- | --- |
 | 左上の一覧 | 表示する State Machine。**New State Machine…**・**Rename "<名前>"…**・**Delete "<名前>"…**。名前を入れる小さなウィンドウ（見出しは **New state machine** か **Rename state machine**）は **OK** で決めます |
-| + State Machine | State Machine が 1 つも無いときに、State Machine を作ります |
+| + State Machine | State Machine が 1 つも無いときに、State Machine を作成します |
 | + State | State を追加します。グラフの空いた所の右クリックの **Create State** でも追加できます |
 | Input | 書く機器（VR か Desktop） |
 | Frame All | グラフ全体を表示します（**F** キーでも同じ） |
@@ -382,7 +385,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Transition | 選んだ Transition（どこからどこへ） |
 | Conditions | 選んだ Transition の条件。**+ Add Condition** で条件を追加します |
 | Remove Transition | 選んだ Transition を消します |
-| Face tracking cost | 設定が作るものの数と、パフォーマンスランク。**Parameter Behaviors**（VRChat の上限 128）、**Expression instructions**（上限 2048）、**Face Tracking Operations**（2000 を超えると Excellent でなくなる） |
+| Face tracking cost | この設定から生成されるものの数と、パフォーマンスランク。**Parameter Behaviors**（VRChat の上限 128）、**Expression instructions**（上限 2048）、**Face Tracking Operations**（2000 を超えると Excellent でなくなる） |
 | Open Settings Editor | 設定が開かれていないときに、設定エディタを開きます |
 
 ### Face view
@@ -407,7 +410,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | しきい値 | Transition の条件で、キーと比べる値 |
 | Curve | キーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1） |
 | Scale | アバターごとの、Face movement を動かす量の補正 |
-| Blendshapes Set | VRChat のネイティブ FT の、シェイプキーの組。FTG は Region と State ごとに作ります |
+| Blendshapes Set | VRChat のネイティブ FT の、シェイプキーの組。FTG は Region と State ごとに生成します |
 | Forward to Animator | キーの値を Animator のパラメータに渡す VRChat の機能。FTG は Transition の条件に使うキーだけを渡します |
 | Forwarded Parameters | Forward to Animator で渡すパラメータの数。10 を超えると Excellent でなくなります |
 
@@ -415,7 +418,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 ### 更新のしかた
 
-VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。作った設定（`Assets/Kmnk/FaceTrackingGenerator/Settings/`）はパッケージの外にあるので残ります。`Packages/dev.kmnk.face-tracking-generator/` の中に自分のファイルを置かないでください。更新で消えます。
+VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。**Create** で作成された設定（`Assets/Kmnk/FaceTrackingGenerator/Settings/`）はパッケージの外にあるので残ります。`Packages/dev.kmnk.face-tracking-generator/` の中に自分のファイルを置かないでください。更新で消えます。
 
 ### 消し方
 
@@ -447,7 +450,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 
 ### NDMF の Manual Bake で FT が無い
 
-- NDMF の Manual Bake では、FTG はエラーで止まり、FT が作られません。Play Mode かアップロードで確認してください
+- NDMF の Manual Bake では、FTG はエラーで止まり、FT の設定が作成されません。Play Mode かアップロードで確認してください
 
 ### Live input の後に VRChat で顔が動かない
 
