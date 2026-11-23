@@ -242,7 +242,7 @@ State の一覧、Expressions Menu、行のキーと Face movement、Fixed face 
 2. グラフには、その機器の Transition が出ます。Transition を追加したり条件を変えたりすると、その機器だけが変わります
 3. 両方の機器で共通の Transition を変えると、その Transition は 2 つに分かれ、もう片方の機器は元のまま残ります
 
-Preview タブの **Device** で VR かデスクトップを選ぶと、Preview はその機器の Transition と Curve で動きます。
+Preview タブの **Device** で機器を選ぶと、Preview はその機器の Transition と Curve で動きます。**Selfie Expression** と **Desktop (records)** はデスクトップとして、ほかの機器と **None** は VR として動きます。
 
 ### FT Measure で値の幅を見る
 
