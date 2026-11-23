@@ -20,24 +20,24 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ![FT の値がシェイプキーを動かすまでの流れ](images/overview.png)
 
-VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを受け取ります。これを FT の値と呼びます。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[キー](#用語集)と呼びます。値は 0〜1 で、たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
+VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを受け取ります。これを FT の値と呼びます。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[トラッキングキー](#用語集)と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では **Key** の列）。値は 0〜1 で、たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
 
-FTG は、キーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
+FTG は、トラッキングキーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
 
-- 表情の設定（`expression.jsonc`）: どのキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
+- 表情の設定（`expression.jsonc`）: どのトラッキングキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: Face movement ごとに、このアバターのどのシェイプキーを動かすか
 
 ![左目を閉じたときに、FT の値がシェイプキーに届くまでの例](images/value-flow.png)
 
 たとえば左目を閉じて `EyeClosedLeft` が 0.9 になると、[neutral](#用語集) では、表情の設定の行「`EyeClosedLeft` → `eye.eyeBlinkLeft`」と、アバターの設定で `eye.eyeBlinkLeft` に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。`joy` に入っていて `joy` が目の [Region](#用語集) を上書きしていると、同じ `EyeClosedLeft` が `eye.joy.eyeBlinkLeft` を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の [Curve](#用語集) とアバターの設定の [Scale](#用語集) で変えられます。
 
-Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
+Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うトラッキングキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
 
 ### neutral と State
 
-どの State にも入っていないときの顔を [neutral](#用語集) と呼びます。neutral では、目・口などの [Region](#用語集) ごとに、キーが Face movement を動かします。
+どの State にも入っていないときの顔を [neutral](#用語集) と呼びます。neutral では、目・口などの [Region](#用語集) ごとに、トラッキングキーが Face movement を動かします。
 
-State（`joy` など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば `joy` で目を上書きすると、`joy` の間は、まばたきのキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。
+State（`joy` など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば `joy` で目を上書きすると、`joy` の間は、まばたきのトラッキングキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。
 
 State は [State Machine](#用語集) の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら `joy` に入る」など）で切り替わります。State Machine は複数並べられます。
 
@@ -151,7 +151,7 @@ FT が動いていると、シェイプキーを選んだ Face movement（まば
 ### State の顔を作る
 
 1. グラフで **joy** を選びます。右に State の設定が出ます
-2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「キー → Face movement」です。たとえば `EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきで `eye.joy.eyeBlinkLeft` に当てたシェイプキーが動きます（下の画像の行）
+2. 目の Region（eye）を **Override** にし、**+ Add Row** で行を追加します。行は「トラッキングキー → Face movement」です。たとえば `EyeClosedLeft` → `eye.joy.eyeBlinkLeft` にすると、`joy` の間は、左目のまばたきで `eye.joy.eyeBlinkLeft` に当てたシェイプキーが動きます（下の画像の行）
    - `joy` の間だけ使う Face movement は、先に設定エディタの Avatar タブの **+ Add Face Movement** で `eye.joy.eyeBlinkLeft` のように「Region.State.名前」で追加し、使いたいシェイプキー（目を弧の形にして閉じるシェイプキーなど）を当てておきます
 3. **Fixed face movements** の **+ Add Face Movement** で、`joy` の間ずっと出す Face movement を 0〜100 で追加します。たとえば `cheek.joy.blush` のような頬の赤らみを追加すると、`joy` の間は頬が赤くなります
 4. **Save** を押します
@@ -160,7 +160,7 @@ State を選ぶと、Face view にその State の顔が出ます。
 
 ![Face view の joy の顔](images/face-view-joy.png)
 
-Region の **Off** は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る `joy` など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。**Don't move** の行は、そのキーで何も動かしません。**Copy from** で、別の State の行を写せます。
+Region の **Off** は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る `joy` など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。**Don't move** の行は、そのトラッキングキーで何も動かしません。**Copy from** で、別の State の行を写せます。
 
 ### Transition の条件を変える
 
@@ -182,7 +182,7 @@ Region の **Off** は、その Region の neutral の動きを止めます。�
 ### Preview で確認する
 
 1. 設定エディタの **Preview** タブで、シーンのアバターを選び、**Start preview** を押します
-2. スライダー（キー）を動かすと、顔と State が変わります
+2. スライダー（トラッキングキー）を動かすと、顔と State が変わります
 3. **Try expressions** は、崩れやすい表情にスライダーを合わせます。同じ所に重なる Face movement の数と、警告が出ます
 4. **Stop preview** でアバターを元に戻します
 
@@ -245,11 +245,11 @@ Web カメラの映像は PC の中で処理され、VRChat には送られま�
 
 ### 動くものと動かないもの
 
-VRChat は、Selfie Expression がどのキーを送るかを公開していません。作者が 2026-11-16 にデスクトップで FT Measure で測った記録では、次のようでした。
+VRChat は、Selfie Expression がどのトラッキングキーを送るかを公開していません。作者が 2026-11-16 にデスクトップで FT Measure で測った記録では、次のようでした。
 
-- まばたき・眉・口の開き・口角・唇のキーは、表情に合わせて動きました
-- 舌のキーは届きませんでした
-- 頬を膨らませるキーは、ほとんど動きませんでした
+- まばたき・眉・口の開き・口角・唇のトラッキングキーは、表情に合わせて動きました
+- 舌のトラッキングキーは届きませんでした
+- 頬を膨らませるトラッキングキーは、ほとんど動きませんでした
 
 ### State に入りにくいとき
 
@@ -257,13 +257,13 @@ State Machine のウィンドウの **Input** を **Desktop** にして、デス
 
 ## VR とデスクトップで分ける
 
-VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。
+VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くトラッキングキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。
 
-- Transition（条件のキーと値）
+- Transition（条件のトラッキングキーと値）
 - 行の [Curve](#用語集)
 - State の Stop visemes
 
-State の一覧、Expressions Menu、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。
+State の一覧、Expressions Menu、行のトラッキングキーと Face movement、Fixed face movements は、両方の機器で共有します。
 
 ### 機器を切り替えて書く
 
@@ -278,7 +278,7 @@ Preview タブの **Device** で機器を選ぶと、Preview はその機器の 
 
 ### FT Measure で値の幅を見る
 
-FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
+FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのトラッキングキーがどのくらい動くかを見て、Transition のトラッキングキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
 
 測り方は FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
 
@@ -286,11 +286,11 @@ FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録�
 
 ![記録が無いときの Devices タブ](images/devices-tab.png)
 
-2. **Recorded faces** で、測った顔（**Face**）を選ぶと、キーごとに、**真顔**・**真顔で喋る**・**笑顔で喋る**・その顔（列の見出しは顔の id）での値の幅が出ます。真顔より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます
+2. **Recorded faces** で、測った顔（**Face**）を選ぶと、トラッキングキーごとに、**真顔**・**真顔で喋る**・**笑顔で喋る**・その顔（列の見出しは顔の id）での値の幅が出ます。真顔より大きく動くトラッキングキーが上に並び、ほとんど動かないトラッキングキーは薄く出ます
 
 ![記録を読ませた Devices タブ（VR の記録、mouth_smile の顔）](images/devices-recorded.png)
 
-3. Preview タブの **Device** に **VR (records)** と **Desktop (records)** が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです
+3. Preview タブの **Device** に **VR (records)** と **Desktop (records)** が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないトラッキングキーはオレンジです
 
 ![Device を VR (records) にした Preview タブ](images/preview-records.png)
 
@@ -314,7 +314,7 @@ State の **Stop visemes** を入れると、その State の間は、話して�
 
 ### Curve
 
-行の **Curve** は、キーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。
+行の **Curve** は、トラッキングキーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。
 
 Curve の行は、VRChat の Parameter Behavior で動かします。数が多いと VRChat の上限を超えるので、State Machine のウィンドウの下の **Face tracking cost** を見てください。VRChat の上限を超えると赤、Excellent を超えると黄色で出ます。
 
@@ -386,10 +386,10 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Start preview / Stop preview | シーンのアバターで顔を試します。止めると元に戻ります |
 | Device | スライダーの下に値の幅を出す機器。選んだ機器で、Preview が VR とデスクトップのどちらの Transition と Curve で動くかも決まります。**None** は設定のまま |
 | Menu | Expressions Menu で State を選んだときの顔を試します |
-| Inputs | キーのスライダーの見出し |
+| Inputs | トラッキングキーのスライダーの見出し |
 | Reset | スライダーを 0 に戻します |
 | Try expressions | 崩れやすい表情にスライダーを合わせます。ボタンは **ふつうの顔**・**笑って目を閉じる**・**口を開けて笑う**・**口を大きく開ける**・**目を見開く**・**横を見る**（Help が英語なら英語の名前） |
-| Weights | 各シェイプキーを何が動かしているかを出します。**Amount** の列がその量、**Source** の列が動かしているもの（キーか State の Fixed face movements）です |
+| Weights | 各シェイプキーを何が動かしているかを出します。**Amount** の列がその量、**Source** の列が動かしているもの（トラッキングキーか State の Fixed face movements）です |
 | Live input（Start / Stop） | VRCFaceTracking の値でスライダーを動かします。**Port** は受けるポート |
 
 #### Devices タブ
@@ -398,7 +398,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | --- | --- |
 | Recordings | 記録の見出し。記録が無いときは、記録で何が分かるかが出ます |
 | Add VR recording / Add Desktop recording | FT Measure の記録を `Measurements/` に写します |
-| Recorded faces | 測った顔ごとの、キーの値の幅 |
+| Recorded faces | 測った顔ごとの、トラッキングキーの値の幅 |
 | Face | 見る顔 |
 | VR / Desktop | 見る記録の機器。State Machine のウィンドウの Input と一緒に切り替わります |
 
@@ -418,11 +418,11 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | Stop visemes | State の間、声に合わせて口を動かしません（リップシンクを止めます） |
 | Regions | State の Region ごとの設定の見出し |
 | Neutral / Override / Off | Region を neutral のまま・上書き・止める |
-| + Add Row | 上書きする Region に行を追加します。追加できるキーが無いときは **(every key is written)** と出ます |
-| Add Key/ / Remove Key/ | 最初の State で、Region の見出しの右クリックから、キーを追加・削除する |
-| Don't move | その行のキーで何も動かしません |
+| + Add Row | 上書きする Region に行を追加します。追加できるトラッキングキーが無いときは **(every key is written)** と出ます |
+| Add Key/ / Remove Key/ | 最初の State で、Region の見出しの右クリックから、トラッキングキーを追加・削除する |
+| Don't move | その行のトラッキングキーで何も動かしません |
 | Copy from / Copy | 写す元の State を選び、**Copy** で行を写します |
-| Key / Movement / Curve | 行の列。キー、動かす Face movement、Curve。Movement の選択肢の **New face movement…** と、Fixed face movements の **+ Add Face Movement** のメニューの **New face movement…** は、Face movement を追加する小さなウィンドウ（見出しは New face movement）を開きます |
+| Key / Movement / Curve | 行の列。トラッキングキー、動かす Face movement、Curve。Movement の選択肢の **New face movement…** と、Fixed face movements の **+ Add Face Movement** のメニューの **New face movement…** は、Face movement を追加する小さなウィンドウ（見出しは New face movement）を開きます |
 | Curve | 行の Curve |
 | Fixed face movements | State の間ずっと出す Face movement（0〜100） |
 | Make Transition / Set as Default / Delete State | State の右クリックのメニュー。最初の State には **(default)** と出ます |
@@ -445,18 +445,18 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 | 言葉 | 意味 |
 | --- | --- |
-| キー | VRChat が FT の入力から受け取る顔の値（Key）。`EyeClosedLeft`・`JawOpen` など。0〜1 |
+| トラッキングキー | VRChat が FT の入力から受け取る顔の値の名前（画面では **Key**）。`EyeClosedLeft`・`JawOpen` など。0〜1 |
 | Face movement | 表情の設定の中の動きの名前。`eye.eyeBlinkLeft` のように「Region.名前」。アバターの設定で、シェイプキーに当てます |
 | Region | 目（eye）・口（lip）など、State が上書きする単位 |
 | neutral | どの State にも入っていないときの、Region ごとの動き |
 | State | `joy` などの、顔の切り替え先。Region の上書きと、Fixed face movements を持ちます |
 | State Machine | State と Transition のまとまり。複数並べられます |
-| Transition | State から State への切り替え。キーの条件を持ちます |
-| しきい値 | Transition の条件で、キーと比べる値 |
-| Curve | キーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1） |
+| Transition | State から State への切り替え。トラッキングキーの条件を持ちます |
+| しきい値 | Transition の条件で、トラッキングキーと比べる値 |
+| Curve | トラッキングキーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1） |
 | Scale | アバターごとの、Face movement を動かす量の補正 |
 | Blendshapes Set | VRChat のネイティブ FT の、シェイプキーの組。FTG は Region と State ごとに生成します |
-| Forward to Animator | キーの値を Animator のパラメータに渡す VRChat の機能。FTG は Transition の条件に使うキーだけを渡します |
+| Forward to Animator | トラッキングキーの値を Animator のパラメータに渡す VRChat の機能。FTG は Transition の条件に使うトラッキングキーだけを渡します |
 | Forwarded Parameters | Forward to Animator で渡すパラメータの数。10 を超えると Excellent でなくなります |
 
 ## 更新と削除
@@ -486,7 +486,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 
 ### Excellent でなくなる
 
-- Transition の条件に使うキーが 10 を超えると、[Forwarded Parameters](#用語集) で Excellent でなくなります
+- Transition の条件に使うトラッキングキーが 10 を超えると、[Forwarded Parameters](#用語集) で Excellent でなくなります
 - 1 つの行でも VR とデスクトップで Curve を分けると、すべての Blendshapes Set が VR 用とデスクトップ用に分かれ、Blendshapes Set の数が 2 倍になります。Face Tracking Operations も増えるので、**Face tracking cost** を見てください
 
 ### ウィンドウが止まったまま
