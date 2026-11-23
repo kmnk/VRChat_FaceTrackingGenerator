@@ -59,6 +59,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li class="toc-3"><a href="#build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">Build &amp; Test で確認する</a></li>
 <li class="toc-2"><a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a></li>
 <li class="toc-3"><a href="#%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC%E3%81%AE%E5%85%83%E3%81%AE%E3%83%AC%E3%82%A4%E3%83%A4%E3%83%BC">アバターの元のレイヤー</a></li>
+<li class="toc-2"><a href="#afk-%E3%81%AE%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3">AFK のアニメーション</a></li>
 <li class="toc-2"><a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a></li>
 <li class="toc-3"><a href="#%E6%A9%9F%E5%99%A8%E3%82%92%E5%88%87%E3%82%8A%E6%9B%BF%E3%81%88%E3%81%A6%E6%9B%B8%E3%81%8F">機器を切り替えて書く</a></li>
 <li class="toc-3"><a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a></li>
@@ -142,21 +143,41 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="1-ft-の設定を作る">1. FT の設定を作る</h3>
 <ol>
 <li>FTG のウィンドウの「1. FT の設定を作る」の <strong>Avatar name</strong> に、設定の名前（アバターの名前など）を入れます</li>
-<li><strong>Create</strong> を押します。設定が作られると、ボタンの下に作った場所が出て、<strong>Settings file</strong> に作った <code>avatar.jsonc</code> が入ります</li>
+<li><strong>Create</strong> を押します。設定が作成されると、ボタンの下に path が出て、<strong>Settings file</strong> に <code>avatar.jsonc</code> が入ります</li>
 </ol>
-<p>設定は <code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、<code>avatar.jsonc</code> と <code>expression.jsonc</code> としてテンプレートから作られます。表情の設定のテンプレートには、パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>・<code>angry</code>・<code>sad</code> を持つ State Machine <code>Emotion</code> が入っています。</p>
-<p>同じ名前の設定が既にあると、何も作りません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
+<p>設定は <code>Assets/Kmnk/FaceTrackingGenerator/Settings/&lt;名前&gt;/</code> に、次の 2 つのファイルとしてテンプレートから作成されます（2 つの役割は「<a href="#%E4%BB%95%E7%B5%84%E3%81%BF">仕組み</a>」）。</p>
+<ul>
+<li><code>avatar.jsonc</code>（アバターの設定）: Face movement ごとに、このアバターのどのシェイプキーを動かすか。手順 2 で選びます</li>
+<li><code>expression.jsonc</code>（表情の設定）: パーフェクトシンクの 52 の名前を neutral で動かす設定と、中身が空の State <code>joy</code>・<code>angry</code>・<code>sad</code> を持つ State Machine <code>Emotion</code> が入っています</li>
+</ul>
+<p>同じ名前の設定が既にあると、何も作成しません。そのときは <strong>Settings file</strong> で既にある設定を選んでください。</p>
 <h3 id="2-設定を編集する">2. 設定を編集する</h3>
 <ol>
-<li><strong>Open Settings Editor</strong> を押して設定エディタを開きます</li>
-<li><strong>Avatar</strong> タブで、アバターのプレハブを選び、<strong>Fill from Prefab</strong> を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります</li>
-<li>一覧に <em>Not set</em> が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（<code>eye.eyeBlinkLeft</code>・<code>eye.eyeBlinkRight</code>）と口の開き（<code>jaw.jawOpen</code>）を選んでください。1 つも選ばないと手順 5 で動くものが無く、手順 3 の Check が指摘します（選び方は「<a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a>」）</li>
-<li><strong>Menu</strong> で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（<strong>Submenu name (optional)</strong>、テンプレートの既定は <code>Face Tracking</code>）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです</li>
-<li><strong>AFK animation (optional)</strong> を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。<strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作られ、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK を作らないときは、Loop の枠を空にします</li>
-<li><strong>Save</strong> を押します。保存できると、<strong>State Machine</strong> のボタンの右に出ていた <strong>Unsaved changes</strong> が消えます</li>
+<li>
+<p><strong>Open Settings Editor</strong> を押して設定エディタを開きます</p>
+</li>
+<li>
+<p><strong>Avatar</strong> タブの <strong>Prefab</strong> に、アバターのプレハブを入れ、<strong>Fill from Prefab</strong> を押します。</p>
+<ul>
+<li>プレハブは、Project ウィンドウにある拡張子 <code>.prefab</code> のファイルです。Project ウィンドウからドラッグするか、欄の右の丸いボタンで選びます</li>
+<li>Hierarchy にある、シーンの中のアバターは入れられません</li>
+<li>ルートに VRC Avatar Descriptor が付いたプレハブを選んでください。FBX などのモデルのファイルも欄には入りますが、Avatar Descriptor が無いので、Fill from Prefab がエラーで止まります</li>
+</ul>
+<p><strong>Fill from Prefab</strong> を押すと、顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります</p>
+<p>Avatar タブの下の <strong>AFK animation (optional)</strong> は、AFK（離席中）の間に再生するクリップの設定です。ここでは変えずに進めてかまいません（「<a href="#afk-%E3%81%AE%E3%82%A2%E3%83%8B%E3%83%A1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3">AFK のアニメーション</a>」）</p>
+</li>
+<li>
+<p>一覧に <em>Not set</em> が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（<code>eye.eyeBlinkLeft</code>・<code>eye.eyeBlinkRight</code>）と口の開き（<code>jaw.jawOpen</code>）を選んでください。1 つも選ばないと「5. Build &amp; Test で確認する」で動くものが無く、「3. 設定を確認する」の Check が指摘します（選び方は「<a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a>」）</p>
+</li>
+<li>
+<p><strong>Menu</strong> から下は、Expressions Menu に入れる FT と AFK のトグルの設定です。ここでは変えずに進めてかまいません（各項目は「<a href="#avatar-%E3%82%BF%E3%83%96">Avatar タブ</a>」）</p>
+</li>
+<li>
+<p><strong>Save</strong> を押します。保存できると、<strong>State Machine</strong> のボタンの右に出ていた <strong>Unsaved changes</strong> が消えます</p>
+</li>
 </ol>
 <p><img src="images/avatar-tab.png" alt="設定エディタの Avatar タブ"></p>
-<p>画像は、パーフェクトシンクでないアバターで手順 6 まで進めた Avatar タブです。そのため <em>Not set</em> が多く残っています。シェイプキーとアセットの名前は隠しています。</p>
+<p>画像は、パーフェクトシンクでないアバターで手順 5 まで進めた Avatar タブです。そのため <em>Not set</em> が多く残っています。シェイプキーとアセットの名前は隠しています。</p>
 <h3 id="3-設定を確認する">3. 設定を確認する</h3>
 <p>FTG のウィンドウに戻り、<strong>Check</strong> を押します。指摘があれば、読んで設定エディタで直します。</p>
 <p>設定に問題が無ければ、ボタンの下に「Check: 指摘はありません。」と出ます。</p>
@@ -171,14 +192,14 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>画像のアバターの名前は隠しています。</p>
 <p>Inspector でアバターを見ると、Settings Component に使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。</p>
 <h3 id="5-build--test-で確認する">5. Build &amp; Test で確認する</h3>
-<p>VRChat SDK の Build &amp; Test でアバターを作り、VRChat で着替えます。</p>
+<p>VRChat SDK の Build &amp; Test でアバターをビルドし、VRChat で着替えます。</p>
 <ul>
 <li>VR の機器: VRCFaceTracking を動かしてから VRChat を起動します</li>
 <li>デスクトップ: VRChat の Selfie Expression を有効にします</li>
 </ul>
 <p>FT が動いていると、シェイプキーを選んだ Face movement（まばたきや口の開きなど）が、自分の顔に合わせて動きます。Expressions Menu の <strong>Face Tracking</strong> のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「<a href="#%E5%9B%B0%E3%81%A3%E3%81%9F%E3%81%A8%E3%81%8D">困ったとき</a>」を見てください。</p>
 <h2 id="表情を作る">表情を作る</h2>
-<p>「はじめての設定」で作った設定の <code>joy</code> の State に、目と口の動きを追加します。</p>
+<p>「はじめての設定」で作成された設定の <code>joy</code> の State に、目と口の動きを追加します。</p>
 <h3 id="state-machine-のウィンドウを開く">State Machine のウィンドウを開く</h3>
 <p>設定エディタの <strong>State Machine</strong> のボタン（または <code>Tools/Kmnk/Face Tracking State Machine</code>）で、State Machine のウィンドウを開きます。オレンジの State が最初の State です。</p>
 <p><img src="images/state-machine.png" alt="State Machine のウィンドウ"></p>
@@ -190,13 +211,12 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><code>joy</code> の間だけ使う Face movement は、先に設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、使いたいシェイプキー（目を弧の形にして閉じるシェイプキーなど）を当てておきます</li>
 </ul>
 </li>
-<li>口の Region（lip）を <strong>Off</strong> にし、neutral の口の動きを止めます。口角を上げた口の形は、次の 4 で Fixed face movements として出します</li>
-<li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、<code>joy</code> の間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>lip.mouthSmileLeft</code> と <code>lip.mouthSmileRight</code> を 50 にすると口角が上がったまま、<code>cheek.joy.blush</code> のような頬の赤らみを追加すると頬が赤くなります</li>
+<li><strong>Fixed face movements</strong> の <strong>+ Add Face Movement</strong> で、<code>joy</code> の間ずっと出す Face movement を 0〜100 で追加します。たとえば <code>cheek.joy.blush</code> のような頬の赤らみを追加すると、<code>joy</code> の間は頬が赤くなります</li>
 <li><strong>Save</strong> を押します</li>
 </ol>
 <p>State を選ぶと、Face view にその State の顔が出ます。</p>
 <p><img src="images/face-view-joy.png" alt="Face view の joy の顔"></p>
-<p>Region の <strong>Off</strong> は、その Region の neutral の動きを止めます。<strong>Don't move</strong> の行は、そのキーで何も動かしません。<strong>Copy from</strong> で、別の State の行を写せます。</p>
+<p>Region の <strong>Off</strong> は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る <code>joy</code> など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。<strong>Don't move</strong> の行は、そのキーで何も動かしません。<strong>Copy from</strong> で、別の State の行を写せます。</p>
 <h3 id="transition-の条件を変える">Transition の条件を変える</h3>
 <p>テンプレートの Transition は、入り方の 3 つの見本になっています。</p>
 <ul>
@@ -210,7 +230,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p><img src="images/state-machine-transition.png" alt="Transition を選んだ State Machine のウィンドウ"></p>
 <ol start="2">
-<li>条件の値（<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">しきい値</a>）を変えます。入りにくければ下げ、入りすぎるなら上げます。変えた値は Preview にもすぐ効きます</li>
+<li>条件の値（<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">しきい値</a>）を変えます。入りにくければ下げ、入りすぎるなら上げます。変えた値は Preview にもすぐ反映されます</li>
 <li>1 本の Transition の条件は、すべて満たしたときに移ります（テンプレートの joy の入り方）。どれか 1 つで移る形は、同じ State の間に Transition を条件ごとに作ります（テンプレートの joy の出方）</li>
 </ol>
 <h3 id="preview-で確認する">Preview で確認する</h3>
@@ -231,7 +251,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>値が届き始めると、ボタンの下にそのことが出て、スライダーが顔に合わせて動きます。<strong>Stop</strong> で止めます。Send Port を変えたときは、VRChat を起動する前に戻してください。</p>
 <h3 id="build--test-で確認する">Build &amp; Test で確認する</h3>
-<p>設定を変えたら、「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターを作り、VRChat で確認します。Transition の条件に合う顔をするとその State に入り、上書きした Region と Fixed face movements がその State の顔になることを見ます。Expressions Menu の State Machine のサブメニューでその State を選んだときにも、同じ顔になります。</p>
+<p>設定を変えたら、「<a href="#5-build--test-%E3%81%A7%E7%A2%BA%E8%AA%8D%E3%81%99%E3%82%8B">5. Build &amp; Test で確認する</a>」と同じ手順でアバターをビルドし、VRChat で確認します。Transition の条件に合う顔をするとその State に入り、上書きした Region と Fixed face movements がその State の顔になることを見ます。Expressions Menu の State Machine のサブメニューでその State を選んだときにも、同じ顔になります。</p>
 <h2 id="パーフェクトシンクでないアバター">パーフェクトシンクでないアバター</h2>
 <p>アバターのシェイプキーの名前が ARKit の名前と違うときは、Avatar タブで Face movement ごとにシェイプキーを選びます。</p>
 <ul>
@@ -248,6 +268,13 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Stop while FT</strong>: 手のジェスチャーで表情を変えるレイヤー</li>
 <li><strong>Mute while FT</strong>: 何も入力が無くても顔を動かすレイヤー（ずっとまばたきさせるレイヤーなど）。これを止めないと、FT のまぶたの上にまばたきが重なります</li>
 <li>Expressions Menu からだけ動かすレイヤーは、そのままでかまいません</li>
+</ul>
+<h2 id="afk-のアニメーション">AFK のアニメーション</h2>
+<p>設定エディタの Avatar タブの <strong>AFK animation (optional)</strong> で、AFK の間に再生するクリップを決めます。<strong>Action Intro</strong>・<strong>Action Loop</strong>・<strong>Action Outro</strong>・<strong>FX Intro</strong>・<strong>FX Loop</strong>・<strong>FX Outro</strong> の 6 つの枠があります。</p>
+<ul>
+<li><strong>Fill from Prefab</strong> は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます</li>
+<li><strong>Action Loop</strong> と <strong>FX Loop</strong> の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります。Intro と Outro は空なら飛ばします</li>
+<li>AFK が要らないときは、Loop の枠を空にします</li>
 </ul>
 <h2 id="vr-とデスクトップで分ける">VR とデスクトップで分ける</h2>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。</p>
@@ -266,7 +293,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>グラフには、その機器の Transition が出ます。Transition を追加したり条件を変えたりすると、その機器だけが変わります</li>
 <li>両方の機器で共通の Transition を変えると、その Transition は 2 つに分かれ、もう片方の機器は元のまま残ります</li>
 </ol>
-<p>Preview タブの <strong>Device</strong> で VR かデスクトップを選ぶと、Preview はその機器の Transition と Curve で動きます。</p>
+<p>Preview タブの <strong>Device</strong> で機器を選ぶと、Preview はその機器の Transition と Curve で動きます。<strong>Selfie Expression</strong> と <strong>Desktop (records)</strong> はデスクトップとして、ほかの機器と <strong>None</strong> は VR として動きます。</p>
 <h3 id="ft-measure-で値の幅を見る">FT Measure で値の幅を見る</h3>
 <p>FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
 <p>測り方は FT Measure の説明書（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
@@ -316,7 +343,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Avatar name</td>
-<td><strong>Create</strong> で作る設定の名前。プロジェクトごとに覚えます</td>
+<td><strong>Create</strong> で作成される設定の名前。プロジェクトごとに覚えます</td>
 </tr>
 <tr>
 <td>Manual</td>
@@ -328,11 +355,11 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Create</td>
-<td>入れた名前で、テンプレートから設定を作ります</td>
+<td>入れた名前で、テンプレートから設定を作成します</td>
 </tr>
 <tr>
 <td>Create from Folder…</td>
-<td><strong>Share</strong> で書き出したフォルダの表情の設定から、設定を作ります</td>
+<td><strong>Share</strong> で書き出したフォルダの表情の設定から、設定を作成します</td>
 </tr>
 <tr>
 <td>Open Settings Editor</td>
@@ -340,7 +367,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Check</td>
-<td>保存した設定と、作った FX のコントローラーを確認します</td>
+<td>保存した設定と、生成された FX のコントローラーを確認します</td>
 </tr>
 <tr>
 <td>Avatar in scene</td>
@@ -356,7 +383,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Generate（Advanced）</td>
-<td>アバターを書き換えずに、作ったコントローラーと Prefab Variant を <code>Assets/FaceTrackingGeneratorOutput/&lt;名前&gt;/</code> に書きます</td>
+<td>アバターを書き換えずに、生成されたコントローラーと Prefab Variant を <code>Assets/FaceTrackingGeneratorOutput/&lt;名前&gt;/</code> に書きます</td>
 </tr>
 <tr>
 <td>Scenario check (Play Mode)（Advanced）</td>
@@ -411,7 +438,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <tbody>
 <tr>
 <td>Prefab</td>
-<td>FT を作るアバターのプレハブ</td>
+<td>FT のコントローラーを生成する対象の、アバターのプレハブ（<code>.prefab</code> のファイル。シーンの中のアバターは入れられません）</td>
 </tr>
 <tr>
 <td>Fill from Prefab</td>
@@ -431,7 +458,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Menu</td>
-<td>FT と AFK のトグルを入れる Expressions Menu</td>
+<td>FT と AFK のトグルを入れる Expressions Menu。アバターの Expressions Menu か、そのサブメニューを選びます。空なら、アバターの Expressions Menu の一番上に入ります。アバターに Expressions Menu が無いと、トグルと State Machine のサブメニューは入りません（Console に <code>notice: menu: the avatar has no Expressions Menu</code> が出ます）</td>
 </tr>
 <tr>
 <td>FT toggle name / AFK toggle name</td>
@@ -439,7 +466,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Submenu name (optional)</td>
-<td>トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は <code>Face Tracking</code>。空なら Expressions Menu の直下</td>
+<td>トグルと State Machine のサブメニューを入れるサブメニューの名前。テンプレートの既定は <code>Face Tracking</code>。空にすると、アバターの Expressions Menu の直下に並び、元の項目と混ざります</td>
 </tr>
 <tr>
 <td>AFK animation (optional)</td>
@@ -569,7 +596,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>+ State Machine</td>
-<td>State Machine が 1 つも無いときに、State Machine を作ります</td>
+<td>State Machine が 1 つも無いときに、State Machine を作成します</td>
 </tr>
 <tr>
 <td>+ State</td>
@@ -653,7 +680,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Face tracking cost</td>
-<td>設定が作るものの数と、パフォーマンスランク。<strong>Parameter Behaviors</strong>（VRChat の上限 128）、<strong>Expression instructions</strong>（上限 2048）、<strong>Face Tracking Operations</strong>（2000 を超えると Excellent でなくなる）</td>
+<td>この設定から生成されるものの数と、パフォーマンスランク。<strong>Parameter Behaviors</strong>（VRChat の上限 128）、<strong>Expression instructions</strong>（上限 2048）、<strong>Face Tracking Operations</strong>（2000 を超えると Excellent でなくなる）</td>
 </tr>
 <tr>
 <td>Open Settings Editor</td>
@@ -716,7 +743,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Blendshapes Set</td>
-<td>VRChat のネイティブ FT の、シェイプキーの組。FTG は Region と State ごとに作ります</td>
+<td>VRChat のネイティブ FT の、シェイプキーの組。FTG は Region と State ごとに生成します</td>
 </tr>
 <tr>
 <td>Forward to Animator</td>
@@ -730,7 +757,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </table>
 <h2 id="更新と削除">更新と削除</h2>
 <h3 id="更新のしかた">更新のしかた</h3>
-<p>VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。作った設定（<code>Assets/Kmnk/FaceTrackingGenerator/Settings/</code>）はパッケージの外にあるので残ります。<code>Packages/dev.kmnk.face-tracking-generator/</code> の中に自分のファイルを置かないでください。更新で消えます。</p>
+<p>VCC か ALCOM のパッケージの一覧で、新しいバージョンを選びます。<strong>Create</strong> で作成された設定（<code>Assets/Kmnk/FaceTrackingGenerator/Settings/</code>）はパッケージの外にあるので残ります。<code>Packages/dev.kmnk.face-tracking-generator/</code> の中に自分のファイルを置かないでください。更新で消えます。</p>
 <h3 id="消し方">消し方</h3>
 <ol>
 <li>アバターから Settings Component（Face Tracking Generator Settings）を外します</li>
@@ -752,7 +779,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="excellent-でなくなる">Excellent でなくなる</h3>
 <ul>
 <li>Transition の条件に使うキーが 10 を超えると、<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forwarded Parameters</a> で Excellent でなくなります</li>
-<li>VR とデスクトップで Curve を分けると、Blendshapes Set の数が約 2 倍になります。<strong>Face tracking cost</strong> を見てください</li>
+<li>1 つの行でも VR とデスクトップで Curve を分けると、すべての Blendshapes Set が VR 用とデスクトップ用に分かれ、Blendshapes Set の数が 2 倍になります。Face Tracking Operations も増えるので、<strong>Face tracking cost</strong> を見てください</li>
 </ul>
 <h3 id="ウィンドウが止まったまま">ウィンドウが止まったまま</h3>
 <ul>
@@ -760,7 +787,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <h3 id="ndmf-の-manual-bake-で-ft-が無い">NDMF の Manual Bake で FT が無い</h3>
 <ul>
-<li>NDMF の Manual Bake では、FTG はエラーで止まり、FT が作られません。Play Mode かアップロードで確認してください</li>
+<li>NDMF の Manual Bake では、FTG はエラーで止まり、FT の設定が作成されません。Play Mode かアップロードで確認してください</li>
 </ul>
 <h3 id="live-input-の後に-vrchat-で顔が動かない">Live input の後に VRChat で顔が動かない</h3>
 <ul>
