@@ -1,8 +1,8 @@
-# Face Tracking Generator 説明書
+# Face Tracking Generator マニュアル
 
-Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。この説明書は、FTG と一緒に配っている日本語の説明書です。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。
+Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（https://github.com/kmnk/VRChat_FaceTrackingGenerator ）にあります。
 
-FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。
+FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。
 
 ## はじめに
 
@@ -68,7 +68,7 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 アバターがパーフェクトシンク（ARKit の 52 種類のシェイプキー）に対応していれば、手順 2 でシェイプキーがほぼ自動で割り当てられます。対応していないアバターでは、手順 2 で Face movement ごとにシェイプキーを自分で選びます（「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）。
 
-ウィンドウの上の **Help** で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。
+ウィンドウの上の **Help** で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。このマニュアルの画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。
 
 画像のアバターは、ぽんでろさんの「しなの」ちゃん（https://booth.pm/ja/items/6106863 ）です。
 
@@ -250,7 +250,7 @@ Preview タブの **Device** で機器を選ぶと、Preview はその機器の 
 
 FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（`.jsonl`）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。
 
-測り方は FT Measure の説明書（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
+測り方は FT Measure のマニュアル（https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md ）にあります。測った後は次のとおり読ませます。
 
 1. 設定エディタの **Devices** タブで、**Add VR recording** か **Add Desktop recording** を押し、記録のファイルを選びます。`avatar.jsonc` の隣の `Measurements/` に写されます
 
@@ -302,7 +302,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 | --- | --- |
 | Settings file | 使う設定（`avatar.jsonc`）。プロジェクトごとに最後に選んだものを覚えます |
 | Avatar name | **Create** で作成される設定の名前。プロジェクトごとに覚えます |
-| Manual | この説明書を開きます |
+| Manual | このマニュアルを開きます |
 | Help | 説明を日本語・英語・非表示に切り替えます |
 | Create | 入れた名前で、テンプレートから設定を作成します |
 | Create from Folder… | **Share** で書き出したフォルダの表情の設定から、設定を作成します |
@@ -409,7 +409,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 ### Settings Component
 
-アバターに付く **Face Tracking Generator Settings**。Inspector に使う設定のファイルが出て、設定エディタで開けます。右上の **?** は、この説明書の GitHub のページを開きます。
+アバターに付く **Face Tracking Generator Settings**。Inspector に使う設定のファイルが出て、設定エディタで開けます。右上の **?** は、このマニュアルの GitHub のページを開きます。
 
 ## 用語集
 

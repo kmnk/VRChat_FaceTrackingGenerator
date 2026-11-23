@@ -2,7 +2,7 @@
 
 Face Tracking Generator (FTG) is a Unity Editor tool that builds face tracking (FT) for VRChat avatars from two settings files.
 
-日本語の説明書 (Japanese manual): [docs/manual-ja/README.md](docs/manual-ja/README.md). The package also has it as offline HTML (`Documentation~/manual-ja/index.html`), which the generator window's **Manual** opens. This README is the English reference: it covers everything, including the settings file format.
+日本語のマニュアル (Japanese manual): [docs/manual-ja/README.md](docs/manual-ja/README.md). The package also has it as offline HTML (`Documentation~/manual-ja/index.html`), which the generator window's **Manual** opens. This README is the English reference: it covers everything, including the settings file format.
 
 ## What it does
 
