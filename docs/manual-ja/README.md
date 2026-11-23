@@ -8,6 +8,7 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ### できること
 
+- Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも、同じ設定で表情が動きます。VR の機器が無くても、デスクトップの VRChat で使えます（「[デスクトップ（Selfie Expression）で使う](#デスクトップselfie-expressionで使う)」）
 - [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
 - `joy`・`angry`・`sad` のような [State](#用語集) を作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
 - State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
@@ -46,6 +47,7 @@ VR の機器とデスクトップの Selfie Expression では、同じ顔をし�
 - VRChat SDK - Avatars 3.10.6 以上
 - NDMF 1.14.7 以上 2.0.0 未満（FTG と一緒に入ります）
 - PC 版の VRChat。Android（Quest）版の VRChat では確認していません
+- デスクトップで使うときは、Web カメラ。VRChat の Selfie Expression で顔の動きを読みます（VRC+ は要りません）
 - VR の機器で使うときは、VRChat のネイティブ FT に値を送る VRCFaceTracking（Steam 版の 2026-11-02 の更新「Avalonia Update」以降。Steam 版は自動で更新されます）
 
 ## 入れ方
@@ -127,8 +129,8 @@ Inspector でアバターを見ると、Settings Component に使う設定のフ
 
 VRChat SDK の Build & Test でアバターをビルドし、VRChat で着替えます。
 
+- デスクトップ: VRChat の Selfie Expression を有効にします（「[デスクトップ（Selfie Expression）で使う](#デスクトップselfie-expressionで使う)」）
 - VR の機器: VRCFaceTracking を動かしてから VRChat を起動します
-- デスクトップ: VRChat の Selfie Expression を有効にします
 
 FT が動いていると、シェイプキーを選んだ Face movement（まばたきや口の開きなど）が、自分の顔に合わせて動きます。Expressions Menu の **Face Tracking** のサブメニュー（手順 2 で決めた名前）に、FT のトグルと State Machine のサブメニューが出ます。FT の入力が無いと、アバターの元の表情に戻ります。顔が動かないときは「[困ったとき](#困ったとき)」を見てください。
 
@@ -224,6 +226,28 @@ VR の機器を持っているときは、Preview タブの **Live input** で�
 - **Fill from Prefab** は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます
 - **Action Loop** と **FX Loop** の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります。Intro と Outro は空なら飛ばします
 - AFK が要らないときは、Loop の枠を空にします
+
+## デスクトップ（Selfie Expression）で使う
+
+Selfie Expression は、PC の Web カメラで顔の動きを読む VRChat の機能です。VR の機器が無くても、デスクトップのモードで FTG の表情を動かせます。読んだ値は、VR の機器と同じく、アバターのネイティブ FT に届きます。
+
+### 有効にする
+
+1. VRChat をデスクトップのモードで起動します
+2. Main Menu の **Settings** の **Tracking & IK** で、**Enable Selfie Expression** をオンにします
+3. 同じ所で、使う Web カメラ（**Current Webcam Device**）と読み取りの品質（**Selfie Expression Quality Level**）を選べます。重いときは品質を下げます
+
+Web カメラの映像は PC の中で処理され、VRChat には送られません。
+
+### 動くものと動かないもの
+
+- まばたき・眉・口の開き・口角・唇は、FT の値で動きます
+- 舌は動きません
+- 目線は FT のキーでは来ません。アバターの Eye Look の設定で動きます
+
+### State に入りにくいとき
+
+State Machine のウィンドウの **Input** を **Desktop** にして、デスクトップの Transition の条件の値を下げます（「[VR とデスクトップで分ける](#vr-とデスクトップで分ける)」）。テンプレートの `sad` は、デスクトップでは 0.2 で入ります。FT Measure でデスクトップの値を測ると、表情ごとの値の幅を見て値を決められます（「[FT Measure で値の幅を見る](#ft-measure-で値の幅を見る)」）。
 
 ## VR とデスクトップで分ける
 

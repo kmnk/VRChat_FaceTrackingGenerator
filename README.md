@@ -2,7 +2,11 @@
 
 Face Tracking Generator (FTG) is a Unity Editor tool that builds face tracking (FT) for VRChat avatars from two settings files.
 
+No face tracking device is needed: on desktop, VRChat's Selfie Expression reads your face from a webcam, and the same settings work with face tracking devices through VRCFaceTracking (see [Desktop (Selfie Expression)](#desktop-selfie-expression)).
+
 日本語のマニュアル (Japanese manual): [docs/manual-ja/README.md](docs/manual-ja/README.md). The package also has it as offline HTML (`Documentation~/manual-ja/index.html`), which the generator window's **Manual** opens. This README is the English reference: it covers everything, including the settings file format.
+
+BOOTH: https://booth.pm/ja/items/9205340 (free, with the Japanese manual and ft-measure as zips).
 
 ## What it does
 
@@ -136,7 +140,7 @@ Select your avatar in the scene, press **Start preview**, and move the sliders. 
 
 - **Avatar in scene**: remembered for the settings file and the scene (save the scene once). In a scene where you have not chosen one, the only avatar made from the settings' prefab is chosen; with two or more, choose one yourself. The preview does not start by itself.
 - **Sliders**: the face tracking keys (`key:<name>`). They move the face and change the states. They always go from 0 to 1.
-- **Device**: shows the range a device sends under each slider, in yellow when the slider is outside it and in orange for a key the device does not send. The list has VIVE Focus Vision, Meta Quest Pro and the desktop Selfie Expression (as they are said to send), **VR (records)** and **Desktop (records)** when the settings have ft-measure recordings, and **None** to use the settings as they are. A box above the sliders says whether the preview runs as VR or as desktop, which decides the transitions and curves it uses (the box says "the transitions and strengths").
+- **Device**: shows the range a device sends under each slider, in yellow when the slider is outside it and in orange for a key the device does not send. The list has VIVE Focus Vision, Meta Quest Pro and the desktop Selfie Expression (as they are said to send), **VR (records)** and **Desktop (records)** when the settings have ft-measure recordings, and **None** to use the settings as they are. A box above the sliders says whether the preview runs as VR or as desktop, which decides the transitions and curves it uses (the box says "the transitions and curves").
 - **Menu**: chooses a state as the menu does. The keys then do not change it; **None** goes back.
 - **Try expressions**: sets the sliders to expressions that break easily. The line under it says how many face movements add up on the same part of the face, and the warnings under the sliders show them, with buttons to choose again or not use one.
 - **Weights**: what moves each blendshape (a key in neutral or in a state, or a state's fixed amount).
@@ -337,6 +341,12 @@ A state with `"stopVisemes": true` stops the avatar's visemes while FT is on and
 - In one region, a key moves one blendshape.
 - Values from several keys on one blendshape are not added; the largest wins.
 - There is no smoothing of the key values.
+
+## Desktop (Selfie Expression)
+
+Selfie Expression is VRChat's webcam face tracking in desktop mode. Since VRChat's native face tracking (2026-10-28), it drives the avatar's Face Tracking section, so FTG's output moves with it as with a face tracking device. Turn it on in VRChat: Main Menu, **Settings**, **Tracking & IK**, **Enable Selfie Expression**; the webcam and the quality are chosen there too. VRC+ is not needed (since 2025-09-05).
+
+VRChat does not document which keys it sends. On desktop the tongue keys stayed 0, and `EyeLook*` too: the eyes move through the avatar's Eye Look. Values can differ from a VR device's; if a state is hard to enter on desktop, write desktop transitions with lower thresholds (see [VR and desktop](#vr-and-desktop)), and measure them with ft-measure.
 
 ## VR and desktop
 
