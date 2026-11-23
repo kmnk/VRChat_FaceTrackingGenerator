@@ -254,7 +254,7 @@ NDMF's **Manual Bake** does not work with FTG: it stops with an error and the ba
 | sad | both `MouthFrown` keys over 0.6 (VR) or 0.2 (desktop) | either under 0.4 (VR) or 0.1 (desktop) |
 | angry | from the menu only | from the menu only |
 
-The values are a start, taken from the author's own recordings: read your own ft-measure recordings in the Devices tab and change them.
+The values are a start: read your own ft-measure recordings in the Devices tab and change them.
 
 How perfect sync, VRChat's Face Tracking section and FTG correspond, with sources: `Packages/dev.kmnk.face-tracking-generator/Documentation~/perfect-sync.md`. `scripts/check-perfect-sync.py` checks the template against it.
 
@@ -343,7 +343,7 @@ A state with `"stopVisemes": true` stops the avatar's visemes while FT is on and
 The expression table can write some values per device (from 0.18.0). Values not written per device are the same on VR and desktop. Edits in the State Machine window write to the device chosen in **Input**.
 
 - **Transitions**: a transition with `"device": "vr"` or `"device": "desktop"` runs on that device only (VRChat's built-in `VRMode`). Editing or removing a transition of both devices in the State Machine window splits it: the other device keeps it as it was.
-- **Strength**: a row's `"strength"` can be `{"vr": 1, "desktop": 0.5}`. FTG then makes each Blendshapes Set twice, for VR (the same name) and for desktop (`FTG/desktop/...`), switched by `VRMode`. Face Tracking Operations and the number of Blendshapes Sets about double; Check reports when they go over the limits.
+- **Strength**: a row's `"strength"` can be `{"vr": 1, "desktop": 0.5}`. So can its `"curve"`. When even one row differs between the devices, FTG makes every Blendshapes Set twice, for VR (the same name) and for desktop (`FTG/desktop/...`), switched by `VRMode`: the number of Blendshapes Sets doubles and Face Tracking Operations grow. Check reports when they go over the limits.
 - **Curves**: `{"vr": [...], "desktop": [...]}` (see [Response curves](#response-curves)).
 - **Stop visemes**: a state's `"stopVisemes"` can be `"vr"` or `"desktop"`. The visemes stop, and the fixed face movements stay while talking, on that device only.
 - **Shared**: states, menus, the rows' keys and movements, and the fixed face movements.

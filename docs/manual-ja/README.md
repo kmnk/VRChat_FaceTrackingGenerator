@@ -455,7 +455,7 @@ VCC か ALCOM のパッケージの一覧で、新しいバージョンを選び
 ### Excellent でなくなる
 
 - Transition の条件に使うキーが 10 を超えると、[Forwarded Parameters](#用語集) で Excellent でなくなります
-- VR とデスクトップで Curve を分けると、Blendshapes Set の数が約 2 倍になります。**Face tracking cost** を見てください
+- 1 つの行でも VR とデスクトップで Curve を分けると、すべての Blendshapes Set が VR 用とデスクトップ用に分かれ、Blendshapes Set の数が 2 倍になります。Face Tracking Operations も増えるので、**Face tracking cost** を見てください
 
 ### ウィンドウが止まったまま
 
