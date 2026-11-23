@@ -85,7 +85,12 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 ### 2. 設定を編集する
 
 1. **Open Settings Editor** を押して設定エディタを開きます
-2. **Avatar** タブで、アバターのプレハブを選び、**Fill from Prefab** を押します。顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
+2. **Avatar** タブの **Prefab** に、アバターのプレハブを入れ、**Fill from Prefab** を押します。
+   - プレハブは、Project ウィンドウにある拡張子 `.prefab` のファイルです。Project ウィンドウからドラッグするか、欄の右の丸いボタンで選びます
+   - Hierarchy にある、シーンの中のアバターは入れられません
+   - ルートに VRC Avatar Descriptor が付いたプレハブを選んでください。FBX などのモデルのファイルも欄には入りますが、Avatar Descriptor が無いので、Fill from Prefab がエラーで止まります
+
+   **Fill from Prefab** を押すと、顔のメッシュ、Expressions Menu、同じ名前のシェイプキーを持つ Face movement、空いている AFK のアニメーションの枠（アバター自身の AFK のレイヤーのクリップ）が埋まります（Undo で戻せます）。パーフェクトシンクのアバターなら、52 の Face movement のほとんどにシェイプキーが入ります
 3. 一覧に *Not set* が残った Face movement は、アバターに合うシェイプキーがあれば選びます。全部を埋めなくてもかまいませんが、動くのはシェイプキーを選んだ Face movement だけです。パーフェクトシンクでないアバターでは Fill from Prefab で埋まるものが少ないので、少なくともまばたき（`eye.eyeBlinkLeft`・`eye.eyeBlinkRight`）と口の開き（`jaw.jawOpen`）を選んでください。1 つも選ばないと手順 5 で動くものが無く、手順 3 の Check が指摘します（選び方は「[パーフェクトシンクでないアバター](#パーフェクトシンクでないアバター)」）
 4. **Menu** で、FT と AFK のトグルの名前と、それらを入れるサブメニューの名前（**Submenu name (optional)**、テンプレートの既定は `Face Tracking`）を確認します。サブメニューの名前を空にすると、トグルと State Machine のサブメニューがアバターの Expressions Menu の直下に並び、アバターの元の Expressions Menu と混ざるので、名前を入れておくのがおすすめです
 5. **AFK animation (optional)** を開き、AFK の間に再生するクリップを見ます。Fill from Prefab は、空いている枠をアバター自身の AFK のレイヤーのクリップで埋めます。**Action Loop** と **FX Loop** の 2 つがあれば AFK が作成され、AFK のトグルも Expressions Menu に入ります（Intro と Outro は空なら飛ばします）。AFK が要らないときは、Loop の枠を空にします
@@ -316,7 +321,7 @@ State Machine は複数並べられます。たとえば表情の `Emotion` と�
 
 | 名前 | 何をするか |
 | --- | --- |
-| Prefab | FT のコントローラーを生成する対象の、アバターのプレハブ |
+| Prefab | FT のコントローラーを生成する対象の、アバターのプレハブ（`.prefab` のファイル。シーンの中のアバターは入れられません） |
 | Fill from Prefab | プレハブから、顔のメッシュ・Expressions Menu・同じ名前のシェイプキーを埋め、空いている AFK のアニメーションの枠をアバター自身の AFK のレイヤーのクリップで埋めます |
 | Face mesh | 顔のメッシュ |
 | Face movements | Face movement の一覧の見出し。右に、シェイプキーを選んだ数と Not set の数が出ます |
