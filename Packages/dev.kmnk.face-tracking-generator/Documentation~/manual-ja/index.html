@@ -32,8 +32,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <div class="page">
 <main>
 <h1 id="face-tracking-generator-マニュアル">Face Tracking Generator マニュアル</h1>
-<p>Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作るツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator">https://github.com/kmnk/VRChat_FaceTrackingGenerator</a> ）にあります。</p>
-<p>FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。</p>
+<p>Face Tracking Generator（FTG）は、VRChat のアバターのフェイストラッキング（FT）の設定を、Unity のエディタの中で作成するツールです。このマニュアルは、FTG と一緒に配っている日本語のマニュアルです。設定ファイルの書き方や内部の振る舞いまで含めた英語の詳しいリファレンスは、リポジトリの README（<a href="https://github.com/kmnk/VRChat_FaceTrackingGenerator">https://github.com/kmnk/VRChat_FaceTrackingGenerator</a> ）にあります。</p>
+<p><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">トラッキングキー</a>の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い方は、FT Measure のマニュアル（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。</p>
 <nav class="toc" aria-label="目次">
 <strong>目次</strong>
 <ul>
@@ -99,26 +99,28 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h2 id="はじめに">はじめに</h2>
 <h3 id="できること">できること</h3>
 <ul>
-<li>Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも使えます。VR の機器が無くても、デスクトップの VRChat で使えます（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
-<li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます</li>
-<li><code>joy</code>・<code>angry</code>・<code>sad</code> のような <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> を作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（FT の値）を、Unity の Animator に似たグラフで書けます</li>
+<li>デスクトップでは Web カメラ（VRChat の Selfie Expression）で、VR では FT の機器（VRCFaceTracking）で使えます。FT の機器が無くても、デスクトップの VRChat で使えます（「<a href="#%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97selfie-expression%E3%81%A7%E4%BD%BF%E3%81%86">デスクトップ（Selfie Expression）で使う</a>」）</li>
+<li><a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Face movement</a>（まばたき、口の開き、口角など）を、トラッキングキーの値でアバターのシェイプキーに当てます</li>
+<li><code>joy</code>・<code>angry</code>・<code>sad</code> のような <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State</a> を作り、State から State へ移る <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Transition</a> とその条件（トラッキングキーの値）を、Unity の Animator に似たグラフで書けます</li>
 <li>State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（<strong>Fixed face movements</strong> の欄で設定します）</li>
 <li>VRChat でアバターを着たときに開くメニュー（Expressions Menu）から、State を選べるようにできます</li>
 <li>VR の機器とデスクトップ（VRChat の Selfie Expression）で、Transition の条件や <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a> を分けて書けます</li>
 <li>FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。元のアバターの各設定（コントローラー、Expressions Menu、Expression Parameters）は書き換えません</li>
 </ul>
 <h3 id="仕組み">仕組み</h3>
-<p><img src="images/overview.png" alt="FT の値がシェイプキーを動かすまでの流れ"></p>
-<p>VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression から、顔の値を受け取ります。値には <code>EyeClosedLeft</code>（左目の閉じ具合）や <code>JawOpen</code>（あごの開き）のような名前があり、この名前を<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">キー</a>と呼びます。値は 0〜1 です。</p>
-<p>FTG は、キーを Face movement（<code>eye.eyeBlinkLeft</code> など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。</p>
+<p><img src="images/overview.png" alt="トラッキングキーの値がシェイプキーを動かすまでの流れ"></p>
+<p>VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを、0〜1 の値で受け取ります。値には <code>EyeClosedLeft</code>（左目の閉じ具合）や <code>JawOpen</code>（あごの開き）のような名前があり、この名前を<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">トラッキングキー</a>と呼びます（VRChat の Avatar Descriptor では Tracking Keys、FTG の画面では <strong>Key</strong> の列）。たとえば左目を閉じると <code>EyeClosedLeft</code> が 1 に近づきます。</p>
+<p>FTG は、トラッキングキーを Face movement（<code>eye.eyeBlinkLeft</code> など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。</p>
 <ul>
-<li>表情の設定（<code>expression.jsonc</code>）: どのキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます</li>
+<li>表情の設定（<code>expression.jsonc</code>）: どのトラッキングキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます</li>
 <li>アバターの設定（<code>avatar.jsonc</code>）: Face movement ごとに、このアバターのどのシェイプキーを動かすか</li>
 </ul>
-<p>Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forward to Animator</a> で Animator に渡します。</p>
+<p><img src="images/value-flow.png" alt="左目を閉じたときに、トラッキングキーの値がシェイプキーに届くまでの例"></p>
+<p>たとえば左目を閉じて <code>EyeClosedLeft</code> が 0.9 になると、<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a> では、表情の設定の行「<code>EyeClosedLeft</code> → <code>eye.eyeBlinkLeft</code>」と、アバターの設定で <code>eye.eyeBlinkLeft</code> に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。<code>joy</code> に入っていて <code>joy</code> が目の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a> を上書きしていると、同じ <code>EyeClosedLeft</code> が <code>eye.joy.eyeBlinkLeft</code> を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a> とアバターの設定の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Scale</a> で変えられます。</p>
+<p>Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Blendshapes Set</a> として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うトラッキングキーだけは、VRChat の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forward to Animator</a> で Animator に渡します。</p>
 <h3 id="neutral-と-state">neutral と State</h3>
-<p>どの State にも入っていないときの顔を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a> と呼びます。neutral では、目・口などの <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a> ごとに、キーが Face movement を動かします。</p>
-<p>State（<code>joy</code> など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば <code>joy</code> で目を上書きすると、<code>joy</code> の間は、まばたきのキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。</p>
+<p>どの State にも入っていないときの顔を <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">neutral</a> と呼びます。neutral では、目・口などの <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Region</a> ごとに、トラッキングキーが Face movement を動かします。</p>
+<p>State（<code>joy</code> など）に入ると、その State が上書きする Region だけ、動き方が替わります。たとえば <code>joy</code> で目を上書きすると、<code>joy</code> の間は、まばたきのトラッキングキーで動くシェイプキーを、ふだんのまばたきとは別のもの（たとえば目を弧の形にして閉じるシェイプキー）に替えられます。上書きしない Region は、neutral のまま動きます。</p>
 <p>State は <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">State Machine</a> の中にあり、Transition の条件（「左右の口角を上げる値がどちらも 0.8 を超えたら <code>joy</code> に入る」など）で切り替わります。State Machine は複数並べられます。</p>
 <h3 id="vr-とデスクトップ">VR とデスクトップ</h3>
 <p>VR の機器とデスクトップの Selfie Expression では、同じ顔をしても値の出方が違うことがあります。FTG は、Transition・Curve・Stop visemes を機器ごとに書けます。書かなければ両方で同じです。詳しくは「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」にあります。</p>
@@ -213,7 +215,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="state-の顔を作る">State の顔を作る</h3>
 <ol>
 <li>グラフで <strong>joy</strong> を選びます。右に State の設定が出ます</li>
-<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「キー → Face movement」です。たとえば <code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は、左目のまばたきで <code>eye.joy.eyeBlinkLeft</code> に当てたシェイプキーが動きます（下の画像の行）
+<li>目の Region（eye）を <strong>Override</strong> にし、<strong>+ Add Row</strong> で行を追加します。行は「トラッキングキー → Face movement」です。たとえば <code>EyeClosedLeft</code> → <code>eye.joy.eyeBlinkLeft</code> にすると、<code>joy</code> の間は、左目のまばたきで <code>eye.joy.eyeBlinkLeft</code> に当てたシェイプキーが動きます（下の画像の行）
 <ul>
 <li><code>joy</code> の間だけ使う Face movement は、先に設定エディタの Avatar タブの <strong>+ Add Face Movement</strong> で <code>eye.joy.eyeBlinkLeft</code> のように「Region.State.名前」で追加し、使いたいシェイプキー（目を弧の形にして閉じるシェイプキーなど）を当てておきます</li>
 </ul>
@@ -223,7 +225,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>State を選ぶと、Face view にその State の顔が出ます。</p>
 <p><img src="images/face-view-joy.png" alt="Face view の joy の顔"></p>
-<p>Region の <strong>Off</strong> は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る <code>joy</code> など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。<strong>Don't move</strong> の行は、そのキーで何も動かしません。<strong>Copy from</strong> で、別の State の行を写せます。</p>
+<p>Region の <strong>Off</strong> は、その Region の neutral の動きを止めます。話している間にも入る State（口角で入る <code>joy</code> など）で口の Region（lip）を Off にすると、その間は FT で口角や唇が動かなくなります。<strong>Don't move</strong> の行は、そのトラッキングキーで何も動かしません。<strong>Copy from</strong> で、別の State の行を写せます。</p>
 <h3 id="transition-の条件を変える">Transition の条件を変える</h3>
 <p>テンプレートの Transition は、入り方の 3 つの見本になっています。</p>
 <ul>
@@ -243,7 +245,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="preview-で確認する">Preview で確認する</h3>
 <ol>
 <li>設定エディタの <strong>Preview</strong> タブで、シーンのアバターを選び、<strong>Start preview</strong> を押します</li>
-<li>スライダー（キー）を動かすと、顔と State が変わります</li>
+<li>スライダー（トラッキングキー）を動かすと、顔と State が変わります</li>
 <li><strong>Try expressions</strong> は、崩れやすい表情にスライダーを合わせます。同じ所に重なる Face movement の数と、警告が出ます</li>
 <li><strong>Stop preview</strong> でアバターを元に戻します</li>
 </ol>
@@ -293,22 +295,22 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>Web カメラの映像は PC の中で処理され、VRChat には送られません。</p>
 <h3 id="動くものと動かないもの">動くものと動かないもの</h3>
-<p>VRChat は、Selfie Expression がどのキーを送るかを公開していません。作者が 2026-11-16 にデスクトップで FT Measure で測った記録では、次のようでした。</p>
+<p>VRChat は、Selfie Expression がどのトラッキングキーを送るかを公開していません。作者が 2026-11-16 にデスクトップで FT Measure で測った記録では、次のようでした。</p>
 <ul>
-<li>まばたき・眉・口の開き・口角・唇のキーは、表情に合わせて動きました</li>
-<li>舌のキーは届きませんでした</li>
-<li>頬を膨らませるキーは、ほとんど動きませんでした</li>
+<li>まばたき・眉・口の開き・口角・唇のトラッキングキーは、表情に合わせて動きました</li>
+<li>舌のトラッキングキーは届きませんでした</li>
+<li>頬を膨らませるトラッキングキーは、ほとんど動きませんでした</li>
 </ul>
 <h3 id="state-に入りにくいとき">State に入りにくいとき</h3>
 <p>State Machine のウィンドウの <strong>Input</strong> を <strong>Desktop</strong> にして、デスクトップの Transition の条件の値を下げます（「<a href="#vr-%E3%81%A8%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%E3%81%A7%E5%88%86%E3%81%91%E3%82%8B">VR とデスクトップで分ける</a>」）。テンプレートの <code>sad</code> は、デスクトップでは 0.2 で入ります。FT Measure でデスクトップの値を測ると、表情ごとの値の幅を見て値を決められます（「<a href="#ft-measure-%E3%81%A7%E5%80%A4%E3%81%AE%E5%B9%85%E3%82%92%E8%A6%8B%E3%82%8B">FT Measure で値の幅を見る</a>」）。</p>
 <h2 id="vr-とデスクトップで分ける">VR とデスクトップで分ける</h2>
-<p>VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。</p>
+<p>VR の機器とデスクトップの Selfie Expression では、同じ顔でも動くトラッキングキーと値の幅が違うことがあります。FTG では、次を機器ごとに書けます。</p>
 <ul>
-<li>Transition（条件のキーと値）</li>
+<li>Transition（条件のトラッキングキーと値）</li>
 <li>行の <a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Curve</a></li>
 <li>State の Stop visemes</li>
 </ul>
-<p>State の一覧、Expressions Menu、行のキーと Face movement、Fixed face movements は、両方の機器で共有します。</p>
+<p>State の一覧、Expressions Menu、行のトラッキングキーと Face movement、Fixed face movements は、両方の機器で共有します。</p>
 <h3 id="機器を切り替えて書く">機器を切り替えて書く</h3>
 <ol>
 <li>State Machine のウィンドウの右上の <strong>Input</strong> で、書く機器（<strong>VR</strong> か <strong>Desktop</strong>）を選びます。ツールバーの下の帯に、どちらを書いているかが出ます</li>
@@ -320,18 +322,18 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ol>
 <p>Preview タブの <strong>Device</strong> で機器を選ぶと、Preview はその機器の Transition と Curve で動きます。<strong>Selfie Expression</strong> と <strong>Desktop (records)</strong> はデスクトップとして、ほかの機器と <strong>None</strong> は VR として動きます。</p>
 <h3 id="ft-measure-で値の幅を見る">FT Measure で値の幅を見る</h3>
-<p>FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのキーがどのくらい動くかを見て、Transition のキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
+<p>FT Measure は、利用者の顔で表情ごとにトラッキングキーの値を測り、記録のファイル（<code>.jsonl</code>）に書くアプリです。記録を FTG に読ませると、どのトラッキングキーがどのくらい動くかを見て、Transition のトラッキングキーとしきい値を選べます。記録は参考に見るだけで、FTG の出力は変わりません。FT Measure を使わなくても、FTG は使えます。</p>
 <p>測り方は FT Measure のマニュアル（<a href="https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md">https://github.com/kmnk/ft-measure/blob/master/docs/manual-ja/README.md</a> ）にあります。測った後は次のとおり読ませます。</p>
 <ol>
 <li>設定エディタの <strong>Devices</strong> タブで、<strong>Add VR recording</strong> か <strong>Add Desktop recording</strong> を押し、記録のファイルを選びます。<code>avatar.jsonc</code> の隣の <code>Measurements/</code> に写されます</li>
 </ol>
 <p><img src="images/devices-tab.png" alt="記録が無いときの Devices タブ"></p>
 <ol start="2">
-<li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、キーごとに、<strong>真顔</strong>・<strong>真顔で喋る</strong>・<strong>笑顔で喋る</strong>・その顔（列の見出しは顔の id）での値の幅が出ます。真顔より大きく動くキーが上に並び、ほとんど動かないキーは薄く出ます</li>
+<li><strong>Recorded faces</strong> で、測った顔（<strong>Face</strong>）を選ぶと、トラッキングキーごとに、<strong>真顔</strong>・<strong>真顔で喋る</strong>・<strong>笑顔で喋る</strong>・その顔（列の見出しは顔の id）での値の幅が出ます。真顔より大きく動くトラッキングキーが上に並び、ほとんど動かないトラッキングキーは薄く出ます</li>
 </ol>
 <p><img src="images/devices-recorded.png" alt="記録を読ませた Devices タブ（VR の記録、mouth_smile の顔）"></p>
 <ol start="3">
-<li>Preview タブの <strong>Device</strong> に <strong>VR (records)</strong> と <strong>Desktop (records)</strong> が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです</li>
+<li>Preview タブの <strong>Device</strong> に <strong>VR (records)</strong> と <strong>Desktop (records)</strong> が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないトラッキングキーはオレンジです</li>
 </ol>
 <p><img src="images/preview-records.png" alt="Device を VR (records) にした Preview タブ"></p>
 <p>画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、<strong>Avatar in scene</strong> の欄は隠しています。</p>
@@ -347,7 +349,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <h3 id="stop-visemes">Stop visemes</h3>
 <p>State の <strong>Stop visemes</strong> を入れると、その State の間は、話しても声に合わせて口が動かなくなります（VRChat のリップシンクを止めます）。口の形を決めた State（舌を出すなど）で使います。</p>
 <h3 id="curve">Curve</h3>
-<p>行の <strong>Curve</strong> は、キーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。</p>
+<p>行の <strong>Curve</strong> は、トラッキングキーの値（横）に対して、Face movement をどのくらい動かすか（縦）を決める曲線です。押すと Unity の曲線のウィンドウで編集できます。曲線の一番高い所が、その行で動かす最大の量になります。</p>
 <p>Curve の行は、VRChat の Parameter Behavior で動かします。数が多いと VRChat の上限を超えるので、State Machine のウィンドウの下の <strong>Face tracking cost</strong> を見てください。VRChat の上限を超えると赤、Excellent を超えると黄色で出ます。</p>
 <h3 id="別の-state-machine-を並べる">別の State Machine を並べる</h3>
 <p>State Machine は複数並べられます。たとえば表情の <code>Emotion</code> とは別に、頬の State Machine <code>Cheek</code> を作り、Expressions Menu から選べる State <code>blush</code>（頬の赤らみ）と <code>pale</code>（青ざめた顔）を置くと、どの表情とも組み合わせられます。State Machine のウィンドウの左上の一覧で、<strong>New State Machine…</strong> を選んで作ります。2 つの State Machine が同じ Region を上書きしないようにしてください（<strong>Check</strong> が指摘します）。</p>
@@ -554,7 +556,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Inputs</td>
-<td>キーのスライダーの見出し</td>
+<td>トラッキングキーのスライダーの見出し</td>
 </tr>
 <tr>
 <td>Reset</td>
@@ -566,7 +568,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Weights</td>
-<td>各シェイプキーを何が動かしているかを出します。<strong>Amount</strong> の列がその量、<strong>Source</strong> の列が動かしているもの（キーか State の Fixed face movements）です</td>
+<td>各シェイプキーを何が動かしているかを出します。<strong>Amount</strong> の列がその量、<strong>Source</strong> の列が動かしているもの（トラッキングキーか State の Fixed face movements）です</td>
 </tr>
 <tr>
 <td>Live input（Start / Stop）</td>
@@ -593,7 +595,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Recorded faces</td>
-<td>測った顔ごとの、キーの値の幅</td>
+<td>測った顔ごとの、トラッキングキーの値の幅</td>
 </tr>
 <tr>
 <td>Face</td>
@@ -657,15 +659,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>+ Add Row</td>
-<td>上書きする Region に行を追加します。追加できるキーが無いときは <strong>(every key is written)</strong> と出ます</td>
+<td>上書きする Region に行を追加します。追加できるトラッキングキーが無いときは <strong>(every key is written)</strong> と出ます</td>
 </tr>
 <tr>
 <td>Add Key/ / Remove Key/</td>
-<td>最初の State で、Region の見出しの右クリックから、キーを追加・削除する</td>
+<td>最初の State で、Region の見出しの右クリックから、トラッキングキーを追加・削除する</td>
 </tr>
 <tr>
 <td>Don't move</td>
-<td>その行のキーで何も動かしません</td>
+<td>その行のトラッキングキーで何も動かしません</td>
 </tr>
 <tr>
 <td>Copy from / Copy</td>
@@ -673,7 +675,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Key / Movement / Curve</td>
-<td>行の列。キー、動かす Face movement、Curve。Movement の選択肢の <strong>New face movement…</strong> と、Fixed face movements の <strong>+ Add Face Movement</strong> のメニューの <strong>New face movement…</strong> は、Face movement を追加する小さなウィンドウ（見出しは New face movement）を開きます</td>
+<td>行の列。トラッキングキー、動かす Face movement、Curve。Movement の選択肢の <strong>New face movement…</strong> と、Fixed face movements の <strong>+ Add Face Movement</strong> のメニューの <strong>New face movement…</strong> は、Face movement を追加する小さなウィンドウ（見出しは New face movement）を開きます</td>
 </tr>
 <tr>
 <td>Curve</td>
@@ -727,8 +729,8 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </thead>
 <tbody>
 <tr>
-<td>キー</td>
-<td>VRChat が FT の入力から受け取る顔の値（Key）。<code>EyeClosedLeft</code>・<code>JawOpen</code> など。0〜1</td>
+<td>トラッキングキー</td>
+<td>VRChat が FT の入力から受け取る顔の値の名前（画面では <strong>Key</strong>）。<code>EyeClosedLeft</code>・<code>JawOpen</code> など。0〜1</td>
 </tr>
 <tr>
 <td>Face movement</td>
@@ -752,15 +754,15 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Transition</td>
-<td>State から State への切り替え。キーの条件を持ちます</td>
+<td>State から State への切り替え。トラッキングキーの条件を持ちます</td>
 </tr>
 <tr>
 <td>しきい値</td>
-<td>Transition の条件で、キーと比べる値</td>
+<td>Transition の条件で、トラッキングキーと比べる値</td>
 </tr>
 <tr>
 <td>Curve</td>
-<td>キーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1）</td>
+<td>トラッキングキーの値に対する、Face movement を動かす量の曲線。一番高い所が最大の量（0〜1）</td>
 </tr>
 <tr>
 <td>Scale</td>
@@ -772,7 +774,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </tr>
 <tr>
 <td>Forward to Animator</td>
-<td>キーの値を Animator のパラメータに渡す VRChat の機能。FTG は Transition の条件に使うキーだけを渡します</td>
+<td>トラッキングキーの値を Animator のパラメータに渡す VRChat の機能。FTG は Transition の条件に使うトラッキングキーだけを渡します</td>
 </tr>
 <tr>
 <td>Forwarded Parameters</td>
@@ -803,7 +805,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 </ul>
 <h3 id="excellent-でなくなる">Excellent でなくなる</h3>
 <ul>
-<li>Transition の条件に使うキーが 10 を超えると、<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forwarded Parameters</a> で Excellent でなくなります</li>
+<li>Transition の条件に使うトラッキングキーが 10 を超えると、<a href="#%E7%94%A8%E8%AA%9E%E9%9B%86">Forwarded Parameters</a> で Excellent でなくなります</li>
 <li>1 つの行でも VR とデスクトップで Curve を分けると、すべての Blendshapes Set が VR 用とデスクトップ用に分かれ、Blendshapes Set の数が 2 倍になります。Face Tracking Operations も増えるので、<strong>Face tracking cost</strong> を見てください</li>
 </ul>
 <h3 id="ウィンドウが止まったまま">ウィンドウが止まったまま</h3>
