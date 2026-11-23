@@ -70,6 +70,8 @@ FTG は VPM のパッケージです。VCC か ALCOM で入れます。
 
 ウィンドウの上の **Help** で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。
 
+画像のアバターは、ぽんでろさんの「しなの」ちゃん（https://booth.pm/ja/items/6106863 ）です。
+
 ### 1. FT の設定を作る
 
 1. FTG のウィンドウの「1. FT の設定を作る」の **Avatar name** に、設定の名前（アバターの名前など）を入れます
@@ -117,7 +119,7 @@ FTG のウィンドウに戻り、**Check** を押します。指摘があれば
 
 ![アバターを選んだ FTG のウィンドウ](images/generator-avatar.png)
 
-画像のアバターの名前は隠しています。
+画像の **Avatar in scene** の欄は隠しています。
 
 Inspector でアバターを見ると、Settings Component に使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。
 
@@ -262,7 +264,7 @@ FT Measure は、利用者の顔で表情ごとに FT の値を測り、記録�
 
 ![Device を VR (records) にした Preview タブ](images/preview-records.png)
 
-画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、アバターの名前は隠しています。
+画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、**Avatar in scene** の欄は隠しています。
 
 ## State Machine の詳しい設定
 

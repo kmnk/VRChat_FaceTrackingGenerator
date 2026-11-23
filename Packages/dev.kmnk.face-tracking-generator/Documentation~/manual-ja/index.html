@@ -140,6 +140,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <p>この章では、アバターに FT を付けて、VRChat で顔が動くところまでを順に進めます。手順は、FTG のウィンドウに並んでいる 4 つ（「1. FT の設定を作る」「2. 設定を編集する」「3. 設定を確認する」「4. アバターに設定コンポーネントを付ける」）と、最後の Build &amp; Test です。</p>
 <p>アバターがパーフェクトシンク（ARKit の 52 種類のシェイプキー）に対応していれば、手順 2 でシェイプキーがほぼ自動で割り当てられます。対応していないアバターでは、手順 2 で Face movement ごとにシェイプキーを自分で選びます（「<a href="#%E3%83%91%E3%83%BC%E3%83%95%E3%82%A7%E3%82%AF%E3%83%88%E3%82%B7%E3%83%B3%E3%82%AF%E3%81%A7%E3%81%AA%E3%81%84%E3%82%A2%E3%83%90%E3%82%BF%E3%83%BC">パーフェクトシンクでないアバター</a>」）。</p>
 <p>ウィンドウの上の <strong>Help</strong> で、説明と手順の見出しを日本語・英語・非表示に切り替えられます。この説明書の画像は日本語で撮っています。英語にすると、手順の見出しは Create the FT settings などになります。</p>
+<p>画像のアバターは、ぽんでろさんの「しなの」ちゃん（<a href="https://booth.pm/ja/items/6106863">https://booth.pm/ja/items/6106863</a> ）です。</p>
 <h3 id="1-ft-の設定を作る">1. FT の設定を作る</h3>
 <ol>
 <li>FTG のウィンドウの「1. FT の設定を作る」の <strong>Avatar name</strong> に、設定の名前（アバターの名前など）を入れます</li>
@@ -189,7 +190,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li><strong>Add Settings Component</strong> を押します。アバターに Settings Component（Face Tracking Generator Settings）が付き、ボタンの下に付けたことが出ます</li>
 </ol>
 <p><img src="images/generator-avatar.png" alt="アバターを選んだ FTG のウィンドウ"></p>
-<p>画像のアバターの名前は隠しています。</p>
+<p>画像の <strong>Avatar in scene</strong> の欄は隠しています。</p>
 <p>Inspector でアバターを見ると、Settings Component に使う設定のファイルが出ています。FT の設定は、アップロードと Play Mode のタイミングで自動的に作成されます。</p>
 <h3 id="5-build--test-で確認する">5. Build &amp; Test で確認する</h3>
 <p>VRChat SDK の Build &amp; Test でアバターをビルドし、VRChat で着替えます。</p>
@@ -309,7 +310,7 @@ blockquote { margin: 1em 0; padding: 0 1em; color: var(--muted); border-left: 4p
 <li>Preview タブの <strong>Device</strong> に <strong>VR (records)</strong> と <strong>Desktop (records)</strong> が出ます。選ぶと、スライダーの下にその機器の値の幅が出ます。幅の外では黄色、機器が送らないキーはオレンジです</li>
 </ol>
 <p><img src="images/preview-records.png" alt="Device を VR (records) にした Preview タブ"></p>
-<p>画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、アバターの名前は隠しています。</p>
+<p>画像の記録は作者が 2026-11-16 に VR の機器とデスクトップで測ったもので、<strong>Avatar in scene</strong> の欄は隠しています。</p>
 <h2 id="state-machine-の詳しい設定">State Machine の詳しい設定</h2>
 <h3 id="state-と-transition-を追加する">State と Transition を追加する</h3>
 <ul>
