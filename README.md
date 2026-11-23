@@ -346,7 +346,7 @@ A state with `"stopVisemes": true` stops the avatar's visemes while FT is on and
 
 Selfie Expression is VRChat's webcam face tracking in desktop mode. Since VRChat's native face tracking (2026-10-28), it drives the avatar's Face Tracking section, so FTG's output moves with it as with a face tracking device. Turn it on in VRChat: Main Menu, **Settings**, **Tracking & IK**, **Enable Selfie Expression**; the webcam and the quality are chosen there too. VRC+ is not needed (since 2025-09-05).
 
-VRChat does not document which keys it sends. On desktop the tongue keys stayed 0, and `EyeLook*` too: the eyes move through the avatar's Eye Look. Values can differ from a VR device's; if a state is hard to enter on desktop, write desktop transitions with lower thresholds (see [VR and desktop](#vr-and-desktop)), and measure them with ft-measure.
+VRChat does not document which keys it sends. In the author's ft-measure recording on desktop (2026-11-16), the tongue keys were not sent and `CheekPuff*` hardly moved. Values can differ from a VR device's; if a state is hard to enter on desktop, write desktop transitions with lower thresholds (see [VR and desktop](#vr-and-desktop)), and measure them with ft-measure.
 
 ## VR and desktop
 
