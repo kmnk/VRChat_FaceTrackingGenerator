@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{margin:0;width:1200px;padding-bottom:16px;background:#fff;font-family:"Hiragino Sans",sans-serif;color:#1f2328}
+h2{font-size:28px;text-align:center;margin:28px 0 6px}
+.note{text-align:center;font-size:17px;color:#59636e;margin:0 0 18px}
+.lane{display:grid;grid-template-columns:76px 120px 20px 150px 20px 230px 20px 250px 20px 1fr;align-items:stretch;gap:6px;margin:0 20px 10px}
+.tag{display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:17px;border-radius:10px;color:#fff}
+.n{background:#b85f2a}.j{background:#2f6fbd}
+.box{border:2px solid #1f6feb;border-radius:12px;padding:10px 8px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.box .t{font-size:15px;color:#59636e;margin-bottom:6px}
+.box .v{font-size:16px;font-weight:bold;line-height:1.45}
+.box code{font-family:Menlo,monospace;font-size:14px;background:#f0f3f6;padding:1px 4px;border-radius:4px}
+.ar{display:flex;align-items:center;justify-content:center;font-size:26px;color:#59636e}
+.file{border-style:dashed;border-color:#9a6700}
+.foot{margin:18px 40px 26px;font-size:17px;line-height:1.7;border-top:1px solid #d1d9e0;padding-top:12px}
+</style></head><body>
+<h2>例: 左目を閉じたとき</h2>
+<p class="note">どの行を使うかは、いま入っている State で替わります（Curve が直線、Scale が 1 のとき）</p>
+<div class="lane"><div class="tag n">neutral</div>
+ <div class="box"><div class="t">顔</div><div class="v">左目を閉じる</div></div><div class="ar">→</div>
+ <div class="box"><div class="t">FT の値（キー）</div><div class="v"><code>EyeClosedLeft</code><br>= 0.9</div></div><div class="ar">→</div>
+ <div class="box file"><div class="t">表情の設定: neutral の eye の行</div><div class="v"><code>EyeClosedLeft</code><br>→ <code>eye.eyeBlinkLeft</code></div></div><div class="ar">→</div>
+ <div class="box file"><div class="t">アバターの設定</div><div class="v"><code>eye.eyeBlinkLeft</code><br><br>→ まばたきのシェイプキー</div></div><div class="ar">→</div>
+ <div class="box"><div class="t">アバターの顔</div><div class="v">まばたきの<br>シェイプキーが 90 動く</div></div>
+</div>
+<div class="lane"><div class="tag j">joy</div>
+ <div class="box"><div class="t">顔</div><div class="v">左目を閉じる</div></div><div class="ar">→</div>
+ <div class="box"><div class="t">FT の値（キー）</div><div class="v"><code>EyeClosedLeft</code><br>= 0.9</div></div><div class="ar">→</div>
+ <div class="box file"><div class="t">表情の設定: joy が上書きした eye の行</div><div class="v"><code>EyeClosedLeft</code><br>→ <code>eye.joy.eyeBlinkLeft</code></div></div><div class="ar">→</div>
+ <div class="box file"><div class="t">アバターの設定</div><div class="v"><code>eye.joy.eyeBlinkLeft</code><br><br>→ 目を弧の形にして閉じる<br>シェイプキー</div></div><div class="ar">→</div>
+ <div class="box"><div class="t">アバターの顔</div><div class="v">弧の形に閉じる<br>シェイプキーが 90 動く</div></div>
+</div>
+</body></html>

@@ -22,4 +22,5 @@ Images must not show the names of a bought avatar's blendshapes, meshes or asset
 | `generator-avatar.png` | `-ftWindow generator -ftTable <table> -ftHelp ja -ftAvatarName MyAvatar -ftOpenScene <scene> -ftChooseAvatar <avatar> -ftSize 560x900`, top 560x335 kept | the Avatar in scene field (the avatar's name) |
 | `devices-recorded.png` | the settings with two real ft-measure recordings added to `"measurements"` (VR and desktop), `-ftTable <table> -ftTab devices -ftHelp ja -ftDevicesSide vr -ftDevicesFace mouth_smile -ftSize 560x1000`, top 560x515 kept | none |
 | `preview-records.png` | the same settings, `-ftTable <table> -ftTab preview -ftHelp ja -ftDevice measured-vr -ftSize 560x1000` with the Live input port at 9000, top 560x745 kept | the Avatar in scene field |
+| `value-flow.png` | `value-flow.html` (next to this file) rendered with headless Chrome at 1200x415. The 90 in it was checked with `Cli.Curve -ftSet "EyeClosedLeft=0.9"` (and `-ftStates "Emotion=joy"`) on the settings | none |
 | `overview.png` | an HTML drawing rendered with headless Chrome at 1200x520 | none |

@@ -20,12 +20,16 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ![FT の値がシェイプキーを動かすまでの流れ](images/overview.png)
 
-VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression から、顔の値を受け取ります。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[キー](#用語集)と呼びます。値は 0〜1 です。
+VRChat は、VR の機器（VRCFaceTracking を通す）やデスクトップの Selfie Expression（Web カメラ）から、顔の各部分がどのくらい動いているかを受け取ります。これを FT の値と呼びます。値には `EyeClosedLeft`（左目の閉じ具合）や `JawOpen`（あごの開き）のような名前があり、この名前を[キー](#用語集)と呼びます。値は 0〜1 で、たとえば左目を閉じると `EyeClosedLeft` が 1 に近づきます。
 
 FTG は、キーを Face movement（`eye.eyeBlinkLeft` など）に当て、Face movement をアバターのシェイプキーに当てます。この 2 段の対応を、2 つの設定ファイルに分けて持ちます。
 
 - 表情の設定（`expression.jsonc`）: どのキーでどの Face movement を動かすか、どんな State があるか。アバターによらないので、別のアバターに持っていけます
 - アバターの設定（`avatar.jsonc`）: Face movement ごとに、このアバターのどのシェイプキーを動かすか
+
+![左目を閉じたときに、FT の値がシェイプキーに届くまでの例](images/value-flow.png)
+
+たとえば左目を閉じて `EyeClosedLeft` が 0.9 になると、neutral では、表情の設定の行「`EyeClosedLeft` → `eye.eyeBlinkLeft`」と、アバターの設定で `eye.eyeBlinkLeft` に当てたまばたきのシェイプキーを通って、そのシェイプキーが 90 動きます。`joy` に入っていて `joy` が目の Region を上書きしていると、同じ `EyeClosedLeft` が `eye.joy.eyeBlinkLeft` を通り、別のシェイプキー（目を弧の形にして閉じるシェイプキーなど）が動きます。動く量は、行の [Curve](#用語集) とアバターの設定の [Scale](#用語集) で変えられます。
 
 Face movement とシェイプキーの対応は、VRChat のネイティブ FT（アバターの Avatar Descriptor の Face Tracking の区画）の [Blendshapes Set](#用語集) として書かれます。VRChat がシェイプキーを直接動かすので、FT の値をパラメータで同期しません。Transition の条件に使うキーだけは、VRChat の [Forward to Animator](#用語集) で Animator に渡します。
 
