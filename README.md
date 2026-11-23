@@ -2,7 +2,7 @@
 
 Face Tracking Generator (FTG) is a Unity Editor tool that builds face tracking (FT) for VRChat avatars from two settings files.
 
-No face tracking device is needed: on desktop, VRChat's Selfie Expression reads your face from a webcam, and the same settings work with face tracking devices through VRCFaceTracking (see [Desktop (Selfie Expression)](#desktop-selfie-expression)).
+No face tracking device is needed: on desktop, VRChat's Selfie Expression reads your face from a webcam. Face tracking devices work too, through VRCFaceTracking; transitions and curves can differ per device (see [Desktop (Selfie Expression)](#desktop-selfie-expression)).
 
 日本語のマニュアル (Japanese manual): [docs/manual-ja/README.md](docs/manual-ja/README.md). The package also has it as offline HTML (`Documentation~/manual-ja/index.html`), which the generator window's **Manual** opens. This README is the English reference: it covers everything, including the settings file format.
 

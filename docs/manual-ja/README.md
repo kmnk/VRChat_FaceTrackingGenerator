@@ -8,7 +8,7 @@ FT の値を表情ごとに測るアプリ FT Measure（ft-measure）の使い�
 
 ### できること
 
-- Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも、同じ設定で表情が動きます。VR の機器が無くても、デスクトップの VRChat で使えます（「[デスクトップ（Selfie Expression）で使う](#デスクトップselfie-expressionで使う)」）
+- Web カメラ（VRChat の Selfie Expression）でも、VR の機器（VRCFaceTracking）でも使えます。VR の機器が無くても、デスクトップの VRChat で使えます（「[デスクトップ（Selfie Expression）で使う](#デスクトップselfie-expressionで使う)」）
 - [Face movement](#用語集)（まばたき、口の開き、口角など）を、FT の値でアバターのシェイプキーに当てます
 - `joy`・`angry`・`sad` のような [State](#用語集) を作り、State から State へ移る [Transition](#用語集) とその条件（FT の値）を、Unity の Animator に似たグラフで書けます
 - State ごとに、目や口の動きを上書きできます。涙や頬の赤らみのようなシェイプキーを、その State の間ずっと一定の量で出しておくこともできます（**Fixed face movements** の欄で設定します）
