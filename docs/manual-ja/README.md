@@ -168,7 +168,7 @@ Region の **Off** は、その Region の neutral の動きを止めます。�
 
 ![Transition を選んだ State Machine のウィンドウ](images/state-machine-transition.png)
 
-2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます。変えた値は Preview にもすぐ効きます
+2. 条件の値（[しきい値](#用語集)）を変えます。入りにくければ下げ、入りすぎるなら上げます。変えた値は Preview にもすぐ反映されます
 3. 1 本の Transition の条件は、すべて満たしたときに移ります（テンプレートの joy の入り方）。どれか 1 つで移る形は、同じ State の間に Transition を条件ごとに作ります（テンプレートの joy の出方）
 
 ### Preview で確認する
